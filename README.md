@@ -64,7 +64,9 @@ See `.env.example`. Never commit a real `.env` file.
 | `PAYPAL_CLIENT_SECRET` | Secret of your PayPal Sandbox app. Server only. Never log it, never commit it. |
 | `PAYPAL_MODE` | `sandbox` (always, for this hackathon). |
 | `PAYPAL_API_BASE` | `https://api-m.sandbox.paypal.com` |
-| `GEMINI_API_KEY` | Gemini API key (free tier) for AI explanations. Optional in the Day 0 skeleton — the rule-based Risk Score and Total Cost work without it. |
+| `VYCE_API_KEY` | Vyce API key for AI explanations. Server only — never log it, never commit it, never put it in the static demo. Optional: the rule-based Risk Score and Total Cost work without it. |
+| `VYCE_API_BASE` | Vyce API base URL (default `https://vyceai.com/v1`). |
+| `VYCE_MODEL` | Vyce model for explanations (default `deepseek-v4.1`). |
 | `PORT` | Port for the local server (default `3000`). |
 
 ## Create your own PayPal Sandbox buyer / seller accounts
@@ -89,7 +91,7 @@ ShopPal v2 (single repo, single deploy to Render / Vercel)
 ├── server.js          Express server. Serves the frontend, the catalog,
 │                      Risk Score, Total Cost, PayPal Orders / Capture,
 │                      and the Proof Vault. One server function handles
-│                      AI explanations (Gemini free tier, with a
+│                      AI explanations (Vyce API, DeepSeek, with a
 │                      rule-based fallback when the key is absent).
 ├── data/catalog.json  Demo catalog: 10 products, 3 sellers with
 │                      distinct risk profiles (Safe / Caution / Risky).
