@@ -246,6 +246,9 @@ function parseAsk(query) {
   const q = String(query || '').toLowerCase();
   const budgetMatch = q.match(/(?:under|below|less than|max|up to|budget)\s*\$?\s*(\d+(?:\.\d{1,2})?)|\$\s*(\d+(?:\.\d{1,2})?)/);
   const maxPrice = budgetMatch ? Number(budgetMatch[1] || budgetMatch[2]) : null;
+  // "Murah" (Indonesian for "cheap") flips the ranking to cheapest first:
+  // a buyer who asks for cheap wants the lowest price, not the safest seller.
+  const cheapest = /\b(murah|termurah|hemat|cheapest|cheap|affordable|lowest price)\b/.test(q);
   let category = null;
   for (const [cat, words] of Object.entries(ASK_SYNONYMS)) {
     if (words.some((w) => q.includes(w))) { category = cat; break; }
@@ -256,12 +259,16 @@ function parseAsk(query) {
     matches = matches.filter((p) => p.category === want);
   }
   if (maxPrice !== null) matches = matches.filter((p) => p.priceUSD <= maxPrice);
-  matches.sort((a, b) => {
-    const sa = calculateRiskScore(sellersById.get(a.sellerId), a).score;
-    const sb = calculateRiskScore(sellersById.get(b.sellerId), b).score;
-    return sb - sa;
-  });
-  return { category, maxPrice, matches };
+  if (cheapest) {
+    matches.sort((a, b) => a.priceUSD - b.priceUSD);
+  } else {
+    matches.sort((a, b) => {
+      const sa = calculateRiskScore(sellersById.get(a.sellerId), a).score;
+      const sb = calculateRiskScore(sellersById.get(b.sellerId), b).score;
+      return sb - sa;
+    });
+  }
+  return { category, maxPrice, cheapest, matches };
 }
 
 // Subscription Watcher. Groups saved Proof Vault entries by product;
@@ -381,14 +388,15 @@ app.post('/api/hold-risk', (req, res) => {
 });
 
 app.get('/api/ask', (req, res) => {
-  const { category, maxPrice, matches } = parseAsk(req.query.q || '');
+  const { category, maxPrice, cheapest, matches } = parseAsk(req.query.q || '');
   res.json({
     query: req.query.q || '',
     understood: {
       category,
       maxPrice,
+      cheapest,
       note: matches.length
-        ? 'Matches sorted safest first.'
+        ? (cheapest ? 'Matches sorted cheapest first.' : 'Matches sorted safest first.')
         : 'No exact match in the demo catalog — showing all 10 demo products.',
     },
     products: matches.length ? matches : catalog.products,
