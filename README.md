@@ -183,7 +183,9 @@ type. What matters is that no fee appears after checkout starts.
 | `GET /api/subscriptions` | Recurring purchases found in the Proof Vault (same product bought 2+ times). |
 | `POST /api/total-cost` | `{ priceUSD, international, currencyConversion }` → fee breakdown, total, and trouble-costs (chargeback/dispute/refund/instant transfer/micropayments) + Buyer Protection note. |
 | `POST /api/paypal/create-order` | Orders API v2 create (Sandbox). Rejects a total that doesn't match the approved total. |
-| `POST /api/paypal/capture-order` | Orders API v2 capture, verified via Orders + Payments API. Only COMPLETED saves a Proof Vault entry. |
+| `POST /api/paypal/capture-order` | Orders API v2 capture, verified via Orders + Payments API. Only COMPLETED saves a Proof Vault entry. Re-capturing an already-captured order recovers the existing capture (`alreadyCaptured: true`) instead of erroring. |
+| `POST /api/paypal/refund` | Payments API v2 refund of a capture (full by default; optional partial `amount` + `reason` → `note_to_payer`). Accepts `vaultId` or a direct `captureId`. The vault entry is updated with the refund record. |
+| `GET /api/paypal/order?orderId=` | Live order status: Orders API + Payments API capture re-verification (status, payer, capture, amount, whether the order is in the Proof Vault). |
 | `GET /api/vault` | List saved Proof Vault entries. |
 | `POST /api/dispute/draft` | Simulated dispute draft from a Proof Vault entry (labelled as a simulation). |
 
