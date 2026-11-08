@@ -177,9 +177,9 @@ type. What matters is that no fee appears after checkout starts.
 | `GET /api/health` | Health check. |
 | `GET /api/config` | Returns the PayPal client ID (public) and mode. Never returns secrets. |
 | `GET /api/catalog` | Demo catalog (sellers + products). |
-| `POST /api/risk-score` | `{ sellerId, productId }` → score, label, components, 3 reasons, recommendation. |
+| `POST /api/risk-score` | `{ sellerId, productId }` → score, label, components, 3 reasons, recommendation, comparison, scam-pattern warning, before-you-pay checklist. |
 | `POST /api/hold-risk` | `{ sellerId, productId }` → hold-risk score, label (Low/Moderate/High), estimated chance, reasons, tip. |
-| `GET /api/ask?q=` | Plain-language search (category + budget) → products sorted safest first. |
+| `GET /api/ask?q=` | Plain-language search (English or Indonesian: category, budget or range, cheapest/best/safest, seller, returns/tracking) → products sorted by the ranking asked for. Follow-ups ("yang termurah", "yang pertama") refer to the last results via `&context=`. With `VYCE_API_KEY` set, the intent is parsed by AI (Vyce/DeepSeek) with the regex parser as fallback; `aiParsed` says which one ran. |
 | `GET /api/subscriptions` | Recurring purchases found in the Proof Vault (same product bought 2+ times). |
 | `POST /api/total-cost` | `{ priceUSD, international, currencyConversion }` → fee breakdown, total, and trouble-costs (chargeback/dispute/refund/instant transfer/micropayments) + Buyer Protection note. |
 | `POST /api/paypal/create-order` | Orders API v2 create (Sandbox). Rejects a total that doesn't match the approved total. |
