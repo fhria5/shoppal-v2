@@ -1,12 +1,21 @@
-// ShopPal v2 — static demo for GitHub Pages. Same 7-step flow as the
-// Node.js server, running fully in the browser: risk score and total cost
-// use the same rule formulas as server.js; checkout uses the official
-// PayPal JS SDK (Sandbox); Proof Vault lives in localStorage.
-// No secrets here — the Client ID in index.html is a public identifier.
+// ShopPal v2 — static demo for GitHub Pages, chat UI.
+// Same 7-step flow as the Node.js server, running fully in the browser:
+// risk score and total cost use the same rule formulas as server.js;
+// checkout uses the official PayPal JS SDK (Sandbox); Proof Vault lives
+// in localStorage. No secrets here — the Client ID in index.html is
+// a public identifier.
 (function () {
   'use strict';
 
-  // Demo catalog (same data as data/catalog.json)
+  // Demo catalog (same data as data/catalog.json). Photos are AI-generated
+  // illustrations of generic products, not real listings.
+  var IMAGE = {
+    Headphones: './images/headphones.jpg',
+    Smartwatch: './images/smartwatch.jpg',
+    Keyboard: './images/keyboard.jpg',
+    Speaker: './images/speaker.jpg',
+    Charger: './images/charger.jpg'
+  };
   var CATALOG = {
     products: [
       { id: 'p01', name: 'Aurora Wireless Headphones', priceUSD: 59.99, referencePriceUSD: 59.99, category: 'Headphones', sellerId: 'seller-safe' },
@@ -34,6 +43,7 @@
 
   var $ = function (id) { return document.getElementById(id); };
   var money = function (n) { return '$' + Number(n).toFixed(2); };
+  var chatEl = null;
 
   // Risk Score (same formulas as server.js)
   function scoreProfile(s) {
@@ -196,84 +206,136 @@
     return CATALOG.sellers.find(function (s) { return s.id === product.sellerId; });
   }
 
-  function renderCatalog(products) {
-    var grid = $('catalog');
+  // Chat helpers. Every step is a message; picking a new product clears
+  // the old step messages so element IDs stay unique.
+  function scrollChat() {
+    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+  }
+  function addBubble(who, html, step) {
+    var div = document.createElement('div');
+    div.className = 'msg ' + who;
+    if (step) div.setAttribute('data-step', step);
+    div.innerHTML = (who === 'agent' ? '<div class="msg-label">ShopPal</div>' : '') + html;
+    chatEl.appendChild(div);
+    scrollChat();
+    return div;
+  }
+  function userBubble(text) {
+    return addBubble('user', '<p>' + text + '</p>');
+  }
+  function clearSteps() {
+    var old = chatEl.querySelectorAll('[data-step]');
+    for (var i = 0; i < old.length; i++) old[i].remove();
+  }
+
+  function productCardHtml(p) {
+    var seller = sellerOf(p);
+    return '<button type="button" class="product-card" data-product="' + p.id + '">' +
+      '<img src="' + IMAGE[p.category] + '" alt="' + p.name + '">' +
+      '<span class="card-body"><strong>' + p.name + '</strong>' +
+      '<span class="price">' + money(p.priceUSD) + '</span> · ' + p.category + '<br>' +
+      '<span class="seller">Seller: ' + seller.name + ' (' + seller.riskProfile + ')</span></span></button>';
+  }
+  function renderCatalogInto(grid, products) {
     grid.innerHTML = '';
     products.forEach(function (p) {
-      var seller = sellerOf(p);
-      var card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'product-card';
-      card.innerHTML = '<strong>' + p.name + '</strong><br>' + money(p.priceUSD) + ' · ' + p.category + '<br>Seller: ' + seller.name + ' (' + seller.riskProfile + ')';
+      var wrap = document.createElement('div');
+      wrap.innerHTML = productCardHtml(p);
+      var card = wrap.firstChild;
       card.addEventListener('click', function () { selectProduct(p); });
       grid.appendChild(card);
     });
   }
 
+  function greet() {
+    addBubble('agent',
+      '<p>Hi, I’m ShopPal — your AI shopping agent. Tell me what you’re looking for, and I’ll check the seller, show you the real total (fees included), and keep your proof if you pay.</p>' +
+      '<p>Everything here runs on PayPal Sandbox, so no real money moves.</p>' +
+      '<div class="chips">' +
+      '<button type="button" class="chip" data-q="headphones under $60">Headphones under $60</button>' +
+      '<button type="button" class="chip" data-q="smartwatch">Smartwatch</button>' +
+      '<button type="button" class="chip" data-q="keyboard">Keyboard</button>' +
+      '</div>' +
+      '<p class="hint">Or pick any product below.</p>' +
+      '<div class="cards" id="catalog"></div>');
+    renderCatalogInto($('catalog'), CATALOG.products);
+    var chips = chatEl.querySelectorAll('.chip');
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].addEventListener('click', function () {
+        $('ask').value = this.getAttribute('data-q');
+        sendAsk();
+      });
+    }
+  }
+
+  function sendAsk() {
+    var q = $('ask').value.trim();
+    if (!q) return;
+    $('ask').value = '';
+    userBubble(q);
+    var parsed = parseAsk(q);
+    var products = parsed.matches.length ? parsed.matches : CATALOG.products;
+    var understood = [];
+    if (parsed.category) understood.push(parsed.category);
+    if (parsed.maxPrice !== null) understood.push('under $' + parsed.maxPrice);
+    addBubble('agent',
+      '<p>Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
+      ' — ' + (parsed.matches.length ? 'matches sorted safest first.' : 'No exact match in the demo catalog — showing all 10 demo products.') + '</p>' +
+      '<div class="cards" id="catalog"></div>');
+    renderCatalogInto($('catalog'), products);
+  }
+
   function selectProduct(product) {
     var seller = sellerOf(product);
     selected = { product: product, seller: seller, risk: calculateRiskScore(seller, product), cost: null };
-    renderRisk();
-    refreshCost();
-    $('approve').checked = false;
-    $('checkout-status').textContent = '';
-    renderPayPalButton();
-    document.getElementById('step-2').scrollIntoView({ behavior: 'smooth' });
+    clearSteps();
+    userBubble(product.name + ' — ' + money(product.priceUSD));
+    showRisk();
+    showHold();
+    showCost();
+    showCheckout();
   }
 
-  function renderRisk() {
+  function showRisk() {
     var r = selected.risk;
     var zone = r.label.toLowerCase();
-    $('risk').innerHTML =
+    addBubble('agent',
       '<p><strong>' + selected.seller.name + '</strong> — Risk Score <span class="score score-' + zone + '">' + r.score + '/100 · ' + r.label + '</span></p>' +
       '<ul>' + r.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' +
       '<p><strong>Recommendation:</strong> ' + r.recommendation + '</p>' +
       '<p class="hint">Profile ' + r.components.profile + ' · History ' + r.components.history +
-      ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking + ' · ' + r.aiNote + '</p>';
-    renderHoldRisk();
+      ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking + ' · ' + r.aiNote + '</p>',
+      'risk');
   }
 
-  function renderHoldRisk() {
-    var box = $('hold-risk');
-    if (!box || !selected) return;
+  function showHold() {
     var h = calculateHoldRisk(selected.seller, selected.product);
     var zone = h.label === 'Low' ? 'safe' : h.label === 'Moderate' ? 'caution' : 'risky';
-    box.innerHTML =
+    addBubble('agent',
       '<p><strong>Hold Predictor</strong> — hold risk <span class="score score-' + zone + '">' + h.label + ' · ' + h.chance + '</span></p>' +
       '<ul>' + h.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' +
       '<p>' + h.tip + '</p>' +
-      '<p class="hint">Estimate from public hold patterns, not a PayPal decision.</p>';
+      '<p class="hint">Estimate from public hold patterns, not a PayPal decision.</p>',
+      'hold');
   }
 
-  function refreshCost() {
-    if (!selected) return;
-    selected.cost = calculateTotalCost(
-      selected.product.priceUSD,
-      $('opt-international').checked,
-      $('opt-conversion').checked
-    );
+  function showCost() {
+    selected.cost = calculateTotalCost(selected.product.priceUSD, true, true);
     var c = selected.cost;
-    $('cost').innerHTML =
+    var t = TROUBLE_COSTS;
+    var refundLine = c.itemPrice < 12
+      ? 'Micropayments rate (4.99% + $0.09) would be cheaper for this item than the standard Checkout rate.'
+      : 'For items under $12, the Micropayments rate (4.99% + $0.09) is cheaper than the standard Checkout rate.';
+    addBubble('agent',
+      '<p><strong>Honest total (estimated)</strong></p>' +
       '<table>' +
       '<tr><td>Item price</td><td>' + money(c.itemPrice) + '</td></tr>' +
       '<tr><td>PayPal Checkout fee (3.49% + $0.49)</td><td>' + money(c.paypalFee) + '</td></tr>' +
       '<tr><td>International fee (1.5%)</td><td>' + money(c.internationalFee) + '</td></tr>' +
       '<tr><td>Currency conversion spread (~3.5%, estimated)</td><td>' + money(c.conversionSpread) + '</td></tr>' +
       '<tr><td><strong>Total (estimated)</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
-      '</table>';
-    renderTroubleCosts(c);
-    renderPayPalButton();
-  }
-
-  function renderTroubleCosts(c) {
-    var box = $('trouble-costs');
-    if (!box) return;
-    var t = TROUBLE_COSTS;
-    var refundLine = c.itemPrice < 12
-      ? 'Micropayments rate (4.99% + $0.09) would be cheaper for this item than the standard Checkout rate.'
-      : 'For items under $12, the Micropayments rate (4.99% + $0.09) is cheaper than the standard Checkout rate.';
-    box.innerHTML =
-      '<p><strong>If something goes wrong</strong></p>' +
+      '</table>' +
+      '<div class="card"><p><strong>If something goes wrong</strong></p>' +
       '<ul>' +
       '<li>Chargeback: $' + t.chargebackUSD + ' per case, on top of the lost sale.</li>' +
       '<li>Dispute through PayPal: $' + t.disputeStandardUSD + ' ($' + t.disputeHighVolumeUSD + ' for high-volume sellers).</li>' +
@@ -282,12 +344,27 @@
       '<li>' + refundLine + '</li>' +
       '</ul>' +
       '<p><strong>Buyer Protection:</strong> ' + t.protection + '</p>' +
-      '<p class="hint">' + t.note + '</p>';
+      '<p class="hint">' + t.note + '</p></div>',
+      'cost');
+  }
+
+  function showCheckout() {
+    var bubble = addBubble('agent',
+      '<p><strong>Ready to pay?</strong> I never pay without your approval.</p>' +
+      '<p><label><input id="approve" type="checkbox"> I reviewed the risk score and total cost, and I approve this payment.</label></p>' +
+      '<div id="paypal-button-container"></div>' +
+      '<p id="checkout-status"></p>' +
+      '<p class="hint">Pay with the gold PayPal button above. Approve with a <a href="https://developer.paypal.com/dashboard/accounts" target="_blank" rel="noopener">PayPal Sandbox Personal (buyer)</a> account — no real money is involved. The order total is exactly the total shown above.</p>',
+      'checkout');
+    var approve = bubble.querySelector('#approve');
+    approve.addEventListener('change', function () { renderPayPalButton(); });
+    renderPayPalButton();
   }
 
   // PayPal JS SDK checkout (Sandbox, client-side)
   function renderPayPalButton() {
     var container = $('paypal-button-container');
+    if (!container) return;
     if (!selected || !window.paypal) {
       if (!window.paypal) container.innerHTML = '<p class="hint">PayPal SDK failed to load. Check your connection and reload.</p>';
       return;
@@ -302,8 +379,8 @@
     window.paypal.Buttons({
       style: { layout: 'vertical', color: 'gold', shape: 'rect', label: 'paypal' },
       onClick: function (data, actions) {
-        if (!$('approve').checked) {
-          $('checkout-status').textContent = 'Please tick the approval checkbox in Step 4 first.';
+        if (!$('approve') || !$('approve').checked) {
+          $('checkout-status').textContent = 'Please tick the approval checkbox first.';
           return actions.reject();
         }
         return actions.resolve();
@@ -361,11 +438,12 @@
           };
           saveVaultEntry(entry);
           $('checkout-status').textContent = 'Payment captured: ' + capture.id;
-          $('success').innerHTML =
+          addBubble('agent',
             '<p><strong>Success — paid ' + money(entry.totalCost.total) + ' via PayPal Sandbox.</strong> Order ' + data.orderID +
             ' · Capture ' + capture.id + ' · status ' + capture.status + '</p>' +
-            '<p>Proof was saved to the Proof Vault automatically (this browser).</p>';
-          refreshVault();
+            '<p>Proof was saved to the Proof Vault automatically (this browser).</p>',
+            'success');
+          showVault();
         });
       },
       onCancel: function () {
@@ -377,87 +455,75 @@
     }).render('#paypal-button-container');
   }
 
-  function refreshVault() {
+  function showVault() {
+    var old = chatEl.querySelector('[data-step="vault"]');
+    if (old) old.remove();
     var entries = loadVault();
-    var vault = $('vault');
+    var body = '';
     if (!entries.length) {
-      vault.innerHTML = '<p>No Proof Vault entries yet. Complete a successful checkout to save proof automatically.</p>';
-      $('dispute-btn').disabled = true;
+      body = '<p>No Proof Vault entries yet. Complete a successful checkout to save proof automatically.</p>';
     } else {
       lastVaultId = entries[0].id;
-      $('dispute-btn').disabled = false;
-      vault.innerHTML = entries.map(function (e) {
+      body = entries.map(function (e) {
         return '<p><strong>' + (e.product && e.product.name || e.id) + '</strong> — ' +
           (e.paypal && e.paypal.status || 'unknown') + ' · Order ' + (e.paypal && e.paypal.orderId || '—') + '</p>';
       }).join('');
     }
-    renderSubscriptions(entries);
-  }
-
-  function renderSubscriptions(entries) {
-    var box = $('subscriptions');
-    if (!box) return;
     var patterns = findSubscriptions(entries);
+    var subs = '';
     if (!patterns.length) {
-      box.innerHTML = '<p><strong>Subscription Watcher</strong></p><p>No recurring purchases detected yet. Buy the same product twice and it shows up here with the total you have spent on it.</p>';
-      return;
+      subs = '<p><strong>Subscription Watcher</strong></p><p>No recurring purchases detected yet. Buy the same product twice and it shows up here with the total you have spent on it.</p>';
+    } else {
+      subs = '<p><strong>Subscription Watcher</strong> — recurring purchases found</p>' +
+        patterns.map(function (p) {
+          return '<p>' + p.productName + ' — bought ' + p.purchases + '×, total spent ' + money(p.totalSpent) +
+            ', last purchase ' + (p.lastPurchase ? p.lastPurchase.slice(0, 10) : '—') + '</p>';
+        }).join('');
     }
-    box.innerHTML =
-      '<p><strong>Subscription Watcher</strong> — recurring purchases found</p>' +
-      patterns.map(function (p) {
-        return '<p>' + p.productName + ' — bought ' + p.purchases + '×, total spent ' + money(p.totalSpent) +
-          ', last purchase ' + (p.lastPurchase ? p.lastPurchase.slice(0, 10) : '—') + '</p>';
-      }).join('');
+    var bubble = addBubble('agent',
+      '<p><strong>Proof Vault</strong></p>' + body +
+      '<div class="card">' + subs + '</div>' +
+      '<p><button id="vault-refresh" type="button">Refresh Vault</button> ' +
+      '<button id="dispute-btn" type="button"' + (entries.length ? '' : ' disabled') + '>Simulate Dispute</button></p>' +
+      '<div id="dispute-draft" class="card hidden"></div>',
+      'vault');
+    bubble.querySelector('#vault-refresh').addEventListener('click', function () { showVault(); });
+    bubble.querySelector('#dispute-btn').addEventListener('click', function () { showDisputeDraft(); });
   }
 
-  function bindEvents() {
-    $('ask-btn').addEventListener('click', function () {
-      var q = $('ask').value.trim();
-      if (!q) return;
-      var parsed = parseAsk(q);
-      var products = parsed.matches.length ? parsed.matches : CATALOG.products;
-      renderCatalog(products);
-      var understood = [];
-      if (parsed.category) understood.push(parsed.category);
-      if (parsed.maxPrice !== null) understood.push('under $' + parsed.maxPrice);
-      $('catalog').insertAdjacentHTML('beforeend',
-        '<p class="hint">Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
-        ' — ' + (parsed.matches.length ? 'Matches sorted safest first.' : 'No exact match in the demo catalog — showing all 10 demo products.') + '</p>');
-    });
-    $('opt-international').addEventListener('change', refreshCost);
-    $('opt-conversion').addEventListener('change', refreshCost);
-    $('approve').addEventListener('change', function (e) {
-      if (e.target.checked && selected) renderPayPalButton();
-    });
-    $('vault-refresh').addEventListener('click', refreshVault);
-    $('dispute-btn').addEventListener('click', function () {
-      if (!lastVaultId) return;
-      var entry = loadVault().find(function (e) { return e.id === lastVaultId; });
-      var box = $('dispute-draft');
-      box.classList.remove('hidden');
-      if (!entry) { box.textContent = 'Proof Vault entry not found. Save a successful checkout first.'; return; }
-      var missing = [];
-      if (!entry.paypal || !entry.paypal.captureId) missing.push('capture ID');
-      if (!entry.seller || !entry.seller.tracking) missing.push('tracking proof');
-      var readiness = missing.length === 0 ? 100 : 70;
-      box.innerHTML =
-        '<p><strong>Simulated dispute draft</strong> — readiness ' + readiness + '/100</p>' +
-        '<p>Dispute response draft (simulated, factual only): Order ' + (entry.paypal && entry.paypal.orderId || 'unknown') + ' for ' +
-        (entry.product && entry.product.name || 'the product') + ' ($' + (entry.totalCost && entry.totalCost.total != null ? entry.totalCost.total : entry.product && entry.product.priceUSD || 'unknown') + ') ' +
-        'was paid via PayPal Sandbox and captured as ' + (entry.paypal && entry.paypal.status || 'unknown') + '. ' +
-        'Seller: ' + (entry.seller && entry.seller.name || 'unknown') +
-        ' (risk score ' + (entry.riskScore && entry.riskScore.score != null ? entry.riskScore.score : 'unknown') + ' at checkout). ' +
-        'Proof is attached in the Proof Vault entry ' + entry.id + '.</p>' +
-        (missing.length ? '<p>Still missing: ' + missing.join(', ') + '</p>' : '<p>No proof missing.</p>');
-    });
+  function showDisputeDraft() {
+    if (!lastVaultId) return;
+    var entry = loadVault().find(function (e) { return e.id === lastVaultId; });
+    var box = $('dispute-draft');
+    if (!box) return;
+    box.classList.remove('hidden');
+    if (!entry) { box.textContent = 'Proof Vault entry not found. Save a successful checkout first.'; return; }
+    var missing = [];
+    if (!entry.paypal || !entry.paypal.captureId) missing.push('capture ID');
+    if (!entry.seller || !entry.seller.tracking) missing.push('tracking proof');
+    var readiness = missing.length === 0 ? 100 : 70;
+    box.innerHTML =
+      '<p><strong>Simulated dispute draft</strong> — readiness ' + readiness + '/100</p>' +
+      '<p>Dispute response draft (simulated, factual only): Order ' + (entry.paypal && entry.paypal.orderId || 'unknown') + ' for ' +
+      (entry.product && entry.product.name || 'the product') + ' ($' + (entry.totalCost && entry.totalCost.total != null ? entry.totalCost.total : entry.product && entry.product.priceUSD || 'unknown') + ') ' +
+      'was paid via PayPal Sandbox and captured as ' + (entry.paypal && entry.paypal.status || 'unknown') + '. ' +
+      'Seller: ' + (entry.seller && entry.seller.name || 'unknown') +
+      ' (risk score ' + (entry.riskScore && entry.riskScore.score != null ? entry.riskScore.score : 'unknown') + ' at checkout). ' +
+      'Proof is attached in the Proof Vault entry ' + entry.id + '.</p>' +
+      (missing.length ? '<p>Still missing: ' + missing.join(', ') + '</p>' : '<p>No proof missing.</p>');
+    scrollChat();
   }
 
   document.addEventListener('DOMContentLoaded', function () {
-    bindEvents();
-    renderCatalog(CATALOG.products);
-    refreshVault();
+    chatEl = $('chat');
+    $('ask-btn').addEventListener('click', sendAsk);
+    $('ask').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') sendAsk();
+    });
+    greet();
+    showVault();
     if (!window.paypal) {
-      $('checkout-status').textContent = 'PayPal SDK did not load yet — it loads from paypal.com; check your connection and reload the page.';
+      addBubble('agent', '<p class="hint">PayPal SDK did not load yet — it loads from paypal.com; check your connection and reload the page if the PayPal button never appears.</p>');
     }
   });
 })();
