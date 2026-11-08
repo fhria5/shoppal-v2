@@ -346,7 +346,8 @@
       '<img src="/' + (p.image || '') + '" alt="' + p.name + '">' +
       '<span class="card-body"><strong>' + p.name + '</strong>' +
       '<span class="price">' + money(p.priceUSD) + '</span> · ' + p.category + '<br>' +
-      '<span class="seller">Seller: ' + seller.name + ' (' + seller.riskProfile + ')</span></span></button>';
+      '<span class="seller">Seller: ' + seller.name + '</span> ' +
+      '<span class="score score-' + seller.riskProfile.toLowerCase() + ' card-score">' + seller.riskProfile + '</span></span></button>';
   }
   function renderCatalogInto(grid, products) {
     grid.innerHTML = '';
@@ -458,6 +459,7 @@
       compareMode = !compareMode;
       compareList = [];
       this.textContent = compareMode ? t('cmpToggle') + ' ✓' : t('cmpToggle');
+      this.classList.toggle('active', compareMode);
       updateCompareBar();
     });
   }
@@ -710,7 +712,9 @@
     }
     var isDemoProduct = selected.product && selected.product.id && selected.product.id.indexOf('ebay:') !== 0;
     var bubble = addBubble('agent',
-      '<p><strong>' + selected.seller.name + '</strong>, ' + t('riskScore') + ' <span class="score score-' + zone + '">' + r.score + '/100 · ' + labelText(r.label) + '</span></p>' +
+      '<div class="feature-head"><span class="feature-title">' + t('riskScore') + '</span></div>' +
+      '<p><strong>' + selected.seller.name + '</strong></p>' +
+      '<div class="feature-metric">' + r.score + '<span class="feature-metric-sub">/100</span> <span class="score score-' + zone + '">' + labelText(r.label) + '</span></div>' +
       '<ul>' + r.reasons.map((reason) => '<li>' + reason + '</li>').join('') + '</ul>' +
       '<p><strong>' + t('recommendation') + '</strong> ' + r.recommendation + '</p>' +
       extra +
@@ -759,7 +763,8 @@
     }
     var zone = h.label === 'Low' ? 'safe' : h.label === 'Moderate' ? 'caution' : 'risky';
     var bubble = addBubble('agent',
-      '<p><strong>' + t('holdTitle') + '</strong>, hold risk <span class="score score-' + zone + '">' + holdLabelText(h.label) + ' · ' + h.chance + '</span></p>' +
+      '<div class="feature-head"><span class="feature-title">' + t('holdTitle') + '</span></div>' +
+      '<p><span class="score score-' + zone + '">' + holdLabelText(h.label) + ' · ' + h.chance + '</span></p>' +
       '<ul>' + h.reasons.map((reason) => '<li>' + reason + '</li>').join('') + '</ul>' +
       '<p>' + h.tip + '</p>' +
       '<p class="hint">' + t('holdHint') + '</p>' +
@@ -831,13 +836,13 @@
       ? t('microCheap')
       : t('microInfo');
     var bubble = addBubble('agent',
-      '<p><strong>' + t('honestTotal') + '</strong></p>' +
+      '<div class="feature-head"><span class="feature-title">' + t('honestTotal') + '</span></div>' +
       '<table>' +
       '<tr><td>' + t('itemPrice') + '</td><td>' + money(c.itemPrice) + '</td></tr>' +
       '<tr><td>' + t('paypalFee') + '</td><td>' + money(c.paypalFee) + '</td></tr>' +
       '<tr><td>' + t('intlFee') + '</td><td>' + money(c.internationalFee) + '</td></tr>' +
       '<tr><td>' + t('convSpread') + '</td><td>' + money(c.conversionSpread) + '</td></tr>' +
-      '<tr><td><strong>' + t('totalEst') + '</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
+      '<tr class="total-row"><td><strong>' + t('totalEst') + '</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
       '</table>' +
       '<p><label>' + t('impTitle') + ': <select id="import-country">' +
       '<option value="">' + t('impNoCountry') + '</option>' +
@@ -883,7 +888,7 @@
         '<tr><td>' + fmt(t('impDuty'), { rate: d.dutyRate }) + '</td><td>' + money(d.duty) + '</td></tr>' +
         '<tr><td>' + fmt(t('impVat'), { rate: d.vatRate }) + ' (' + d.vatLabel + ')</td><td>' + money(d.vat) + '</td></tr>' +
         '<tr><td><strong>' + t('impTitle') + '</strong></td><td><strong>' + money(d.total) + '</strong></td></tr>' +
-        '<tr><td><strong>' + t('totalEst') + ' + import</strong></td><td><strong>' + money(c.total + d.total) + '</strong></td></tr>' +
+        '<tr class="total-row"><td><strong>' + t('totalEst') + ' + import</strong></td><td><strong>' + money(c.total + d.total) + '</strong></td></tr>' +
         '</table>' +
         '<p class="hint">' + (d.notes || []).join(' ') + '</p>';
       scrollChat();
