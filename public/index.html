@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopPal v2 — Shop safer, see the real cost, keep your proof</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header>
+    <h1>ShopPal v2</h1>
+    <p class="tagline">Shop safer, see the real cost, keep your proof.</p>
+    <p class="sandbox-note">Sandbox only — no real money. PayPal Sandbox + AI shopping agent.</p>
+  </header>
+
+  <main>
+    <!-- Step 1: Ask / pick a product -->
+    <section id="step-1">
+      <h2>Step 1 — Ask or pick a product</h2>
+      <label for="ask">What are you looking for?</label>
+      <input id="ask" type="text" placeholder="e.g. headphones under $60 for a gift">
+      <button id="ask-btn" type="button">Ask ShopPal</button>
+      <p class="hint">Or pick a product from the demo catalog below. Each product shows its seller.</p>
+      <div id="catalog" class="grid"></div>
+    </section>
+
+    <!-- Step 2: Risk Score -->
+    <section id="step-2">
+      <h2>Step 2 — Seller Risk Score</h2>
+      <div id="risk" class="card">
+        <p>Select a product to see its seller risk score (0–100).</p>
+      </div>
+    </section>
+
+    <!-- Step 3: Total Cost -->
+    <section id="step-3">
+      <h2>Step 3 — Honest Total Cost</h2>
+      <label><input id="opt-international" type="checkbox" checked> International purchase (+1.5%)</label>
+      <label><input id="opt-conversion" type="checkbox" checked> Currency conversion (~3.5% spread)</label>
+      <div id="cost" class="card">
+        <p>Select a product to see the full cost breakdown.</p>
+      </div>
+      <p id="hold-warning" class="warning hidden"></p>
+    </section>
+
+    <!-- Step 4: PayPal checkout -->
+    <section id="step-4">
+      <h2>Step 4 — Approve &amp; pay with PayPal Sandbox</h2>
+      <p>The agent never pays without your explicit approval.</p>
+      <label><input id="approve" type="checkbox"> I have reviewed the risk score and total cost, and I approve this payment.</label>
+      <div id="paypal-button-container"></div>
+      <button id="checkout-btn" type="button" disabled>Pay with PayPal Sandbox</button>
+      <p id="checkout-status"></p>
+      <p class="hint">PayPal checkout is a Day 1 stub in this scaffold: it returns 501 until Orders API v2 is wired up. The PayPal client ID is loaded from <code>/api/config</code> — never hardcoded.</p>
+    </section>
+
+    <!-- Step 5: Success -->
+    <section id="step-5">
+      <h2>Step 5 — Success</h2>
+      <div id="success" class="card">
+        <p>No successful checkout yet. Complete step 4 to see the order ID and status here.</p>
+      </div>
+    </section>
+
+    <!-- Step 6: Proof Vault -->
+    <section id="step-6">
+      <h2>Step 6 — Proof Vault</h2>
+      <button id="vault-refresh" type="button">Refresh Vault</button>
+      <div id="vault" class="card">
+        <p>No Proof Vault entries yet.</p>
+      </div>
+    </section>
+
+    <!-- Step 7: Simulate dispute -->
+    <section id="step-7">
+      <h2>Step 7 — Simulate a dispute</h2>
+      <p>AI drafts a factual response using only the saved proof. This is a simulation, not a real dispute.</p>
+      <button id="dispute-btn" type="button" disabled>Simulate Dispute</button>
+      <div id="dispute-draft" class="card hidden"></div>
+    </section>
+  </main>
+
+  <footer>
+    <p>ShopPal v2 — PayPal AI Hackathon. Scores are a decision aid, not a PayPal guarantee. Sandbox only.</p>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
