@@ -33,41 +33,202 @@ const productsById = new Map(catalog.products.map((p) => [p.id, p]));
 // see marketplace/ebay.js for how the next one plugs in.
 const ebay = require('./marketplace/ebay');
 
+// Bilingual replies (Dwibahasa). The agent answers in the language the
+// buyer types: Indonesian when the message has Indonesian words, English
+// otherwise (English is the demo's default — Devpost requires English
+// materials). `lang` threads through the Ask/risk/hold/cost/marketplace
+// paths; the client sends it, or the server detects it from the query.
+function detectLang(text) {
+  return /\b(di|yang|mau|aku|saya|murah|termurah|terbaik|paling|bawah|dari|ada|garansi|pertama|berapa|cari|beli|baru|dan|untuk|dengan|ini|itu|aja|saja|tolong|dong)\b/i.test(String(text || ''))
+    ? 'id'
+    : 'en';
+}
+function fmt(template, vars) {
+  return String(template).replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : '{' + k + '}'));
+}
+function t(lang, key) {
+  const dict = STR[lang] || STR.en;
+  return dict[key] !== undefined ? dict[key] : STR.en[key];
+}
+const STR = {
+  en: {
+    noteCheapest: 'Matches sorted cheapest first.',
+    noteBest: 'Best match first (safest, then cheapest).',
+    noteSafest: 'Matches sorted safest first.',
+    noteNoMatch: 'No exact match in the demo catalog — showing all 10 demo products.',
+    riskProfileLow: 'This seller account is new or its profile is incomplete.',
+    riskProfileHigh: 'This seller has an established, complete profile.',
+    riskHistoryLow: 'This seller has a high dispute rate compared with other sellers.',
+    riskHistoryHigh: 'This seller has a low dispute rate across many transactions.',
+    riskPriceLow: 'This price is far below the category median — a common scam pattern.',
+    riskTrackingLow: 'This seller does not offer tracking or a clear return policy.',
+    riskPriceFair: 'The price is fair for this category, with tracking and returns offered.',
+    recSafe: 'Safe to proceed with PayPal Goods & Services.',
+    recCaution: 'Proceed with caution. Use PayPal Goods & Services — never Friends & Family.',
+    recRisky: 'Risky. Consider an alternative seller before paying.',
+    comparison: 'Safer than {n} of {total} demo listings.',
+    warning: 'Too-good-to-be-true pattern: a price far below the median from a seller with a high dispute rate. This is the most common scam shape in the demo.',
+    checklistSafe: ['Pay with PayPal Goods & Services (not Friends & Family).', 'Save the tracking number when the seller ships.', 'Keep the Proof Vault entry — it is saved automatically.'],
+    checklistCaution: ['Pay only with PayPal Goods & Services.', 'Ask the seller for tracking before the money clears.', 'If the seller asks you to pay outside PayPal, stop — that voids Buyer Protection.'],
+    checklistRisky: ['Do not pay this seller if you can avoid it.', 'If you still proceed, use Goods & Services only — never Friends & Family.', 'Screenshot the listing and the chat before paying; you will need them for a dispute.'],
+    holdChanceLow: 'under 5% (estimate)',
+    holdChanceModerate: '5–20% (estimate)',
+    holdChanceHigh: 'over 20% (estimate)',
+    holdDisputeVeryHigh: 'Dispute rate is very high ({rate}%).',
+    holdDisputeHigh: 'Dispute rate is above average ({rate}%).',
+    holdDisputeSlight: 'Dispute rate is slightly above 1%.',
+    holdAge6m: 'Seller account is less than 6 months old.',
+    holdAge18m: 'Seller account is less than 18 months old.',
+    holdAge3y: 'Seller account is less than 3 years old.',
+    holdTxFew: 'Very few completed transactions ({tx}).',
+    holdTxSome: 'Relatively few completed transactions.',
+    holdPriceHalf: 'Price is 50% or more below the category median.',
+    holdPriceBelow: 'Price is notably below the category median.',
+    holdNoTracking: 'No tracking offered, so delivery is harder to prove.',
+    holdNoSignals: 'No hold-risk signals in this seller pattern.',
+    holdTipLow: 'Funds usually clear on the normal schedule for this pattern.',
+    holdTipHigh: 'Ask the seller to upload tracking promptly, and keep the order total close to the seller’s usual range.',
+    costNote: 'Estimated fees. PayPal Checkout 3.49% + $0.49, international 1.5%, conversion spread ~3.5%.',
+    protection: 'PayPal Buyer Protection covers Goods & Services payments. Friends & Family payments are not covered.',
+    troubleNote: 'Public PayPal merchant fee schedule (US, Oct 2026). Estimates, not a quote.',
+    mpFeedbackUnknown: 'This marketplace does not share this seller’s feedback percentage.',
+    mpFeedbackHigh: 'This seller has {fb}% positive feedback on eBay.',
+    mpFeedbackLow: 'This seller has {fb}% positive feedback on eBay — below the 99%+ that careful buyers look for.',
+    mpPriceLow: 'This price is far below the median of this search — a common scam pattern.',
+    mpPriceFair: 'This price is close to the median of this search.',
+    mpReturnsYes: 'The listing accepts returns.',
+    mpReturnsNo: 'The listing does not say it accepts returns.',
+    mpRecSafe: 'Safe to proceed with PayPal Goods & Services.',
+    mpRecCaution: 'Proceed with caution. Use PayPal Goods & Services — never Friends & Family.',
+    mpRecRisky: 'Risky. Consider another listing before paying.',
+    mpComparison: 'Safer than {n} of {total} listings in this search.',
+    mpWarning: 'Too-good-to-be-true pattern: a price far below the median from a seller without strong feedback. This is the most common scam shape.',
+    mpHoldNoFeedback: 'No feedback percentage shared for this seller.',
+    mpHoldFeedbackLow: 'Seller feedback is {fb}% — below 98%.',
+    mpHoldFeedbackMid: 'Seller feedback is {fb}% — below 99%.',
+    mpHoldFeedbackHigh: 'Seller feedback is {fb}%.',
+    mpHoldPriceHalf: 'Price is 50% or more below the median of this search.',
+    mpHoldPriceBelow: 'Price is notably below the median of this search.',
+    mpHoldNoReturns: 'No returns accepted, so a dispute is harder to win.',
+    mpHoldNoSignals: 'No hold-risk signals in this listing.',
+    mpHoldTipLow: 'Funds usually clear on the normal schedule for this pattern.',
+    mpHoldTipHigh: 'Ask the seller to upload tracking promptly, and keep the order total close to the seller’s usual range.',
+    mpAiNote: 'Marketplace scores use marketplace signals; account age is not shared by eBay, so it scores neutral.',
+    mpNote: 'Real eBay listings (Browse API). Prices in USD; risk scores use marketplace signals — feedback %, price vs this search’s median, returns and shipping.',
+    mpNotConfigured: 'Real marketplace search needs free eBay developer keys. Add EBAY_APP_ID and EBAY_CERT_ID to .env (developer.ebay.com) — no keys, no real listings.',
+    aiNoteFallback: 'AI explanation unavailable — showing rule-based reasons.',
+    aiNoteVyce: 'Explanation rewritten by AI (Vyce); the numeric score is rule-based and unchanged.',
+    disputeBody: 'Dispute response draft (simulated, factual only): Order {order} for {product} ({total}) was paid via PayPal Sandbox and captured as {status}. Seller: {seller} (risk score {score} at checkout). Proof is attached in the Proof Vault entry {id}.',
+    disputeNotFound: 'Proof Vault entry not found. Save a successful checkout first.',
+  },
+  id: {
+    noteCheapest: 'Hasil diurutkan termurah dulu.',
+    noteBest: 'Hasil terbaik dulu (paling aman, lalu termurah).',
+    noteSafest: 'Hasil diurutkan paling aman dulu.',
+    noteNoMatch: 'Tidak ada yang cocok di katalog demo — menampilkan 10 produk demo.',
+    riskProfileLow: 'Akun seller ini baru atau profilnya belum lengkap.',
+    riskProfileHigh: 'Seller ini sudah lama dan profilnya lengkap.',
+    riskHistoryLow: 'Seller ini punya tingkat sengketa tinggi dibanding seller lain.',
+    riskHistoryHigh: 'Seller ini punya tingkat sengketa rendah dari banyak transaksi.',
+    riskPriceLow: 'Harga ini jauh di bawah median kategori — pola scam yang umum.',
+    riskTrackingLow: 'Seller ini tidak menyediakan tracking atau kebijakan retur yang jelas.',
+    riskPriceFair: 'Harganya wajar untuk kategori ini, dengan tracking dan retur.',
+    recSafe: 'Aman lanjut dengan PayPal Goods & Services.',
+    recCaution: 'Lanjut dengan hati-hati. Pakai PayPal Goods & Services — jangan Friends & Family.',
+    recRisky: 'Berisiko. Pertimbangkan seller lain sebelum bayar.',
+    comparison: 'Lebih aman dari {n} dari {total} listing demo.',
+    warning: 'Pola terlalu-bagus-untuk-jadi-kenyataan: harga jauh di bawah median dari seller dengan tingkat sengketa tinggi. Ini pola scam paling umum di demo.',
+    checklistSafe: ['Bayar dengan PayPal Goods & Services (bukan Friends & Family).', 'Simpan nomor tracking saat seller mengirim.', 'Simpan entri Proof Vault — tersimpan otomatis.'],
+    checklistCaution: ['Bayar hanya dengan PayPal Goods & Services.', 'Minta tracking ke seller sebelum dananya cair.', 'Kalau seller minta bayar di luar PayPal, berhenti — itu membatalkan Perlindungan Pembeli.'],
+    checklistRisky: ['Jangan bayar seller ini kalau bisa dihindari.', 'Kalau tetap lanjut, pakai Goods & Services saja — jangan Friends & Family.', 'Screenshot listing dan chat sebelum bayar; kamu akan butuh untuk sengketa.'],
+    holdChanceLow: 'di bawah 5% (perkiraan)',
+    holdChanceModerate: '5–20% (perkiraan)',
+    holdChanceHigh: 'di atas 20% (perkiraan)',
+    holdDisputeVeryHigh: 'Tingkat sengketa sangat tinggi ({rate}%).',
+    holdDisputeHigh: 'Tingkat sengketa di atas rata-rata ({rate}%).',
+    holdDisputeSlight: 'Tingkat sengketa sedikit di atas 1%.',
+    holdAge6m: 'Akun seller berumur kurang dari 6 bulan.',
+    holdAge18m: 'Akun seller berumur kurang dari 18 bulan.',
+    holdAge3y: 'Akun seller berumur kurang dari 3 tahun.',
+    holdTxFew: 'Transaksi selesai sangat sedikit ({tx}).',
+    holdTxSome: 'Transaksi selesai relatif sedikit.',
+    holdPriceHalf: 'Harga 50% atau lebih di bawah median kategori.',
+    holdPriceBelow: 'Harga jauh di bawah median kategori.',
+    holdNoTracking: 'Tidak ada tracking, jadi pengiriman sulit dibuktikan.',
+    holdNoSignals: 'Tidak ada sinyal risiko hold pada pola seller ini.',
+    holdTipLow: 'Dana biasanya cair sesuai jadwal normal untuk pola ini.',
+    holdTipHigh: 'Minta seller segera mengunggah tracking, dan jaga total order tetap dekat dengan kisaran biasa seller.',
+    costNote: 'Perkiraan biaya. PayPal Checkout 3.49% + $0.49, internasional 1.5%, selisih kurs ~3.5%.',
+    protection: 'Perlindungan Pembeli PayPal mencakup pembayaran Goods & Services. Pembayaran Friends & Family tidak dilindungi.',
+    troubleNote: 'Jadwal biaya merchant PayPal publik (AS, Okt 2026). Perkiraan, bukan penawaran.',
+    mpFeedbackUnknown: 'Marketplace ini tidak membagikan persentase feedback seller ini.',
+    mpFeedbackHigh: 'Seller ini punya feedback positif {fb}% di eBay.',
+    mpFeedbackLow: 'Seller ini punya feedback positif {fb}% di eBay — di bawah 99%+ yang dicari pembeli hati-hati.',
+    mpPriceLow: 'Harga ini jauh di bawah median pencarian ini — pola scam yang umum.',
+    mpPriceFair: 'Harga ini dekat dengan median pencarian ini.',
+    mpReturnsYes: 'Listing ini menerima retur.',
+    mpReturnsNo: 'Listing ini tidak menyatakan menerima retur.',
+    mpRecSafe: 'Aman lanjut dengan PayPal Goods & Services.',
+    mpRecCaution: 'Lanjut dengan hati-hati. Pakai PayPal Goods & Services — jangan Friends & Family.',
+    mpRecRisky: 'Berisiko. Pertimbangkan listing lain sebelum bayar.',
+    mpComparison: 'Lebih aman dari {n} dari {total} listing dalam pencarian ini.',
+    mpWarning: 'Pola terlalu-bagus-untuk-jadi-kenyataan: harga jauh di bawah median dari seller tanpa feedback kuat. Ini pola scam paling umum.',
+    mpHoldNoFeedback: 'Tidak ada persentase feedback untuk seller ini.',
+    mpHoldFeedbackLow: 'Feedback seller {fb}% — di bawah 98%.',
+    mpHoldFeedbackMid: 'Feedback seller {fb}% — di bawah 99%.',
+    mpHoldFeedbackHigh: 'Feedback seller {fb}%.',
+    mpHoldPriceHalf: 'Harga 50% atau lebih di bawah median pencarian ini.',
+    mpHoldPriceBelow: 'Harga jauh di bawah median pencarian ini.',
+    mpHoldNoReturns: 'Tidak ada retur, jadi sengketa lebih sulit dimenangkan.',
+    mpHoldNoSignals: 'Tidak ada sinyal risiko hold pada listing ini.',
+    mpHoldTipLow: 'Dana biasanya cair sesuai jadwal normal untuk pola ini.',
+    mpHoldTipHigh: 'Minta seller segera mengunggah tracking, dan jaga total order tetap dekat dengan kisaran biasa seller.',
+    mpAiNote: 'Skor marketplace memakai sinyal marketplace; umur akun tidak dibagikan eBay, jadi dinilai netral.',
+    mpNote: 'Listing eBay asli (Browse API). Harga dalam USD; skor risiko memakai sinyal marketplace — feedback %, harga vs median pencarian ini, retur dan shipping.',
+    mpNotConfigured: 'Pencarian marketplace asli butuh kunci developer eBay gratis. Tambahkan EBAY_APP_ID dan EBAY_CERT_ID ke .env (developer.ebay.com) — tanpa kunci, tidak ada listing asli.',
+    aiNoteFallback: 'Penjelasan AI tidak tersedia — menampilkan alasan berbasis aturan.',
+    aiNoteVyce: 'Penjelasan ditulis ulang oleh AI (Vyce); skor angka berbasis aturan dan tidak berubah.',
+    disputeBody: 'Draf jawaban sengketa (simulasi, hanya fakta): Order {order} untuk {product} ({total}) dibayar via PayPal Sandbox dan di-capture sebagai {status}. Seller: {seller} (skor risiko {score} saat checkout). Bukti terlampir di entri Proof Vault {id}.',
+    disputeNotFound: 'Entri Proof Vault tidak ditemukan. Simpan checkout yang berhasil dulu.',
+  },
+};
+
 // AI explanations. The rule-based reasons come first (deterministic,
 // auditable). If VYCE_API_KEY is set, the Vyce API (default model
 // deepseek-v4.1) rewrites them in plain language only. No key, or a
 // failed call, falls back to the rule-based reasons.
-async function explainScore(components, label) {
+async function explainScore(components, label, lang) {
+  lang = lang === 'id' ? 'id' : 'en';
   // Rule-based explanation — deterministic, auditable, works offline.
   const reasons = [];
   if (components.profile < 60) {
-    reasons.push('This seller account is new or its profile is incomplete.');
+    reasons.push(t(lang, 'riskProfileLow'));
   } else {
-    reasons.push('This seller has an established, complete profile.');
+    reasons.push(t(lang, 'riskProfileHigh'));
   }
   if (components.history < 60) {
-    reasons.push('This seller has a high dispute rate compared with other sellers.');
+    reasons.push(t(lang, 'riskHistoryLow'));
   } else {
-    reasons.push('This seller has a low dispute rate across many transactions.');
+    reasons.push(t(lang, 'riskHistoryHigh'));
   }
   if (components.price < 60) {
-    reasons.push('This price is far below the category median — a common scam pattern.');
+    reasons.push(t(lang, 'riskPriceLow'));
   } else if (components.tracking < 60) {
-    reasons.push('This seller does not offer tracking or a clear return policy.');
+    reasons.push(t(lang, 'riskTrackingLow'));
   } else {
-    reasons.push('The price is fair for this category, with tracking and returns offered.');
+    reasons.push(t(lang, 'riskPriceFair'));
   }
   const recommendation =
     label === 'Safe'
-      ? 'Safe to proceed with PayPal Goods & Services.'
+      ? t(lang, 'recSafe')
       : label === 'Caution'
-        ? 'Proceed with caution. Use PayPal Goods & Services — never Friends & Family.'
-        : 'Risky. Consider an alternative seller before paying.';
+        ? t(lang, 'recCaution')
+        : t(lang, 'recRisky');
   const fallback = {
     reasons: reasons.slice(0, 3),
     recommendation,
     aiAvailable: false,
-    aiNote: 'AI explanation unavailable — showing rule-based reasons.',
+    aiNote: t(lang, 'aiNoteFallback'),
   };
   const apiKey = process.env.VYCE_API_KEY;
   if (!apiKey) return fallback;
@@ -90,7 +251,8 @@ async function explainScore(components, label) {
             content:
               'You rewrite seller-risk reasons for a shopper. Keep the meaning, ' +
               'do not change any numbers, do not add new facts, do not invent scores. ' +
-              'Return exactly 3 lines, one reason per line, no numbering, no extra text.',
+              'Return exactly 3 lines, one reason per line, no numbering, no extra text.' +
+              (lang === 'id' ? ' Reply in Indonesian.' : ' Reply in English.'),
           },
           {
             role: 'user',
@@ -116,7 +278,7 @@ async function explainScore(components, label) {
       reasons: lines,
       recommendation,
       aiAvailable: true,
-      aiNote: 'Explanation rewritten by AI (Vyce); the numeric score is rule-based and unchanged.',
+      aiNote: t(lang, 'aiNoteVyce'),
     };
   } catch (err) {
     return fallback;
@@ -179,7 +341,8 @@ function calculateRiskScore(seller, product) {
 // median of this search, returns/shipping flags instead of a seller
 // profile. Signals the marketplace does not share score neutral (50)
 // and are labelled as unknown, never invented.
-function scoreMarketplaceListing(listing, allListings) {
+function scoreMarketplaceListing(listing, allListings, lang) {
+  lang = lang === 'id' ? 'id' : 'en';
   const fb = listing.sellerFeedbackPercentage;
   const history =
     fb === null || fb === undefined
@@ -210,46 +373,34 @@ function scoreMarketplaceListing(listing, allListings) {
   const reasons = [];
   reasons.push(
     fb === null || fb === undefined
-      ? 'This marketplace does not share this seller’s feedback percentage.'
+      ? t(lang, 'mpFeedbackUnknown')
       : fb >= 99
-        ? 'This seller has ' + fb + '% positive feedback on eBay.'
-        : 'This seller has ' + fb + '% positive feedback on eBay — below the 99%+ that careful buyers look for.'
+        ? fmt(t(lang, 'mpFeedbackHigh'), { fb })
+        : fmt(t(lang, 'mpFeedbackLow'), { fb })
   );
   reasons.push(
     price < 60
-      ? 'This price is far below the median of this search — a common scam pattern.'
-      : 'This price is close to the median of this search.'
+      ? t(lang, 'mpPriceLow')
+      : t(lang, 'mpPriceFair')
   );
   reasons.push(
     listing.returnsAccepted
-      ? 'The listing accepts returns.'
-      : 'The listing does not say it accepts returns.'
+      ? t(lang, 'mpReturnsYes')
+      : t(lang, 'mpReturnsNo')
   );
   const saferThan = (allListings || []).filter(
     (l) => l !== listing && scoreMarketplaceListingShallow(l, allListings) < total
   ).length;
   const warning =
     price < 60 && (fb === null || fb < 98)
-      ? 'Too-good-to-be-true pattern: a price far below the median from a seller without strong feedback. This is the most common scam shape.'
+      ? t(lang, 'mpWarning')
       : null;
   const checklist =
     label === 'Safe'
-      ? [
-          'Pay with PayPal Goods & Services (not Friends & Family).',
-          'Save the tracking number when the seller ships.',
-          'Keep the Proof Vault entry — it is saved automatically.',
-        ]
+      ? t(lang, 'checklistSafe')
       : label === 'Caution'
-        ? [
-            'Pay only with PayPal Goods & Services.',
-            'Ask the seller for tracking before the money clears.',
-            'If the seller asks you to pay outside the marketplace, stop — that voids Buyer Protection.',
-          ]
-        : [
-            'Do not pay this seller if you can avoid it.',
-            'If you still proceed, use Goods & Services only — never Friends & Family.',
-            'Screenshot the listing before paying; you will need it for a dispute.',
-          ];
+        ? t(lang, 'checklistCaution')
+        : t(lang, 'checklistRisky');
   return {
     score: total,
     label,
@@ -257,15 +408,15 @@ function scoreMarketplaceListing(listing, allListings) {
     reasons: reasons.slice(0, 3),
     recommendation:
       label === 'Safe'
-        ? 'Safe to proceed with PayPal Goods & Services.'
+        ? t(lang, 'mpRecSafe')
         : label === 'Caution'
-          ? 'Proceed with caution. Use PayPal Goods & Services — never Friends & Family.'
-          : 'Risky. Consider another listing before paying.',
-    comparison: 'Safer than ' + saferThan + ' of ' + (allListings || []).length + ' listings in this search.',
+          ? t(lang, 'mpRecCaution')
+          : t(lang, 'mpRecRisky'),
+    comparison: fmt(t(lang, 'mpComparison'), { n: saferThan, total: (allListings || []).length }),
     warning,
     checklist,
     aiAvailable: false,
-    aiNote: 'Marketplace scores use marketplace signals; account age is not shared by eBay, so it scores neutral.',
+    aiNote: t(lang, 'mpAiNote'),
   };
 }
 // Lightweight score used only to rank listings against each other
@@ -296,22 +447,23 @@ function scoreMarketplaceListingShallow(listing, allListings) {
 // Hold estimate for a marketplace listing, from the same public signals:
 // weak feedback and a price far below the median are the patterns PayPal
 // holds are most often tied to. Labelled an estimate, as always.
-function holdRiskForMarketplaceListing(listing, allListings) {
+function holdRiskForMarketplaceListing(listing, allListings, lang) {
+  lang = lang === 'id' ? 'id' : 'en';
   const fb = listing.sellerFeedbackPercentage;
   let points = 0;
   const reasons = [];
   if (fb === null || fb === undefined) {
     points += 10;
-    reasons.push('No feedback percentage shared for this seller.');
+    reasons.push(t(lang, 'mpHoldNoFeedback'));
   } else if (fb < 98) {
     points += 40;
-    reasons.push('Seller feedback is ' + fb + '% — below 98%.');
+    reasons.push(fmt(t(lang, 'mpHoldFeedbackLow'), { fb }));
   } else if (fb < 99) {
     points += 25;
-    reasons.push('Seller feedback is ' + fb + '% — below 99%.');
+    reasons.push(fmt(t(lang, 'mpHoldFeedbackMid'), { fb }));
   } else if (fb < 99.5) {
     points += 10;
-    reasons.push('Seller feedback is ' + fb + '%.');
+    reasons.push(fmt(t(lang, 'mpHoldFeedbackHigh'), { fb }));
   }
   const prices = (allListings || [])
     .map((l) => l.priceUSD)
@@ -322,33 +474,34 @@ function holdRiskForMarketplaceListing(listing, allListings) {
     const below = 1 - listing.priceUSD / median;
     if (below >= 0.5) {
       points += 15;
-      reasons.push('Price is 50% or more below the median of this search.');
+      reasons.push(t(lang, 'mpHoldPriceHalf'));
     } else if (below >= 0.2) {
       points += 5;
-      reasons.push('Price is notably below the median of this search.');
+      reasons.push(t(lang, 'mpHoldPriceBelow'));
     }
   }
   if (!listing.returnsAccepted) {
     points += 5;
-    reasons.push('No returns accepted, so a dispute is harder to win.');
+    reasons.push(t(lang, 'mpHoldNoReturns'));
   }
   const score = Math.min(points, 100);
   const label = score < 25 ? 'Low' : score < 60 ? 'Moderate' : 'High';
   return {
     score,
     label,
-    chance: (label === 'Low' ? 'under 5%' : label === 'Moderate' ? '5–20%' : 'over 20%') + ' (estimate)',
-    reasons: reasons.length ? reasons : ['No hold-risk signals in this listing.'],
+    chance: label === 'Low' ? t(lang, 'holdChanceLow') : label === 'Moderate' ? t(lang, 'holdChanceModerate') : t(lang, 'holdChanceHigh'),
+    reasons: reasons.length ? reasons : [t(lang, 'mpHoldNoSignals')],
     tip:
       label === 'Low'
-        ? 'Funds usually clear on the normal schedule for this pattern.'
-        : 'Ask the seller to upload tracking promptly, and keep the order total close to the seller’s usual range.',
+        ? t(lang, 'mpHoldTipLow')
+        : t(lang, 'mpHoldTipHigh'),
   };
 }
 
 // Total Cost. Public rates: PayPal Checkout 3.49% + $0.49, international
 // 1.5%, conversion spread ~3.5% (estimate).
-function calculateTotalCost(priceUSD, international, currencyConversion) {
+function calculateTotalCost(priceUSD, international, currencyConversion, lang) {
+  lang = lang === 'id' ? 'id' : 'en';
   const price = Number(priceUSD);
   if (!Number.isFinite(price) || price < 0) {
     throw new Error('priceUSD must be a non-negative number.');
@@ -369,8 +522,12 @@ function calculateTotalCost(priceUSD, international, currencyConversion) {
     conversionSpread,
     total,
     estimated: true,
-    troubleCosts: TROUBLE_COSTS,
-    note: 'Estimated fees. PayPal Checkout 3.49% + $0.49, international 1.5%, conversion spread ~3.5%.',
+    troubleCosts: {
+      ...TROUBLE_COSTS,
+      protection: t(lang, 'protection'),
+      note: t(lang, 'troubleNote'),
+    },
+    note: t(lang, 'costNote'),
   };
 }
 
@@ -378,35 +535,36 @@ function calculateTotalCost(priceUSD, international, currencyConversion) {
 // this seller's funds, from public hold patterns (new account, high
 // dispute rate, few transactions, price far below median, no tracking).
 // This is an estimate from patterns, not a PayPal decision.
-function calculateHoldRisk(seller, product) {
+function calculateHoldRisk(seller, product, lang) {
+  lang = lang === 'id' ? 'id' : 'en';
   const reasons = [];
   let points = 0;
-  if (seller.disputeRate >= 5) { points += 40; reasons.push('Dispute rate is very high (' + seller.disputeRate + '%).'); }
-  else if (seller.disputeRate >= 2) { points += 25; reasons.push('Dispute rate is above average (' + seller.disputeRate + '%).'); }
-  else if (seller.disputeRate >= 1) { points += 10; reasons.push('Dispute rate is slightly above 1%.'); }
-  if (seller.accountAgeYears < 0.5) { points += 25; reasons.push('Seller account is less than 6 months old.'); }
-  else if (seller.accountAgeYears < 1.5) { points += 15; reasons.push('Seller account is less than 18 months old.'); }
-  else if (seller.accountAgeYears < 3) { points += 5; reasons.push('Seller account is less than 3 years old.'); }
-  if (seller.totalTransactions < 50) { points += 15; reasons.push('Very few completed transactions (' + seller.totalTransactions + ').'); }
-  else if (seller.totalTransactions < 1000) { points += 5; reasons.push('Relatively few completed transactions.'); }
+  if (seller.disputeRate >= 5) { points += 40; reasons.push(fmt(t(lang, 'holdDisputeVeryHigh'), { rate: seller.disputeRate })); }
+  else if (seller.disputeRate >= 2) { points += 25; reasons.push(fmt(t(lang, 'holdDisputeHigh'), { rate: seller.disputeRate })); }
+  else if (seller.disputeRate >= 1) { points += 10; reasons.push(t(lang, 'holdDisputeSlight')); }
+  if (seller.accountAgeYears < 0.5) { points += 25; reasons.push(t(lang, 'holdAge6m')); }
+  else if (seller.accountAgeYears < 1.5) { points += 15; reasons.push(t(lang, 'holdAge18m')); }
+  else if (seller.accountAgeYears < 3) { points += 5; reasons.push(t(lang, 'holdAge3y')); }
+  if (seller.totalTransactions < 50) { points += 15; reasons.push(fmt(t(lang, 'holdTxFew'), { tx: seller.totalTransactions })); }
+  else if (seller.totalTransactions < 1000) { points += 5; reasons.push(t(lang, 'holdTxSome')); }
   const median = product.referencePriceUSD;
   if (median && median > 0) {
     const below = 1 - product.priceUSD / median;
-    if (below >= 0.5) { points += 15; reasons.push('Price is 50% or more below the category median.'); }
-    else if (below >= 0.2) { points += 5; reasons.push('Price is notably below the category median.'); }
+    if (below >= 0.5) { points += 15; reasons.push(t(lang, 'holdPriceHalf')); }
+    else if (below >= 0.2) { points += 5; reasons.push(t(lang, 'holdPriceBelow')); }
   }
-  if (!seller.hasTracking) { points += 5; reasons.push('No tracking offered, so delivery is harder to prove.'); }
+  if (!seller.hasTracking) { points += 5; reasons.push(t(lang, 'holdNoTracking')); }
   const score = Math.min(points, 100);
   const label = score < 25 ? 'Low' : score < 60 ? 'Moderate' : 'High';
-  const chance = label === 'Low' ? 'under 5%' : label === 'Moderate' ? '5–20%' : 'over 20%';
+  const chance = label === 'Low' ? t(lang, 'holdChanceLow') : label === 'Moderate' ? t(lang, 'holdChanceModerate') : t(lang, 'holdChanceHigh');
   return {
     score,
     label,
-    chance: chance + ' (estimate)',
-    reasons: reasons.length ? reasons : ['No hold-risk signals in this seller pattern.'],
+    chance,
+    reasons: reasons.length ? reasons : [t(lang, 'holdNoSignals')],
     tip: label === 'Low'
-      ? 'Funds usually clear on the normal schedule for this pattern.'
-      : 'Ask the seller to upload tracking promptly, and keep the order total close to the seller’s usual range.',
+      ? t(lang, 'holdTipLow')
+      : t(lang, 'holdTipHigh'),
   };
 }
 
@@ -460,7 +618,8 @@ function parseAskRegex(query) {
 function riskScoreOf(product) {
   return calculateRiskScore(sellersById.get(product.sellerId), product).score;
 }
-function applyIntent(intent, contextProducts) {
+function applyIntent(intent, contextProducts, lang) {
+  lang = lang === 'id' ? 'id' : 'en';
   const hasSearch = intent.category || intent.maxPrice !== null || intent.minPrice !== null || intent.seller || intent.needsReturn || intent.needsTracking;
   let matches = hasSearch
     ? [...catalog.products]
@@ -486,12 +645,12 @@ function applyIntent(intent, contextProducts) {
     matches.sort((a, b) => riskScoreOf(b) - riskScoreOf(a));
   }
   const note = !matches.length
-    ? 'No exact match in the demo catalog — showing all 10 demo products.'
+    ? t(lang, 'noteNoMatch')
     : intent.cheapest
-      ? 'Matches sorted cheapest first.'
+      ? t(lang, 'noteCheapest')
       : intent.best
-        ? 'Best match first (safest, then cheapest).'
-        : 'Matches sorted safest first.';
+        ? t(lang, 'noteBest')
+        : t(lang, 'noteSafest');
   return {
     understood: {
       category: intent.category,
@@ -508,8 +667,8 @@ function applyIntent(intent, contextProducts) {
     selectFirst,
   };
 }
-function parseAsk(query, contextProducts) {
-  return applyIntent(parseAskRegex(query), contextProducts);
+function parseAsk(query, contextProducts, lang) {
+  return applyIntent(parseAskRegex(query), contextProducts, lang);
 }
 
 // Vyce intent parsing. When VYCE_API_KEY is set, the AI reads the query
@@ -582,33 +741,22 @@ async function parseAskWithVyce(query) {
 
 // Risk extras: what the score means next to the other listings, the
 // scam pattern to watch for, and a short checklist before paying.
-function riskExtras(seller, product, score, label, components) {
+function riskExtras(seller, product, score, label, components, lang) {
+  lang = lang === 'id' ? 'id' : 'en';
   const saferThan = catalog.products.filter(
     (p) => calculateRiskScore(sellersById.get(p.sellerId), p).score < score
   ).length;
-  const comparison = 'Safer than ' + saferThan + ' of ' + catalog.products.length + ' demo listings.';
+  const comparison = fmt(t(lang, 'comparison'), { n: saferThan, total: catalog.products.length });
   const warning =
     components.price < 60 && (seller.disputeRate >= 2 || label === 'Risky')
-      ? 'Too-good-to-be-true pattern: a price far below the median from a seller with a high dispute rate. This is the most common scam shape in the demo.'
+      ? t(lang, 'warning')
       : null;
   const checklist =
     label === 'Safe'
-      ? [
-          'Pay with PayPal Goods & Services (not Friends & Family).',
-          'Save the tracking number when the seller ships.',
-          'Keep the Proof Vault entry — it is saved automatically.',
-        ]
+      ? t(lang, 'checklistSafe')
       : label === 'Caution'
-        ? [
-            'Pay only with PayPal Goods & Services.',
-            'Ask the seller for tracking before the money clears.',
-            'If the seller asks you to pay outside PayPal, stop — that voids Buyer Protection.',
-          ]
-        : [
-            'Do not pay this seller if you can avoid it.',
-            'If you still proceed, use Goods & Services only — never Friends & Family.',
-            'Screenshot the listing and the chat before paying; you will need them for a dispute.',
-          ];
+        ? t(lang, 'checklistCaution')
+        : t(lang, 'checklistRisky');
   return { comparison, warning, checklist };
 }
 
@@ -679,8 +827,9 @@ app.post('/api/risk-score', async (req, res) => {
       .json({ error: 'Product does not belong to this seller.' });
   }
   const { score, label, components } = calculateRiskScore(seller, product);
-  const explanation = await explainScore(components, label);
-  const extras = riskExtras(seller, product, score, label, components);
+  const lang = (req.body || {}).lang === 'id' ? 'id' : 'en';
+  const explanation = await explainScore(components, label, lang);
+  const extras = riskExtras(seller, product, score, label, components, lang);
   res.json({
     sellerId: seller.id,
     sellerName: seller.name,
@@ -701,11 +850,13 @@ app.post('/api/risk-score', async (req, res) => {
 
 app.post('/api/total-cost', (req, res) => {
   const { priceUSD, international, currencyConversion } = req.body || {};
+  const lang = (req.body || {}).lang === 'id' ? 'id' : 'en';
   try {
     const breakdown = calculateTotalCost(
       priceUSD,
       international !== false,
-      currencyConversion !== false
+      currencyConversion !== false,
+      lang
     );
     res.json(breakdown);
   } catch (err) {
@@ -728,12 +879,13 @@ app.post('/api/hold-risk', (req, res) => {
     sellerName: seller.name,
     productId: product.id,
     productName: product.name,
-    ...calculateHoldRisk(seller, product),
+    ...calculateHoldRisk(seller, product, (req.body || {}).lang === 'id' ? 'id' : 'en'),
   });
 });
 
 app.get('/api/ask', async (req, res) => {
   const q = req.query.q || '';
+  const lang = (req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : detectLang(q);
   // Follow-up context: the product IDs the chat last showed, so "yang
   // termurah" / "yang pertama" can refer to them.
   const ctxIds = String(req.query.context || '').split(',').filter(Boolean);
@@ -743,9 +895,10 @@ app.get('/api/ask', async (req, res) => {
   // AI first when the Vyce key is set; regex fallback otherwise.
   const aiIntent = await parseAskWithVyce(q);
   const intent = aiIntent || parseAskRegex(q);
-  const result = applyIntent(intent, ctxProducts);
+  const result = applyIntent(intent, ctxProducts, lang);
   res.json({
     query: q,
+    lang,
     understood: { ...result.understood, aiParsed: Boolean(aiIntent) },
     products: result.products,
     selectFirst: result.selectFirst,
@@ -758,12 +911,13 @@ app.get('/api/ask', async (req, res) => {
 app.get('/api/marketplace/search', async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q) return res.status(400).json({ error: 'q is required.' });
+  const lang = (req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : detectLang(q);
   if (!ebay.isConfigured()) {
     return res.json({
       configured: false,
       source: null,
       listings: [],
-      note: 'Real marketplace search needs free eBay developer keys. Add EBAY_APP_ID and EBAY_CERT_ID to .env (developer.ebay.com) — no keys, no real listings.',
+      note: t(lang, 'mpNotConfigured'),
     });
   }
   try {
@@ -777,14 +931,14 @@ app.get('/api/marketplace/search', async (req, res) => {
     }
     const scored = listings.map((l) => ({
       ...l,
-      risk: scoreMarketplaceListing(l, listings),
-      holdRisk: holdRiskForMarketplaceListing(l, listings),
+      risk: scoreMarketplaceListing(l, listings, lang),
+      holdRisk: holdRiskForMarketplaceListing(l, listings, lang),
     }));
     res.json({
       configured: true,
       source: 'eBay',
       listings: scored,
-      note: 'Real eBay listings (Browse API). Prices in USD; risk scores use marketplace signals — feedback %, price vs this search’s median, returns and shipping.',
+      note: t(lang, 'mpNote'),
     });
   } catch (err) {
     res.status(502).json({ configured: true, source: 'eBay', listings: [], error: err.message });
@@ -1104,10 +1258,11 @@ app.get('/api/vault', (req, res) => {
 app.post('/api/dispute/draft', (req, res) => {
   // Simulated draft, built only from a saved Proof Vault entry.
   const { vaultId } = req.body || {};
+  const lang = (req.body || {}).lang === 'id' ? 'id' : 'en';
   const entry = vaultId ? vaultEntries.get(vaultId) : null;
   if (!entry) {
     return res.status(404).json({
-      error: 'Proof Vault entry not found. Save a successful checkout first.',
+      error: t(lang, 'disputeNotFound'),
     });
   }
   const missing = [];
@@ -1118,15 +1273,15 @@ app.post('/api/dispute/draft', (req, res) => {
     vaultId: entry.id,
     readinessScore: missing.length === 0 ? 100 : 70,
     missingProof: missing,
-    draft:
-      `Dispute response draft (simulated, factual only): ` +
-      `Order ${entry.paypal?.orderId || 'unknown'} for ` +
-      `${entry.product?.name || 'the product'} ($${entry.totalCost?.total ?? entry.product?.priceUSD ?? 'unknown'}) ` +
-      `was paid via PayPal Sandbox and captured as ` +
-      `${entry.paypal?.status || 'unknown'}. ` +
-      `Seller: ${entry.seller?.name || 'unknown'} ` +
-      `(risk score ${entry.riskScore?.score ?? 'unknown'} at checkout). ` +
-      `Proof is attached in the Proof Vault entry ${entry.id}.`,
+    draft: fmt(t(lang, 'disputeBody'), {
+      order: entry.paypal?.orderId || 'unknown',
+      product: entry.product?.name || 'the product',
+      total: '$' + (entry.totalCost?.total ?? entry.product?.priceUSD ?? 'unknown'),
+      status: entry.paypal?.status || 'unknown',
+      seller: entry.seller?.name || 'unknown',
+      score: entry.riskScore?.score ?? 'unknown',
+      id: entry.id,
+    }),
   });
 });
 
