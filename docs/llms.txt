@@ -1,6 +1,6 @@
 # ShopPal v2
 
-> ShopPal v2 is an AI shopping agent for the PayPal AI Hackathon. It scores sellers (0–100), shows the honest PayPal total before you pay, predicts hold risk, and auto-saves proof for disputes. Demo runs on PayPal Sandbox — no real money moves.
+> ShopPal v2 is an AI shopping agent for the PayPal AI Hackathon. It scores sellers (0–100), shows the honest PayPal total before you pay, predicts hold risk, and auto-saves proof for disputes. Demo runs on PayPal Sandbox, no real money moves.
 
 ## Demos
 
@@ -13,7 +13,7 @@
 - **AI Seller Risk Score (0–100)**: profile age (25), transaction history (35), price fairness (20), tracking and returns (20). Zones: 80–100 Safe, 50–79 Caution, 0–49 Risky. Scores are transparent rules; AI only rewrites the reasons in plain language and never changes a number.
 - **Honest Total Cost**: item price plus PayPal Checkout fee (3.49% + $0.49), international fee (1.5%), and currency conversion spread (~3.5%). Example: a $59.99 item costs $65.57 in total.
 - **Hold Predictor**: estimates the chance a seller's PayPal funds will be held (Low / Moderate / High), from public hold patterns.
-- **Hold Release Checklist**: the steps that release a PayPal hold early — tracking number (release 3 days after delivery), marking Shipped (7 days), buyer confirmation (1 day), or 21 days by default.
+- **Hold Release Checklist**: the steps that release a PayPal hold early, tracking number (release 3 days after delivery), marking Shipped (7 days), buyer confirmation (1 day), or 21 days by default.
 - **Proof Vault**: every completed Sandbox checkout is saved with the verified capture, risk score, and total, ready for a dispute.
 - **Dispute Win Simulator**: the chance of winning a PayPal dispute (0–100), with the missing proof listed.
 - **Evidence Pack**: a one-click printable proof page (order, verified capture, risk score, timeline).
