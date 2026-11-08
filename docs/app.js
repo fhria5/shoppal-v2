@@ -1,13 +1,12 @@
-// ShopPal v2 — static demo for GitHub Pages (PayPal AI Hackathon).
-// Same 7-step flow as the Node.js server version, running fully in the
-// browser: risk score + total cost are the same audited rule formulas as
-// server.js; checkout uses the official PayPal JS SDK (Sandbox, client-side
-// createOrder/capture); Proof Vault lives in this browser's localStorage.
-// No secrets here — the PayPal Client ID in index.html is a public identifier.
+// ShopPal v2 — static demo for GitHub Pages. Same 7-step flow as the
+// Node.js server, running fully in the browser: risk score and total cost
+// use the same rule formulas as server.js; checkout uses the official
+// PayPal JS SDK (Sandbox); Proof Vault lives in localStorage.
+// No secrets here — the Client ID in index.html is a public identifier.
 (function () {
   'use strict';
 
-  // --- Demo catalog (same data as data/catalog.json) ---
+  // Demo catalog (same data as data/catalog.json)
   var CATALOG = {
     products: [
       { id: 'p01', name: 'Aurora Wireless Headphones', priceUSD: 59.99, referencePriceUSD: 59.99, category: 'Headphones', sellerId: 'seller-safe' },
@@ -36,7 +35,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var money = function (n) { return '$' + Number(n).toFixed(2); };
 
-  // --- Risk Score (identical formulas to server.js) ---
+  // Risk Score (same formulas as server.js)
   function scoreProfile(s) {
     return Math.round(Math.min(s.accountAgeYears / 3, 1) * 60 + (s.profileComplete ? 40 : 0));
   }
@@ -81,7 +80,7 @@
     return { score: total, label: label, components: components, reasons: reasons.slice(0, 3), recommendation: recommendation, aiAvailable: false, aiNote: 'AI explanation unavailable in the static demo — showing rule-based reasons.' };
   }
 
-  // --- Total Cost (identical rates to server.js) ---
+  // Total Cost (same rates as server.js)
   function calculateTotalCost(priceUSD, international, currencyConversion) {
     var price = Number(priceUSD);
     var paypalFee = Math.round((price * 0.0349 + 0.49) * 100) / 100;
@@ -91,7 +90,99 @@
     return { currency: 'USD', itemPrice: price, paypalFee: paypalFee, internationalFee: internationalFee, conversionSpread: conversionSpread, total: total, estimated: true };
   }
 
-  // --- Proof Vault (localStorage) ---
+  // Hold Predictor (same rules as server.js). Estimate from public hold
+  // patterns, not a PayPal decision.
+  function calculateHoldRisk(seller, product) {
+    var reasons = [];
+    var points = 0;
+    if (seller.disputeRate >= 5) { points += 40; reasons.push('Dispute rate is very high (' + seller.disputeRate + '%).'); }
+    else if (seller.disputeRate >= 2) { points += 25; reasons.push('Dispute rate is above average (' + seller.disputeRate + '%).'); }
+    else if (seller.disputeRate >= 1) { points += 10; reasons.push('Dispute rate is slightly above 1%.'); }
+    if (seller.accountAgeYears < 0.5) { points += 25; reasons.push('Seller account is less than 6 months old.'); }
+    else if (seller.accountAgeYears < 1.5) { points += 15; reasons.push('Seller account is less than 18 months old.'); }
+    else if (seller.accountAgeYears < 3) { points += 5; reasons.push('Seller account is less than 3 years old.'); }
+    if (seller.totalTransactions < 50) { points += 15; reasons.push('Very few completed transactions (' + seller.totalTransactions + ').'); }
+    else if (seller.totalTransactions < 1000) { points += 5; reasons.push('Relatively few completed transactions.'); }
+    var median = product.referencePriceUSD;
+    if (median && median > 0) {
+      var below = 1 - product.priceUSD / median;
+      if (below >= 0.5) { points += 15; reasons.push('Price is 50% or more below the category median.'); }
+      else if (below >= 0.2) { points += 5; reasons.push('Price is notably below the category median.'); }
+    }
+    if (!seller.hasTracking) { points += 5; reasons.push('No tracking offered, so delivery is harder to prove.'); }
+    var score = Math.min(points, 100);
+    var label = score < 25 ? 'Low' : score < 60 ? 'Moderate' : 'High';
+    var chance = label === 'Low' ? 'under 5%' : label === 'Moderate' ? '5–20%' : 'over 20%';
+    return {
+      score: score,
+      label: label,
+      chance: chance + ' (estimate)',
+      reasons: reasons.length ? reasons : ['No hold-risk signals in this seller pattern.'],
+      tip: label === 'Low'
+        ? 'Funds usually clear on the normal schedule for this pattern.'
+        : 'Ask the seller to upload tracking promptly, and keep the order total close to the seller’s usual range.'
+    };
+  }
+
+  // Ask parser: category + max budget out of plain language, matches
+  // ranked safest first.
+  var ASK_SYNONYMS = {
+    headphones: ['headphone', 'earbud', 'earphone', 'headset', 'audio'],
+    smartwatch: ['smartwatch', 'watch'],
+    keyboard: ['keyboard'],
+    speaker: ['speaker', 'bluetooth'],
+    charger: ['charger', 'cable', 'power', 'gan', 'adapter']
+  };
+  function parseAsk(query) {
+    var q = String(query || '').toLowerCase();
+    var budgetMatch = q.match(/(?:under|below|less than|max|up to|budget)\s*\$?\s*(\d+(?:\.\d{1,2})?)|\$\s*(\d+(?:\.\d{1,2})?)/);
+    var maxPrice = budgetMatch ? Number(budgetMatch[1] || budgetMatch[2]) : null;
+    var category = null;
+    for (var cat in ASK_SYNONYMS) {
+      if (ASK_SYNONYMS[cat].some(function (w) { return q.includes(w); })) { category = cat; break; }
+    }
+    var matches = CATALOG.products.slice();
+    if (category) {
+      var want = category.charAt(0).toUpperCase() + category.slice(1);
+      matches = matches.filter(function (p) { return p.category === want; });
+    }
+    if (maxPrice !== null) matches = matches.filter(function (p) { return p.priceUSD <= maxPrice; });
+    matches.sort(function (a, b) {
+      return calculateRiskScore(sellerOf(b), b).score - calculateRiskScore(sellerOf(a), a).score;
+    });
+    return { category: category, maxPrice: maxPrice, matches: matches };
+  }
+
+  // Subscription Watcher: same product bought twice or more.
+  function findSubscriptions(entries) {
+    var groups = {};
+    (entries || []).forEach(function (e) {
+      var name = e.product && e.product.name ? e.product.name : null;
+      if (!name) return;
+      var g = groups[name] || { productName: name, purchases: 0, totalSpent: 0, lastPurchase: null };
+      g.purchases += 1;
+      g.totalSpent = Math.round((g.totalSpent + Number(e.totalCost && e.totalCost.total || 0)) * 100) / 100;
+      if (!g.lastPurchase || (e.createdAt || '') > g.lastPurchase) g.lastPurchase = e.createdAt || null;
+      groups[name] = g;
+    });
+    return Object.keys(groups).map(function (k) { return groups[k]; })
+      .filter(function (g) { return g.purchases >= 2; })
+      .sort(function (a, b) { return b.purchases - a.purchases; });
+  }
+
+  // Public PayPal fee figures the cost table doesn't show (US merchant
+  // schedule, Oct 2026). Estimates, not a quote.
+  var TROUBLE_COSTS = {
+    chargebackUSD: 20,
+    disputeStandardUSD: 15,
+    disputeHighVolumeUSD: 30,
+    instantTransferPct: 1.5,
+    instantTransferMinUSD: 0.5,
+    protection: 'PayPal Buyer Protection covers Goods & Services payments. Friends & Family payments are not covered.',
+    note: 'Public PayPal merchant fee schedule (US, Oct 2026). Estimates, not a quote.'
+  };
+
+  // Proof Vault (localStorage)
   function loadVault() {
     try { return JSON.parse(localStorage.getItem(VAULT_KEY) || '[]'); } catch (e) { return []; }
   }
@@ -139,6 +230,19 @@
       '<p><strong>Recommendation:</strong> ' + r.recommendation + '</p>' +
       '<p class="hint">Profile ' + r.components.profile + ' · History ' + r.components.history +
       ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking + ' · ' + r.aiNote + '</p>';
+    renderHoldRisk();
+  }
+
+  function renderHoldRisk() {
+    var box = $('hold-risk');
+    if (!box || !selected) return;
+    var h = calculateHoldRisk(selected.seller, selected.product);
+    var zone = h.label === 'Low' ? 'safe' : h.label === 'Moderate' ? 'caution' : 'risky';
+    box.innerHTML =
+      '<p><strong>Hold Predictor</strong> — hold risk <span class="score score-' + zone + '">' + h.label + ' · ' + h.chance + '</span></p>' +
+      '<ul>' + h.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' +
+      '<p>' + h.tip + '</p>' +
+      '<p class="hint">Estimate from public hold patterns, not a PayPal decision.</p>';
   }
 
   function refreshCost() {
@@ -157,18 +261,31 @@
       '<tr><td>Currency conversion spread (~3.5%, estimated)</td><td>' + money(c.conversionSpread) + '</td></tr>' +
       '<tr><td><strong>Total (estimated)</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
       '</table>';
-    var warning = $('hold-warning');
-    if (selected.risk && selected.risk.label === 'Risky') {
-      warning.classList.remove('hidden');
-      warning.textContent = 'Hold warning: this seller pattern is at higher risk of a payment hold. Ask the seller to upload tracking promptly and avoid unusual payment spikes.';
-    } else {
-      warning.classList.add('hidden');
-      warning.textContent = '';
-    }
+    renderTroubleCosts(c);
     renderPayPalButton();
   }
 
-  // --- PayPal JS SDK checkout (Sandbox, client-side) ---
+  function renderTroubleCosts(c) {
+    var box = $('trouble-costs');
+    if (!box) return;
+    var t = TROUBLE_COSTS;
+    var refundLine = c.itemPrice < 12
+      ? 'Micropayments rate (4.99% + $0.09) would be cheaper for this item than the standard Checkout rate.'
+      : 'For items under $12, the Micropayments rate (4.99% + $0.09) is cheaper than the standard Checkout rate.';
+    box.innerHTML =
+      '<p><strong>If something goes wrong</strong></p>' +
+      '<ul>' +
+      '<li>Chargeback: $' + t.chargebackUSD + ' per case, on top of the lost sale.</li>' +
+      '<li>Dispute through PayPal: $' + t.disputeStandardUSD + ' ($' + t.disputeHighVolumeUSD + ' for high-volume sellers).</li>' +
+      '<li>Refund: the original fee is not returned, so a refunded order still costs the fee.</li>' +
+      '<li>Instant transfer to your bank: ' + t.instantTransferPct + '% (min $' + t.instantTransferMinUSD + '); standard transfer is free but takes 1–3 days.</li>' +
+      '<li>' + refundLine + '</li>' +
+      '</ul>' +
+      '<p><strong>Buyer Protection:</strong> ' + t.protection + '</p>' +
+      '<p class="hint">' + t.note + '</p>';
+  }
+
+  // PayPal JS SDK checkout (Sandbox, client-side)
   function renderPayPalButton() {
     var container = $('paypal-button-container');
     if (!selected || !window.paypal) {
@@ -266,27 +383,46 @@
     if (!entries.length) {
       vault.innerHTML = '<p>No Proof Vault entries yet. Complete a successful checkout to save proof automatically.</p>';
       $('dispute-btn').disabled = true;
+    } else {
+      lastVaultId = entries[0].id;
+      $('dispute-btn').disabled = false;
+      vault.innerHTML = entries.map(function (e) {
+        return '<p><strong>' + (e.product && e.product.name || e.id) + '</strong> — ' +
+          (e.paypal && e.paypal.status || 'unknown') + ' · Order ' + (e.paypal && e.paypal.orderId || '—') + '</p>';
+      }).join('');
+    }
+    renderSubscriptions(entries);
+  }
+
+  function renderSubscriptions(entries) {
+    var box = $('subscriptions');
+    if (!box) return;
+    var patterns = findSubscriptions(entries);
+    if (!patterns.length) {
+      box.innerHTML = '<p><strong>Subscription Watcher</strong></p><p>No recurring purchases detected yet. Buy the same product twice and it shows up here with the total you have spent on it.</p>';
       return;
     }
-    lastVaultId = entries[0].id;
-    $('dispute-btn').disabled = false;
-    vault.innerHTML = entries.map(function (e) {
-      return '<p><strong>' + (e.product && e.product.name || e.id) + '</strong> — ' +
-        (e.paypal && e.paypal.status || 'unknown') + ' · Order ' + (e.paypal && e.paypal.orderId || '—') + '</p>';
-    }).join('');
+    box.innerHTML =
+      '<p><strong>Subscription Watcher</strong> — recurring purchases found</p>' +
+      patterns.map(function (p) {
+        return '<p>' + p.productName + ' — bought ' + p.purchases + '×, total spent ' + money(p.totalSpent) +
+          ', last purchase ' + (p.lastPurchase ? p.lastPurchase.slice(0, 10) : '—') + '</p>';
+      }).join('');
   }
 
   function bindEvents() {
     $('ask-btn').addEventListener('click', function () {
-      var q = $('ask').value.trim().toLowerCase();
+      var q = $('ask').value.trim();
       if (!q) return;
-      var matches = CATALOG.products.filter(function (p) {
-        return q.includes(p.category.toLowerCase()) || q.includes(p.name.toLowerCase().split(' ')[0]);
-      });
-      renderCatalog(matches.length ? matches : CATALOG.products);
-      if (!matches.length) {
-        $('catalog').insertAdjacentHTML('beforeend', '<p class="hint">No exact match in the demo catalog — showing all 10 demo products.</p>');
-      }
+      var parsed = parseAsk(q);
+      var products = parsed.matches.length ? parsed.matches : CATALOG.products;
+      renderCatalog(products);
+      var understood = [];
+      if (parsed.category) understood.push(parsed.category);
+      if (parsed.maxPrice !== null) understood.push('under $' + parsed.maxPrice);
+      $('catalog').insertAdjacentHTML('beforeend',
+        '<p class="hint">Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
+        ' — ' + (parsed.matches.length ? 'Matches sorted safest first.' : 'No exact match in the demo catalog — showing all 10 demo products.') + '</p>');
     });
     $('opt-international').addEventListener('change', refreshCost);
     $('opt-conversion').addEventListener('change', refreshCost);
