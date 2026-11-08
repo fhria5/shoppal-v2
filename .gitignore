@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit
+.env
+.env.local
+.env.*.local
+
+# Proof Vault entries (demo transaction snapshots) — keep the directory, not the data
+data/vault/*.json
+!data/vault/.gitkeep
+
+# Build output
+dist/
+build/
