@@ -206,6 +206,23 @@
       budLeft: '{left} left this month.', budOver: 'Over budget by {over} this month.',
       budWarn: 'This purchase would take you over your monthly budget ({spent} of {budget} spent).',
       budNoBudget: 'No monthly budget set.',
+      grTitle: 'Smart Guardrails', grIntro: 'The agent auto-pays only under your limit. Above it, it asks you first, so a hallucination can never buy something expensive.',
+      grLimit: 'Auto-approve up to (USD)', grSave: 'Save guardrails', grSaved: 'Guardrails saved.',
+      grCatCap: 'Monthly cap for {cat} (USD, empty = no cap)',
+      grNeedApproval: 'Needs your approval', grAboveLimit: 'This purchase ({total}) is above your auto-approve limit ({limit}).',
+      grCatOver: 'This would take {cat} over its monthly cap ({spent} of {cap} spent).',
+      grApprove: 'Approve and pay', grReject: 'Reject this purchase',
+      grApproved: 'Approved, capturing payment...', grRejected: 'Purchase rejected. The PayPal order was not captured and will expire.',
+      grAutoOk: 'Under your auto-approve limit, capturing...',
+      dwTitle: 'Delivery Watch', dwIntro: 'The agent watches every delivery. If a parcel stalls for 7 days or misses its estimate, it prepares a dispute draft before your 180-day filing window shrinks.',
+      dwAddTracking: 'Add tracking', dwCheck: 'Check delivery', dwNoTracker: 'No tracking yet for this order.',
+      dwStatus: 'Delivery: {status}', dwOverdue: 'Overdue {n} days: no delivery update. A dispute draft is ready below.',
+      dwOnTime: 'On track, {n} days since purchase.', dwDraftReady: 'Dispute draft prepared automatically.',
+      dwNoOrders: 'No orders to watch yet.',
+      fxTitle: 'Pay in local currency or USD?', fxNote: 'PayPal adds about 3-4% on currency conversion. Live mid-market rate below, PayPal total includes the markup.',
+      fxPaypalTotal: 'PayPal total', fxMidRate: 'Mid-market rate', fxCheaper: 'Cheapest: pay in {cur}.',
+      fxUnavailable: 'Live rate unavailable, using a stored rate.',
+      exTitle: 'Spending dashboard', exTotal: 'Total spent', exThisMonth: 'this month', exEmpty: 'No spending recorded yet.',
       hrcTitle: 'Hold release checklist', hrcBtn: 'How to release this hold faster',
       hrcIntro: 'PayPal holds new or risky sellers’ money for up to 21 days. Each step below can release it sooner, tick what is already done and see the estimated release.',
       hrcEstimated: 'Estimated release: {n} days', hrcCurrent: 'Current hold: {n} days',
@@ -373,6 +390,23 @@
       budLeft: 'Sisa {left} bulan ini.', budOver: 'Melebihi budget {over} bulan ini.',
       budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
       budNoBudget: 'Belum ada budget bulanan.',
+      grTitle: 'Smart Guardrails', grIntro: 'Agen hanya bayar otomatis di bawah batasmu. Di atas itu, ia bertanya dulu, jadi halusinasi tidak bisa membeli barang mahal.',
+      grLimit: 'Setujui otomatis sampai (USD)', grSave: 'Simpan guardrails', grSaved: 'Guardrails tersimpan.',
+      grCatCap: 'Batas bulanan untuk {cat} (USD, kosong = tanpa batas)',
+      grNeedApproval: 'Butuh persetujuanmu', grAboveLimit: 'Pembelian ini ({total}) di atas batas setujui otomatis ({limit}).',
+      grCatOver: 'Ini akan membuat {cat} melewati batas bulanannya ({spent} dari {cap} sudah terpakai).',
+      grApprove: 'Setujui dan bayar', grReject: 'Tolak pembelian ini',
+      grApproved: 'Disetujui, meng-capture pembayaran...', grRejected: 'Pembelian ditolak. Order PayPal tidak di-capture dan akan kedaluwarsa.',
+      grAutoOk: 'Di bawah batas setujui otomatis, meng-capture...',
+      dwTitle: 'Delivery Watch', dwIntro: 'Agen memantau tiap pengiriman. Kalau paket macet 7 hari atau melewati estimasi, ia menyiapkan draf sengketa sebelum jendela pengajuan 180 harimu menyusut.',
+      dwAddTracking: 'Tambah resi', dwCheck: 'Cek pengiriman', dwNoTracker: 'Belum ada resi untuk order ini.',
+      dwStatus: 'Pengiriman: {status}', dwOverdue: 'Terlambat {n} hari: tidak ada update pengiriman. Draf sengketa sudah siap di bawah.',
+      dwOnTime: 'Tepat waktu, {n} hari sejak pembelian.', dwDraftReady: 'Draf sengketa disiapkan otomatis.',
+      dwNoOrders: 'Belum ada order untuk dipantau.',
+      fxTitle: 'Bayar pakai mata uang lokal atau USD?', fxNote: 'PayPal menambah sekitar 3-4% untuk konversi mata uang. Kurs mid-market live di bawah, total PayPal sudah termasuk markup.',
+      fxPaypalTotal: 'Total PayPal', fxMidRate: 'Kurs mid-market', fxCheaper: 'Paling hemat: bayar pakai {cur}.',
+      fxUnavailable: 'Kurs live tidak tersedia, memakai kurs tersimpan.',
+      exTitle: 'Dashboard pengeluaran', exTotal: 'Total belanja', exThisMonth: 'bulan ini', exEmpty: 'Belum ada pengeluaran tercatat.',
       hrcTitle: 'Checklist cairkan hold', hrcBtn: 'Cara cairkan hold ini lebih cepat',
       hrcIntro: 'PayPal menahan uang seller baru atau berisiko sampai 21 hari. Tiap langkah di bawah bisa mencairkannya lebih cepat, centang yang sudah dilakukan dan lihat perkiraan cairnya.',
       hrcEstimated: 'Perkiraan cair: {n} hari', hrcCurrent: 'Hold saat ini: {n} hari',
@@ -423,6 +457,37 @@
       if (d === ym) sum += Number(e.totalCost && e.totalCost.total || e.product && e.product.priceUSD || 0);
     });
     return Math.round(sum * 100) / 100;
+  }
+
+  // ---------- Smart Guardrails (local mirror of the server rules) ----------
+  var GUARDRAILS_KEY = 'shoppal-guardrails';
+  var CATEGORIES = ['Headphones', 'Smartwatch', 'Keyboard', 'Speaker', 'Charger'];
+  function getGuardrails() {
+    try {
+      var g = JSON.parse(localStorage.getItem(GUARDRAILS_KEY) || 'null');
+      if (g && typeof g === 'object') return { autoApproveLimit: Number(g.autoApproveLimit) || 20, categoryCaps: (g.categoryCaps && typeof g.categoryCaps === 'object') ? g.categoryCaps : {} };
+    } catch (e) { /* fall through to defaults */ }
+    return { autoApproveLimit: 20, categoryCaps: {} };
+  }
+  function saveGuardrailsLocal(g) {
+    try { localStorage.setItem(GUARDRAILS_KEY, JSON.stringify(g)); } catch (e) { /* private mode */ }
+  }
+  function checkGuardrailsLocal(totalUSD, category) {
+    var g = getGuardrails();
+    var reasons = [];
+    if (totalUSD > g.autoApproveLimit) reasons.push(fmt(t('grAboveLimit'), { total: money(totalUSD), limit: money(g.autoApproveLimit) }));
+    var cap = category && g.categoryCaps ? Number(g.categoryCaps[category]) : NaN;
+    if (category && Number.isFinite(cap) && cap > 0) {
+      var spent = 0;
+      var now = new Date();
+      var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+      loadVault().forEach(function (e) {
+        var d = ((e.createdAt || (e.paypal && e.paypal.createTime) || '')).slice(0, 7);
+        if (d === ym && e.product && e.product.category === category) spent += Number((e.totalCost && e.totalCost.total) || e.product.priceUSD || 0);
+      });
+      if (spent + totalUSD > cap) reasons.push(fmt(t('grCatOver'), { cat: category, spent: money(spent), cap: money(cap) }));
+    }
+    return { needsApproval: reasons.length > 0, reasons: reasons };
   }
 
   // ---------- Import Cost (local mirror of the server rules) ----------
@@ -1380,6 +1445,26 @@
     });
   }
 
+  async function renderFx(totalUSD, boxId) {
+    var box = $(boxId);
+    if (!box || !totalUSD) return;
+    box.innerHTML = '<p><strong>' + t('fxTitle') + '</strong></p>' +
+      '<p><select id="fx-cur"><option value="IDR">IDR</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="SGD">SGD</option></select></p>' +
+      '<p id="fx-out"></p><p class="hint">' + t('fxNote') + '</p>';
+    var run = async function () {
+      var cur = box.querySelector('#fx-cur').value;
+      var out = $('fx-out');
+      if (out) out.textContent = '…';
+      try {
+        var res = await fetch(WORKER_API + '/api/fx-compare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amountUSD: totalUSD, currency: cur, lang: lang }) });
+        var d = await res.json();
+        if (!res.ok || !d.rate) { if (out) out.textContent = t('fxUnavailable'); return; }
+        if (out) out.innerHTML = t('fxMidRate') + ': ' + d.rate + ' · ' + t('fxPaypalTotal') + ': ' + d.paypalTotal.toLocaleString() + ' ' + d.currency + (d.live ? '' : ' (' + t('fxUnavailable') + ')');
+      } catch (e) { if (out) out.textContent = t('fxUnavailable'); }
+    };
+    box.querySelector('#fx-cur').addEventListener('change', run);
+    run();
+  }
   function showCost() {
     selected.cost = calculateTotalCost(selected.product.priceUSD, true, true);
     var c = selected.cost;
@@ -1405,6 +1490,7 @@
       '<option value="SG">Singapore</option>' +
       '</select></label></p>' +
       '<div id="import-cost"></div>' +
+      '<div id="fx-box"></div>' +
       '<div class="card"><p><strong>' + t('troubleTitle') + '</strong></p>' +
       '<ul>' +
       '<li>' + fmt(t('chargeback'), { n: tc.chargebackUSD }) + '</li>' +
@@ -1417,6 +1503,7 @@
       '<p class="hint">' + t('troubleNote') + '</p></div>',
       'cost');
     // Import cost for the selected destination country (local estimate).
+    renderFx(c.total, 'fx-box');
     bubble.querySelector('#import-country').addEventListener('change', function () {
       var box = $('import-cost');
       if (!box) return;
@@ -1517,38 +1604,64 @@
         });
       },
       onApprove: function (data, actions) {
-        $('checkout-status').textContent = fmt(t('approvedCapturing'), { id: data.orderID });
-        return actions.order.capture().then(function (details) {
-          if (token !== paypalRenderToken) return;
-          var capture = (details.purchase_units && details.purchase_units[0] && details.purchase_units[0].payments && details.purchase_units[0].payments.captures && details.purchase_units[0].payments.captures[0]) || null;
-          if (!details || details.status !== 'COMPLETED' || !capture) {
-            $('checkout-status').textContent = fmt(t('captureFailed'), { status: details && details.status });
-            return;
-          }
-          var entry = {
-            id: data.orderID,
-            createdAt: new Date().toISOString(),
-            product: { id: product.id, name: product.name, priceUSD: product.priceUSD, category: product.category },
-            seller: { id: seller.id, name: seller.name, tracking: seller.hasTracking, returnPolicy: seller.hasReturnPolicy },
-            riskScore: { score: risk.score, label: risk.label },
-            totalCost: { total: Number(capture.amount.value), currency: capture.amount.currency_code || 'USD' },
-            paypal: {
-              orderId: data.orderID,
-              captureId: capture.id,
-              status: capture.status,
-              payerEmail: (details.payer && details.payer.email_address) || null,
-              createTime: capture.create_time || null,
-              updateTime: capture.update_time || null
+        // Smart Guardrails: the buyer approved in PayPal, but the agent
+        // only captures when the purchase is under the user's rules.
+        var doSdkCapture = function () {
+          $('checkout-status').textContent = fmt(t('approvedCapturing'), { id: data.orderID });
+          return actions.order.capture().then(function (details) {
+            if (token !== paypalRenderToken) return;
+            var capture = (details.purchase_units && details.purchase_units[0] && details.purchase_units[0].payments && details.purchase_units[0].payments.captures && details.purchase_units[0].payments.captures[0]) || null;
+            if (!details || details.status !== 'COMPLETED' || !capture) {
+              $('checkout-status').textContent = fmt(t('captureFailed'), { status: details && details.status });
+              return;
             }
-          };
-          saveVaultEntry(entry);
-          $('checkout-status').textContent = fmt(t('paymentCaptured'), { id: capture.id });
-          addBubble('agent',
-            '<p><strong>' + fmt(t('successTitle'), { total: money(entry.totalCost.total) }) + '</strong> Order ' + data.orderID +
-            ' · Capture ' + capture.id + ' · status ' + capture.status + '</p>' +
-            '<p>' + t('successProof') + '</p>',
-            'success');
-          showVault();
+            var entry = {
+              id: data.orderID,
+              createdAt: new Date().toISOString(),
+              product: { id: product.id, name: product.name, priceUSD: product.priceUSD, category: product.category },
+              seller: { id: seller.id, name: seller.name, tracking: seller.hasTracking, returnPolicy: seller.hasReturnPolicy },
+              riskScore: { score: risk.score, label: risk.label },
+              totalCost: { total: Number(capture.amount.value), currency: capture.amount.currency_code || 'USD' },
+              paypal: {
+                orderId: data.orderID,
+                captureId: capture.id,
+                status: capture.status,
+                payerEmail: (details.payer && details.payer.email_address) || null,
+                createTime: capture.create_time || null,
+                updateTime: capture.update_time || null
+              }
+            };
+            saveVaultEntry(entry);
+            $('checkout-status').textContent = fmt(t('paymentCaptured'), { id: capture.id });
+            addBubble('agent',
+              '<p><strong>' + fmt(t('successTitle'), { total: money(entry.totalCost.total) }) + '</strong> Order ' + data.orderID +
+              ' · Capture ' + capture.id + ' · status ' + capture.status + '</p>' +
+              '<p>' + t('successProof') + '</p>',
+              'success');
+            showVault();
+          });
+        };
+        var chk = checkGuardrailsLocal(total, product.category);
+        if (!chk.needsApproval) return doSdkCapture();
+        return new Promise(function (resolve) {
+          var ab = addBubble('agent',
+            '<p><strong>' + t('grNeedApproval') + '</strong></p>' +
+            '<p>' + money(total) + ' · ' + product.category + '</p>' +
+            '<ul>' + chk.reasons.map(function (r) { return '<li>' + r + '</li>'; }).join('') + '</ul>' +
+            '<p><button id="gr-approve" type="button">' + t('grApprove') + '</button> ' +
+            '<button id="gr-reject" type="button" class="btn-secondary">' + t('grReject') + '</button></p>');
+          ab.querySelector('#gr-approve').addEventListener('click', function () {
+            ab.querySelector('#gr-approve').disabled = true;
+            ab.querySelector('#gr-reject').disabled = true;
+            addBubble('agent', '<p>' + t('grApproved') + '</p>');
+            resolve(doSdkCapture());
+          });
+          ab.querySelector('#gr-reject').addEventListener('click', function () {
+            ab.querySelector('#gr-approve').disabled = true;
+            ab.querySelector('#gr-reject').disabled = true;
+            addBubble('agent', '<p>' + t('grRejected') + '</p>');
+            resolve();
+          });
         });
       },
       onCancel: function () {
@@ -1593,10 +1706,22 @@
         ? fmt(t('budSpent'), { spent: money(spent), budget: money(budget), pct: Math.round(spent / budget * 100) }) + ' ' +
           (spent > budget ? fmt(t('budOver'), { over: money(spent - budget) }) : fmt(t('budLeft'), { left: money(Math.round((budget - spent) * 100) / 100) }))
         : t('budNoBudget')) + '</p></div>';
+    var gr = getGuardrails();
+    var grHtml = '<div class="card"><p><strong>' + t('grTitle') + '</strong></p>' +
+      '<p class="hint">' + t('grIntro') + '</p>' +
+      '<p><input id="gr-limit" type="number" min="0" step="1" value="' + gr.autoApproveLimit + '" style="width:90px"> ' + t('grLimit') + '</p>' +
+      CATEGORIES.map(function (c) {
+        return '<p><input class="gr-cap" data-cat="' + c + '" type="number" min="0" step="1" value="' + (gr.categoryCaps[c] || '') + '" style="width:90px"> ' + fmt(t('grCatCap'), { cat: c }) + '</p>';
+      }).join('') +
+      '<p><button id="gr-save" type="button">' + t('grSave') + '</button> <span id="gr-status"></span></p></div>';
+    var dwHtml = '<div class="card" id="dw-card"><p><strong>' + t('dwTitle') + '</strong></p><p class="hint">' + t('dwIntro') + '</p><p id="dw-body">…</p></div>';
     var bubble = addBubble('agent',
       '<p><strong>Proof Vault</strong></p>' + body +
       '<div class="card">' + subs + '</div>' +
       budHtml +
+      grHtml +
+      dwHtml +
+      '<div class="card" id="ex-card"><p><strong>' + t('exTitle') + '</strong></p><p id="ex-body">…</p></div>' +
       '<div class="vault-actions"><button id="vault-refresh" type="button" class="btn-secondary">' + t('refreshVault') + '</button> ' +
       '<button id="dispute-btn" type="button" class="btn-secondary"' + (entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button> ' +
       '<button id="sim-btn" type="button" class="btn-secondary"' + (entries.length ? '' : ' disabled') + '>' + t('simBtn') + '</button> ' +
@@ -1615,6 +1740,68 @@
       if (v > 0) setBudget(v);
       showVault();
     });
+    // Smart Guardrails (stored in this browser).
+    bubble.querySelector('#gr-save').addEventListener('click', function () {
+      var limit = Number(bubble.querySelector('#gr-limit').value);
+      var caps = {};
+      bubble.querySelectorAll('.gr-cap').forEach(function (inp) {
+        var n = Number(inp.value);
+        if (n > 0) caps[inp.getAttribute('data-cat')] = n;
+      });
+      saveGuardrailsLocal({ autoApproveLimit: (Number.isFinite(limit) && limit >= 0) ? limit : 20, categoryCaps: caps });
+      var st = $('gr-status');
+      if (st) st.textContent = t('grSaved');
+    });
+    // Delivery Watch (local mirror: overdue = 7+ days, no DELIVERED update).
+    (function renderDwLocal() {
+      var box = $('dw-body');
+      if (!box) return;
+      var entries = loadVault();
+      if (!entries.length) { box.innerHTML = '<p>' + t('dwNoOrders') + '</p>'; return; }
+      var now = Date.now();
+      box.innerHTML = entries.slice(0, 3).map(function (e) {
+        var bought = new Date((e.paypal && e.paypal.createTime) || e.createdAt || Date.now()).getTime();
+        var days = Math.max(0, Math.floor((now - bought) / 86400000));
+        var status = (e.tracking && e.tracking.status) || 'NO_TRACKER';
+        var overdue = status !== 'DELIVERED' && days >= 7;
+        var line = '<p><strong>' + (e.product && e.product.name || e.id) + '</strong> · ' + fmt(t('dwStatus'), { status: status }) + ', ' +
+          (overdue ? fmt(t('dwOverdue'), { n: days }) : fmt(t('dwOnTime'), { n: days })) + '</p>';
+        if (overdue) {
+          var sim = simulateLocal({ vaultId: e.id, disputeType: 'not_received' });
+          if (sim) line += '<p>' + t('dwDraftReady') + ' ' + t('simWinChance') + ': ' + sim.winChance + '%</p>';
+        }
+        return line;
+      }).join('');
+    })();
+    // Expense dashboard (local vault totals by category).
+    (function renderExLocal() {
+      var box = $('ex-body');
+      if (!box) return;
+      var entries = loadVault();
+      if (!entries.length) { box.innerHTML = '<p>' + t('exEmpty') + '</p>'; return; }
+      var byCat = {};
+      var total = 0;
+      var now = new Date();
+      var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+      var monthTotal = 0;
+      entries.forEach(function (e) {
+        var amt = Number((e.totalCost && e.totalCost.total) || (e.product && e.product.priceUSD) || 0);
+        var cat = (e.product && e.product.category) || 'Other';
+        total += amt;
+        var d = ((e.createdAt || (e.paypal && e.paypal.createTime) || '')).slice(0, 7);
+        if (d === ym) monthTotal += amt;
+        if (!byCat[cat]) byCat[cat] = { total: 0, count: 0 };
+        byCat[cat].total += amt;
+        byCat[cat].count++;
+      });
+      var rows = Object.keys(byCat).map(function (k) { return { category: k, total: byCat[k].total, count: byCat[k].count }; }).sort(function (a, b) { return b.total - a.total; });
+      var max = Math.max.apply(null, rows.map(function (r) { return r.total; }).concat([1]));
+      box.innerHTML = '<p><strong>' + t('exTotal') + ': ' + money(total) + '</strong> (' + money(monthTotal) + ' ' + t('exThisMonth') + ')</p>' +
+        rows.map(function (r) {
+          var pct = Math.round(r.total / max * 100);
+          return '<p>' + r.category + ' · ' + money(r.total) + ' (' + r.count + ')</p><div style="background:#e5e5e5;border-radius:4px;height:8px"><div style="background:#111111;border-radius:4px;height:8px;width:' + pct + '%"></div></div>';
+        }).join('');
+    })();
     bubble.querySelector('#dispute-btn').addEventListener('click', function () { showDisputeDraft(); });
     // Dispute simulation for the latest vault entry (rule-based, local).
     bubble.querySelector('#sim-btn').addEventListener('click', function () {
