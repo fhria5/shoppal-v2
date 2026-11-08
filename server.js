@@ -4,11 +4,11 @@
 //
 // Stack: Node.js (>= 20) + Express + static frontend.
 // PayPal: JS SDK (client) + REST API (server). AI: one server function
-// (Gemini free tier, with a rule-based fallback when the key is absent).
+// (Vyce API, DeepSeek, with a rule-based fallback when the key is absent).
 // Storage: JSON file for the catalog, JSON files in data/vault/ for proofs.
 //
 // SECURITY: secrets come only from environment variables. This file never
-// logs PAYPAL_CLIENT_SECRET or GEMINI_API_KEY, and never returns them in
+// logs PAYPAL_CLIENT_SECRET or VYCE_API_KEY, and never returns them in
 // any API response. The PayPal Client ID is a public identifier and is the
 // only PayPal credential ever sent to the browser (via /api/config).
 
@@ -40,10 +40,13 @@ const productsById = new Map(catalog.products.map((p) => [p.id, p]));
 // ---------------------------------------------------------------------------
 // AI: one server function for explanations.
 // Rule-based reasons are always produced first (deterministic, auditable).
-// If GEMINI_API_KEY is set, Gemini rewrites those reasons into plain
+// If VYCE_API_KEY is set, the Vyce API (OpenAI-compatible chat completions,
+// default model deepseek-v4.1) rewrites those reasons into plain
 // language only — the model never changes the numeric score. If the key is
 // absent or the call fails/times out, the rule-based reasons are returned
 // with aiAvailable: false.
+// The key is never committed, never logged, and never sent to the browser:
+// it lives only in .env (local, gitignored) or in the host's env vars.
 // ---------------------------------------------------------------------------
 async function explainScore(components, label) {
   // Rule-based explanation — deterministic, auditable, works offline.
@@ -77,41 +80,43 @@ async function explainScore(components, label) {
     aiAvailable: false,
     aiNote: 'AI explanation unavailable — showing rule-based reasons.',
   };
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.VYCE_API_KEY;
   if (!apiKey) return fallback;
+  const baseUrl = (process.env.VYCE_API_BASE || 'https://vyceai.com/v1').replace(/\/$/, '');
+  const model = process.env.VYCE_MODEL || 'deepseek-v4.1';
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' +
-        encodeURIComponent(apiKey),
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                {
-                  text:
-                    'Rewrite these 3 seller-risk reasons as short plain-language bullet lines for a shopper. ' +
-                    'Do not change any numbers, do not add new facts, do not invent scores. ' +
-                    'Return exactly 3 lines, one reason per line, no numbering, no extra text.\n' +
-                    reasons.slice(0, 3).join('\n'),
-                },
-              ],
-            },
-          ],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 200 },
-        }),
-        signal: controller.signal,
-      }
-    );
+    const res = await fetch(baseUrl + '/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + apiKey,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You rewrite seller-risk reasons for a shopper. Keep the meaning, ' +
+              'do not change any numbers, do not add new facts, do not invent scores. ' +
+              'Return exactly 3 lines, one reason per line, no numbering, no extra text.',
+          },
+          {
+            role: 'user',
+            content: reasons.slice(0, 3).join('\n'),
+          },
+        ],
+        temperature: 0.2,
+        max_tokens: 200,
+      }),
+      signal: controller.signal,
+    });
     clearTimeout(timer);
     if (!res.ok) return fallback;
     const data = await res.json();
-    const text =
-      data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+    const text = data?.choices?.[0]?.message?.content || '';
     const lines = text
       .split('\n')
       .map((l) => l.replace(/^[-*•\d.)\s]+/, '').trim())
@@ -122,7 +127,7 @@ async function explainScore(components, label) {
       reasons: lines,
       recommendation,
       aiAvailable: true,
-      aiNote: 'Explanation rewritten by Gemini; the numeric score is rule-based and unchanged.',
+      aiNote: 'Explanation rewritten by AI (Vyce); the numeric score is rule-based and unchanged.',
     };
   } catch (err) {
     return fallback;
@@ -224,7 +229,7 @@ app.get('/api/config', (req, res) => {
   res.json({
     paypalClientId: process.env.PAYPAL_CLIENT_ID || null,
     paypalMode: PAYPAL_MODE,
-    hasGeminiKey: Boolean(process.env.GEMINI_API_KEY),
+    hasVyceKey: Boolean(process.env.VYCE_API_KEY),
   });
 });
 
