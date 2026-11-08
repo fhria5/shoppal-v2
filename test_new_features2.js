@@ -158,9 +158,12 @@ async function get(path) {
   check('gr exactly $20 auto-ok', r.data.needsApproval === false, r.data);
 
   // ---------- 6. Delivery Watch (Tracking API) ----------
-  r = await post('/api/tracking/add', { vaultId: '6M815901GS984845M', lang: 'en' });
+  // Use 7L12554580106983W: the 6M capture has hit PayPal's per-transaction
+  // tracker limit after repeated test runs ("Number of Trackers More than
+  // Permissible"), so it can no longer accept a new tracker. 7L has none yet.
+  r = await post('/api/tracking/add', { vaultId: '7L12554580106983W', lang: 'en' });
   check('dw tracking add 201', r.status === 200 && r.data.status === 'SHIPPED' && r.data.trackerId, r.data);
-  let tres = await fetch(BASE + '/api/tracking/status?vaultId=6M815901GS984845M&lang=en');
+  let tres = await fetch(BASE + '/api/tracking/status?vaultId=7L12554580106983W&lang=en');
   let tdata = await tres.json();
   check('dw tracking status', tdata.hasTracker === true && tdata.trackerId, tdata);
   r = await post('/api/tracking/add', { vaultId: 'nope', lang: 'en' });
@@ -285,6 +288,8 @@ async function get(path) {
   // Quick Demo chip 1: cheapest item is p11 ($14.99, total $16.74 <= $20) -> auto-checkout, no approval.
   r = await post('/api/agent', { message: 'beli barang termurah', lang: 'id' });
   check('agent cheapest item auto-checkout p11', r.status === 200 && r.data.order && r.data.order.totalUSD === 16.74 && !r.data.needsApproval, r.data);
+  r = await post('/api/agent', { message: 'patungan headphone p01 sama Budi dan Sari', lang: 'id' });
+  check('agent split p01 share is 20.00 (item price, not total)', r.status === 200 && r.data.splitPayment && r.data.splitPayment.total === 59.99 && r.data.splitPayment.share === 20 && r.data.splitPayment.initiatorShare === '19.99', r.data);
   // Quick Demo chip 4: track & dispute the latest purchase. Works when a
   // vault entry exists (the E2E capture earlier); otherwise a helpful reply.
   r = await post('/api/agent', { message: 'lacak dan dispute pesanan terakhir', lang: 'id' });
