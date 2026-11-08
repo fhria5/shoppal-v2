@@ -1,14 +1,15 @@
-/* ShopPal v2 — chat UI. Same disciplined palette as before:
-   navy #0a2472, blue #1d4ed8, light bg #f6f8fc, ink #1a2233. */
+/* ShopPal v2, chat UI. Premium fintech direction (see DESIGN.md):
+   deep navy #0B132B, navy #1C2541, slate #3A506B, gold accent #D97706,
+   soft gold tint #F4D6B0, ink #0B132B. Palette: the owner's Sunset Fusion. */
 * { box-sizing: border-box; }
 
-.ext-link { font-size: 0.85rem; color: #1d4ed8; }
+.ext-link { font-size: 0.85rem; color: #1C2541; }
 
 body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   margin: 0;
-  background: #e9edf5;
-  color: #1a2233;
+  background: #e9ebee;
+  color: #0B132B;
   line-height: 1.5;
 }
 
@@ -22,15 +23,16 @@ body {
   box-shadow: 0 0 0 1px #dde3ee;
 }
 
-/* Chat header: agent identity, like a messaging app. */
+/* Chat header: agent identity, like a messaging app. Navy with one gold rule. */
 .chat-header {
-  background: #0a2472;
+  background: #0B132B;
   color: #fff;
   padding: 0.75rem 1rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  border-bottom: 3px solid #D97706;
 }
 
 .agent-id { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
@@ -85,11 +87,11 @@ body {
 }
 .msg.user {
   align-self: flex-end;
-  background: #1d4ed8;
+  background: #1C2541;
   color: #fff;
   border-radius: 16px 16px 4px 16px;
 }
-.msg-label { font-size: 0.75rem; font-weight: 700; color: #1d4ed8; margin-bottom: 0.25rem; }
+.msg-label { font-size: 0.75rem; font-weight: 700; color: #1C2541; margin-bottom: 0.25rem; }
 .msg p { margin: 0.35rem 0; }
 .msg p:first-child { margin-top: 0; }
 .msg p:last-child { margin-bottom: 0; }
@@ -100,15 +102,17 @@ body {
 .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
 .chip {
   background: #fff;
-  color: #1d4ed8;
-  border: 1px solid #1d4ed8;
+  color: #1C2541;
+  border: 1px solid #1C2541;
   border-radius: 999px;
   padding: 0.75rem 1rem;
   font-size: 0.9rem;
   cursor: pointer;
 }
+.chip.active { background: #1C2541; color: #fff; }
 
-/* Product cards inside a message. */
+/* Product cards inside a message. Neutral border + soft shadow; the risk
+   pill on the card makes risk visible before any tap. */
 .cards {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -118,20 +122,23 @@ body {
 .product-card {
   text-align: left;
   background: #fff;
-  color: #1a2233;
-  border: 1px solid #1d4ed8;
+  color: #0B132B;
+  border: 1px solid #dde3ee;
   border-radius: 10px;
   padding: 0;
   cursor: pointer;
   font: inherit;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(11, 19, 43, 0.08);
 }
-.product-card:hover { background: #eef4ff; }
-.product-card img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; }
+.product-card:hover { background: #f6f8fc; }
+.product-card.selected { border-color: #1C2541; box-shadow: 0 0 0 1px #1C2541, 0 1px 3px rgba(11, 19, 43, 0.08); }
+.product-card img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; display: block; background: #f6f8fc; }
 .product-card .card-body { padding: 0.6rem 0.7rem; }
-.product-card .card-body strong { display: block; }
-.product-card .price { font-weight: 700; }
-.product-card .seller { font-size: 0.85rem; color: #5b6b82; }
+.product-card .card-body strong { display: block; font-size: 1rem; color: #0B132B; }
+.product-card .price { font-weight: 700; font-size: 1.15rem; color: #0B132B; }
+.product-card .seller { font-size: 0.85rem; color: #3A506B; }
+.product-card .card-score { float: right; margin-left: 0.4rem; }
 
 /* Inner content blocks (risk, cost, vault) inside a message. */
 .card {
@@ -143,7 +150,7 @@ body {
 }
 .card:first-child { margin-top: 0; }
 
-.hint { color: #5b6b82; font-size: 0.9rem; }
+.hint { color: #3A506B; font-size: 0.9rem; }
 .hidden { display: none; }
 
 .score { font-weight: 700; padding: 0.15rem 0.5rem; border-radius: 999px; white-space: nowrap; }
@@ -154,6 +161,17 @@ body {
 table { width: 100%; border-collapse: collapse; }
 td { padding: 0.35rem 0; border-bottom: 1px solid #e5e7eb; }
 td:last-child { text-align: right; white-space: nowrap; }
+
+/* Feature blocks: one professional layout for risk, cost, and hold.
+   A small-caps navy title over a rule, then the key number large. */
+.feature-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem;
+  border-bottom: 2px solid #1C2541; padding-bottom: 0.4rem; margin-bottom: 0.6rem;
+}
+.feature-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #1C2541; }
+.feature-metric { font-size: 1.75rem; font-weight: 800; color: #0B132B; line-height: 1.2; margin: 0.2rem 0 0.5rem; }
+.feature-metric-sub { font-size: 1rem; font-weight: 700; color: #3A506B; }
+tr.total-row td { border-top: 2px solid #1C2541; font-size: 1.15rem; padding-top: 0.5rem; }
 
 /* Compare: two stacked cards instead of a wide table, so nothing ever
    needs a horizontal scroll on a phone. */
@@ -167,11 +185,11 @@ td:last-child { text-align: right; white-space: nowrap; }
 .compare-card li { margin: 0.15rem 0; }
 .pick-badge { font-size: 0.8rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px; white-space: nowrap; }
 .pick-safer { background: #dcfce7; color: #166534; }
-.pick-cheaper { background: #dbeafe; color: #1e40af; }
+.pick-cheaper { background: #F4D6B0; color: #92400e; }
 code { background: #e5e7eb; padding: 0.1rem 0.3rem; border-radius: 4px; }
 
 button {
-  background: #1d4ed8;
+  background: #1C2541;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -179,11 +197,12 @@ button {
   cursor: pointer;
   font: inherit;
 }
+button:hover { background: #0B132B; }
 button:disabled { background: #9aa5b1; color: #1a2233; cursor: not-allowed; }
 
 /* Accessibility: a visible keyboard-focus ring, and no motion for users
    who asked for it (prefers-reduced-motion). */
-:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; border-radius: 4px; }
+:focus-visible { outline: 3px solid #1C2541; outline-offset: 2px; border-radius: 4px; }
 @media (prefers-reduced-motion: reduce) {
   .msg { animation: none; }
   .typing span { animation: none; }
@@ -201,7 +220,7 @@ button:disabled { background: #9aa5b1; color: #1a2233; cursor: not-allowed; }
   flex: 1;
   min-width: 0;
   padding: 0.65rem 0.9rem;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #dde3ee;
   border-radius: 999px;
   font: inherit;
 }
@@ -218,7 +237,7 @@ button:disabled { background: #9aa5b1; color: #1a2233; cursor: not-allowed; }
   margin: 0;
   padding: 0.4rem 1rem 0.6rem;
   background: #fff;
-  color: #5b6b82;
+  color: #3A506B;
   font-size: 0.75rem;
   text-align: center;
 }
