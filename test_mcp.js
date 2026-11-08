@@ -110,6 +110,62 @@ function check(name, ok, detail) {
   } finally {
     child.kill();
   }
+
+  // Fail-fast: when the ShopPal server is not running, a tool call must
+  // return a clear "start it first" error, not a raw fetch/ECONNREFUSED.
+  const dead = spawn('node', ['mcp-server.js'], {
+    cwd: __dirname,
+    env: { ...process.env, SHOPPAL_API_BASE: 'http://localhost:39999' },
+    stdio: ['pipe', 'pipe', 'inherit'],
+  });
+  let deadBuf = '';
+  let deadId = 1;
+  const deadPending = new Map();
+  function deadSend(method, params) {
+    return new Promise((resolve, reject) => {
+      const id = deadId++;
+      deadPending.set(id, { resolve, reject });
+      dead.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
+    });
+  }
+  dead.stdout.on('data', (chunk) => {
+    deadBuf += chunk.toString();
+    let idx;
+    while ((idx = deadBuf.indexOf('\n')) >= 0) {
+      const line = deadBuf.slice(0, idx);
+      deadBuf = deadBuf.slice(idx + 1);
+      if (!line.trim()) continue;
+      let msg;
+      try { msg = JSON.parse(line); } catch (e) { continue; }
+      if (msg.id && deadPending.has(msg.id)) {
+        const { resolve, reject } = deadPending.get(msg.id);
+        deadPending.delete(msg.id);
+        if (msg.error) reject(new Error(JSON.stringify(msg.error)));
+        else resolve(msg.result);
+      }
+    }
+  });
+  try {
+    await deadSend('initialize', {
+      protocolVersion: '2025-03-26',
+      capabilities: {},
+      clientInfo: { name: 'shoppal-mcp-test', version: '1.0.0' },
+    });
+    dead.stdin.write(JSON.stringify({ jsonrpc: '2.0', method: 'notifications/initialized', params: {} }) + '\n');
+    const call = await deadSend('tools/call', {
+      name: 'check_budget_guardrail',
+      arguments: { totalUSD: 10 },
+    });
+    const text = (call.content || [])[0]?.text || '';
+    check('mcp fail-fast clear error', /not running/i.test(text) && /node server\.js/i.test(text), text.slice(0, 200));
+    check('mcp fail-fast isError', call.isError === true, call);
+  } catch (err) {
+    fail++;
+    console.log('FAIL mcp fail-fast', err.message);
+  } finally {
+    dead.kill();
+  }
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();
