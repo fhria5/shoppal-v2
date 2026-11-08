@@ -8,6 +8,120 @@
   var lastResults = null; // products the last Ask reply showed — follow-ups ("yang termurah") refer to these
   var lastVaultId = null;
 
+  // Bilingual replies (Dwibahasa). The agent answers in the language the
+  // buyer types: Indonesian when the message has Indonesian words, English
+  // otherwise (English is the demo's default — Devpost requires English
+  // materials). The greeting stays English (it renders before any input).
+  // Risk/hold/cost reasons come from the server already translated; this
+  // dictionary covers the UI chrome around them.
+  var lang = 'en';
+  function detectLang(text) {
+    return /\b(di|yang|mau|aku|saya|murah|termurah|terbaik|paling|bawah|dari|ada|garansi|pertama|berapa|cari|beli|baru|dan|untuk|dengan|ini|itu|aja|saja|tolong|dong)\b/i.test(String(text || ''))
+      ? 'id'
+      : 'en';
+  }
+  function fmt(template, vars) {
+    return String(template).replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : '{' + k + '}'));
+  }
+  function t(key) {
+    const dict = STR[lang] || STR.en;
+    return dict[key] !== undefined ? dict[key] : STR.en[key];
+  }
+  function labelText(label) { return t('label' + label); }
+  function holdLabelText(label) { return t('hold' + label); }
+  const STR = {
+    en: {
+      understood: 'Understood:', noCategory: 'no category or budget found',
+      under: 'under $', fromSeller: 'from {seller} only', withReturns: 'with returns', withTracking: 'with tracking',
+      cheapestFirst: 'cheapest first', bestFirst: 'best match first', parsedByAI: '(parsed by AI)',
+      riskScore: 'Risk Score', labelSafe: 'Safe', labelCaution: 'Caution', labelRisky: 'Risky',
+      recommendation: 'Recommendation:', watchOut: 'Watch out:', beforeYouPay: 'Before you pay:',
+      holdTitle: 'Hold Predictor', holdLow: 'Low', holdModerate: 'Moderate', holdHigh: 'High',
+      holdHint: 'Estimate from public hold patterns, not a PayPal decision.',
+      honestTotal: 'Honest total (estimated)', itemPrice: 'Item price',
+      paypalFee: 'PayPal Checkout fee (3.49% + $0.49)', intlFee: 'International fee (1.5%)',
+      convSpread: 'Currency conversion spread (~3.5%, estimated)', totalEst: 'Total (estimated)',
+      troubleTitle: 'If something goes wrong',
+      chargeback: 'Chargeback: ${n} per case, on top of the lost sale.',
+      disputeFee: 'Dispute through PayPal: ${a} (${b} for high-volume sellers).',
+      refundLine: 'Refund: the original fee is not returned, so a refunded order still costs the fee.',
+      instantLine: 'Instant transfer to your bank: {pct}% (min ${min}); standard transfer is free but takes 1–3 days.',
+      microCheap: 'Micropayments rate (4.99% + $0.09) would be cheaper for this item than the standard Checkout rate.',
+      microInfo: 'For items under $12, the Micropayments rate (4.99% + $0.09) is cheaper than the standard Checkout rate.',
+      protectionLabel: 'Buyer Protection:',
+      readyToPay: 'Ready to pay?', neverPay: 'I never pay without your approval.',
+      approveLabel: 'I reviewed the risk score and total cost, and I approve this payment.',
+      payButton: 'Pay with PayPal Sandbox', checkoutHint: 'Use a PayPal Sandbox buyer account to approve. No real money is involved.',
+      simNote: 'Sandbox simulation: this creates a PayPal Sandbox order for the listing total. It does <strong>not</strong> buy the eBay item — it proves the total and saves the proof.',
+      creatingOrder: 'Creating PayPal order…',
+      orderFailed: 'Could not create the PayPal order: {msg}',
+      orderCreated: 'Order created: <strong>{id}</strong> — total {total}. Approve it in PayPal Sandbox, then you will be sent back here to capture it.',
+      approveLink: 'Approve this order in PayPal Sandbox (opens in a new tab)',
+      approveHint: 'Use a PayPal sandbox buyer account to approve. No real money is involved.',
+      vaultEmpty: 'No Proof Vault entries yet. Complete a successful checkout to save proof automatically.',
+      subsTitle: 'Subscription Watcher',
+      subsEmpty: 'No recurring purchases detected yet. Buy the same product twice and it shows up here with the total you have spent on it.',
+      subsFound: 'recurring purchases found',
+      subsLine: '{name} — bought {n}×, total spent {total}, last purchase {date}',
+      subsUnavailable: 'Subscription Watcher unavailable.',
+      refreshVault: 'Refresh Vault', disputeBtn: 'Simulate Dispute',
+      disputeTitle: 'Simulated dispute draft', disputeReadiness: 'readiness {n}/100',
+      disputeMissing: 'Still missing: {list}', disputeNone: 'No proof missing.',
+      disputeFailed: 'Could not generate a dispute draft.',
+      mpHeader: 'Real listings · eBay', mpNone: 'No eBay listings found for that search.',
+      checkoutCancelled: 'Checkout was cancelled in PayPal. No payment was made.',
+      approvedCapturing: 'PayPal approved order {id} — capturing…',
+      captureFailed: 'Capture failed: {msg}',
+      successTitle: 'Success — payment captured.',
+      successProof: 'Proof was saved to the Proof Vault automatically.'
+    },
+    id: {
+      understood: 'Mengerti:', noCategory: 'tidak ada kategori atau budget yang dikenali',
+      under: 'di bawah $', fromSeller: 'dari {seller} saja', withReturns: 'ada garansi/retur', withTracking: 'ada tracking',
+      cheapestFirst: 'termurah dulu', bestFirst: 'terbaik dulu', parsedByAI: '(dipahami AI)',
+      riskScore: 'Skor Risiko', labelSafe: 'Aman', labelCaution: 'Hati-hati', labelRisky: 'Berisiko',
+      recommendation: 'Rekomendasi:', watchOut: 'Perhatian:', beforeYouPay: 'Sebelum bayar:',
+      holdTitle: 'Prediktor Hold', holdLow: 'Rendah', holdModerate: 'Sedang', holdHigh: 'Tinggi',
+      holdHint: 'Perkiraan dari pola hold publik, bukan keputusan PayPal.',
+      honestTotal: 'Total jujur (perkiraan)', itemPrice: 'Harga barang',
+      paypalFee: 'Biaya PayPal Checkout (3.49% + $0.49)', intlFee: 'Biaya internasional (1.5%)',
+      convSpread: 'Selisih kurs (~3.5%, perkiraan)', totalEst: 'Total (perkiraan)',
+      troubleTitle: 'Kalau ada masalah',
+      chargeback: 'Chargeback: ${n} per kasus, di luar penjualan yang hilang.',
+      disputeFee: 'Sengketa lewat PayPal: ${a} (${b} untuk seller volume tinggi).',
+      refundLine: 'Refund: biaya awal tidak dikembalikan, jadi order yang di-refund tetap dikenakan biaya.',
+      instantLine: 'Transfer instan ke bank: {pct}% (min ${min}); transfer standar gratis tapi butuh 1–3 hari.',
+      microCheap: 'Tarif Micropayments (4.99% + $0.09) lebih murah untuk barang ini daripada tarif Checkout standar.',
+      microInfo: 'Untuk barang di bawah $12, tarif Micropayments (4.99% + $0.09) lebih murah daripada tarif Checkout standar.',
+      protectionLabel: 'Perlindungan Pembeli:',
+      readyToPay: 'Siap bayar?', neverPay: 'Saya tidak pernah bayar tanpa persetujuanmu.',
+      approveLabel: 'Saya sudah memeriksa skor risiko dan total biaya, dan saya menyetujui pembayaran ini.',
+      payButton: 'Bayar dengan PayPal Sandbox', checkoutHint: 'Pakai akun buyer PayPal Sandbox untuk menyetujui. Tidak ada uang asli yang terlibat.',
+      simNote: 'Simulasi sandbox: ini membuat order PayPal Sandbox sebesar total listing. Ini <strong>tidak</strong> membeli barang eBay — hanya membuktikan total dan menyimpan bukti.',
+      creatingOrder: 'Membuat order PayPal…',
+      orderFailed: 'Tidak bisa membuat order PayPal: {msg}',
+      orderCreated: 'Order dibuat: <strong>{id}</strong> — total {total}. Setujui di PayPal Sandbox, lalu kamu akan dikembalikan ke sini untuk capture.',
+      approveLink: 'Setujui order ini di PayPal Sandbox (terbuka di tab baru)',
+      approveHint: 'Pakai akun buyer sandbox PayPal untuk menyetujui. Tidak ada uang asli yang terlibat.',
+      vaultEmpty: 'Belum ada entri Proof Vault. Selesaikan checkout yang berhasil untuk menyimpan bukti otomatis.',
+      subsTitle: 'Pemantau Langganan',
+      subsEmpty: 'Belum ada pembelian berulang. Beli produk yang sama dua kali dan akan muncul di sini beserta total yang sudah kamu belanjakan.',
+      subsFound: 'pembelian berulang ditemukan',
+      subsLine: '{name} — dibeli {n}×, total belanja {total}, pembelian terakhir {date}',
+      subsUnavailable: 'Pemantau Langganan tidak tersedia.',
+      refreshVault: 'Muat Ulang Vault', disputeBtn: 'Simulasikan Sengketa',
+      disputeTitle: 'Draf sengketa simulasi', disputeReadiness: 'kesiapan {n}/100',
+      disputeMissing: 'Masih kurang: {list}', disputeNone: 'Tidak ada bukti yang kurang.',
+      disputeFailed: 'Tidak bisa membuat draf sengketa.',
+      mpHeader: 'Listing asli · eBay', mpNone: 'Tidak ada listing eBay untuk pencarian itu.',
+      checkoutCancelled: 'Checkout dibatalkan di PayPal. Tidak ada pembayaran.',
+      approvedCapturing: 'PayPal menyetujui order {id} — meng-capture…',
+      captureFailed: 'Capture gagal: {msg}',
+      successTitle: 'Berhasil — pembayaran di-capture.',
+      successProof: 'Bukti tersimpan otomatis ke Proof Vault.'
+    }
+  };
+
   var $ = function (id) { return document.getElementById(id); };
   var money = function (n) { return '$' + Number(n).toFixed(2); };
   var chatEl = null;
@@ -181,10 +295,11 @@
     var q = $('ask').value.trim();
     if (!q || !catalog) return;
     $('ask').value = '';
+    lang = detectLang(q);
     userBubble(q);
     clearSteps();
     var typing = showTyping();
-    var askParams = new URLSearchParams({ q });
+    var askParams = new URLSearchParams({ q, lang });
     if (lastResults && lastResults.length) {
       askParams.set('context', lastResults.map((p) => p.id).join(','));
     }
@@ -201,22 +316,22 @@
     var understood = [];
     if (data.understood && data.understood.category) understood.push(data.understood.category);
     if (data.understood && data.understood.minPrice !== null && data.understood.minPrice !== undefined && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) understood.push('$' + data.understood.minPrice + '–$' + data.understood.maxPrice);
-    else if (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) understood.push('under $' + data.understood.maxPrice);
-    if (data.understood && data.understood.seller) understood.push('from ' + data.understood.seller + ' only');
-    if (data.understood && data.understood.needsReturn) understood.push('with returns');
-    if (data.understood && data.understood.needsTracking) understood.push('with tracking');
-    if (data.understood && data.understood.cheapest) understood.push('cheapest first');
-    if (data.understood && data.understood.best) understood.push('best match first');
+    else if (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) understood.push(t('under') + data.understood.maxPrice);
+    if (data.understood && data.understood.seller) understood.push(fmt(t('fromSeller'), { seller: data.understood.seller }));
+    if (data.understood && data.understood.needsReturn) understood.push(t('withReturns'));
+    if (data.understood && data.understood.needsTracking) understood.push(t('withTracking'));
+    if (data.understood && data.understood.cheapest) understood.push(t('cheapestFirst'));
+    if (data.understood && data.understood.best) understood.push(t('bestFirst'));
     addBubble('agent',
-      '<p>Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
+      '<p>' + t('understood') + ' ' + (understood.length ? understood.join(', ') : t('noCategory')) +
       ' — ' + (data.understood ? data.understood.note : '') +
-      (data.understood && data.understood.aiParsed ? ' (parsed by AI)' : '') + '</p>' +
+      (data.understood && data.understood.aiParsed ? ' ' + t('parsedByAI') : '') + '</p>' +
       '<div class="cards" id="catalog"></div>');
     renderCatalogInto($('catalog'), products);
     // Real marketplace search (eBay), same query. Runs after the demo
     // catalog reply so the Ask answer never waits on the marketplace.
     try {
-      var mpParams = new URLSearchParams({ q });
+      var mpParams = new URLSearchParams({ q, lang });
       if (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) mpParams.set('maxPrice', data.understood.maxPrice);
       if (data.understood && data.understood.cheapest) mpParams.set('cheapest', 'true');
       var mpRes = await fetch('/api/marketplace/search?' + mpParams.toString());
@@ -224,7 +339,7 @@
       if (mp.configured && mp.listings && mp.listings.length) {
         hideTyping(typing);
         addBubble('agent',
-          '<p><strong>Real listings · eBay</strong></p>' +
+          '<p><strong>' + t('mpHeader') + '</strong></p>' +
           '<p class="hint">' + (mp.note || '') + '</p>' +
           '<div class="cards" id="marketplace"></div>');
         renderMarketplaceInto($('marketplace'), mp.listings);
@@ -232,7 +347,7 @@
       }
       if (mp.configured) {
         hideTyping(typing);
-        addBubble('agent', '<p class="hint">No eBay listings found for that search.</p>');
+        addBubble('agent', '<p class="hint">' + t('mpNone') + '</p>');
         return;
       }
     } catch (e) {
@@ -251,7 +366,7 @@
     var riskRes = await fetch('/api/risk-score', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sellerId: seller.id, productId: product.id }),
+      body: JSON.stringify({ sellerId: seller.id, productId: product.id, lang }),
     });
     selected.risk = await riskRes.json();
     showRisk();
@@ -266,15 +381,15 @@
     var zone = r.label.toLowerCase();
     var extra = '';
     if (r.comparison) extra += '<p>' + r.comparison + '</p>';
-    if (r.warning) extra += '<p><strong>Watch out:</strong> ' + r.warning + '</p>';
+    if (r.warning) extra += '<p><strong>' + t('watchOut') + '</strong> ' + r.warning + '</p>';
     if (r.checklist && r.checklist.length) {
-      extra += '<p><strong>Before you pay:</strong></p><ul>' +
+      extra += '<p><strong>' + t('beforeYouPay') + '</strong></p><ul>' +
         r.checklist.map((c) => '<li>' + c + '</li>').join('') + '</ul>';
     }
     addBubble('agent',
-      '<p><strong>' + selected.seller.name + '</strong> — Risk Score <span class="score score-' + zone + '">' + r.score + '/100 · ' + r.label + '</span></p>' +
+      '<p><strong>' + selected.seller.name + '</strong> — ' + t('riskScore') + ' <span class="score score-' + zone + '">' + r.score + '/100 · ' + labelText(r.label) + '</span></p>' +
       '<ul>' + r.reasons.map((reason) => '<li>' + reason + '</li>').join('') + '</ul>' +
-      '<p><strong>Recommendation:</strong> ' + r.recommendation + '</p>' +
+      '<p><strong>' + t('recommendation') + '</strong> ' + r.recommendation + '</p>' +
       extra +
       '<p class="hint">Profile ' + r.components.profile + ' · History ' + r.components.history +
       ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking +
@@ -289,17 +404,17 @@
       var res = await fetch('/api/hold-risk', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sellerId: selected.seller.id, productId: selected.product.id }),
+        body: JSON.stringify({ sellerId: selected.seller.id, productId: selected.product.id, lang }),
       });
       h = await res.json();
       if (!res.ok) return;
     }
     var zone = h.label === 'Low' ? 'safe' : h.label === 'Moderate' ? 'caution' : 'risky';
     addBubble('agent',
-      '<p><strong>Hold Predictor</strong> — hold risk <span class="score score-' + zone + '">' + h.label + ' · ' + h.chance + '</span></p>' +
+      '<p><strong>' + t('holdTitle') + '</strong> — hold risk <span class="score score-' + zone + '">' + holdLabelText(h.label) + ' · ' + h.chance + '</span></p>' +
       '<ul>' + h.reasons.map((reason) => '<li>' + reason + '</li>').join('') + '</ul>' +
       '<p>' + h.tip + '</p>' +
-      '<p class="hint">Estimate from public hold patterns, not a PayPal decision.</p>',
+      '<p class="hint">' + t('holdHint') + '</p>',
       'hold');
   }
 
@@ -307,47 +422,47 @@
     var res = await fetch('/api/total-cost', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ priceUSD: selected.product.priceUSD, international: true, currencyConversion: true }),
+      body: JSON.stringify({ priceUSD: selected.product.priceUSD, international: true, currencyConversion: true, lang }),
     });
     selected.cost = await res.json();
     var c = selected.cost;
-    var t = c.troubleCosts || {};
+    var tc = c.troubleCosts || {};
     var refundLine = c.itemPrice < 12
-      ? 'Micropayments rate (4.99% + $0.09) would be cheaper for this item than the standard Checkout rate.'
-      : 'For items under $12, the Micropayments rate (4.99% + $0.09) is cheaper than the standard Checkout rate.';
+      ? t('microCheap')
+      : t('microInfo');
     addBubble('agent',
-      '<p><strong>Honest total (estimated)</strong></p>' +
+      '<p><strong>' + t('honestTotal') + '</strong></p>' +
       '<table>' +
-      '<tr><td>Item price</td><td>' + money(c.itemPrice) + '</td></tr>' +
-      '<tr><td>PayPal Checkout fee (3.49% + $0.49)</td><td>' + money(c.paypalFee) + '</td></tr>' +
-      '<tr><td>International fee (1.5%)</td><td>' + money(c.internationalFee) + '</td></tr>' +
-      '<tr><td>Currency conversion spread (~3.5%, estimated)</td><td>' + money(c.conversionSpread) + '</td></tr>' +
-      '<tr><td><strong>Total (estimated)</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
+      '<tr><td>' + t('itemPrice') + '</td><td>' + money(c.itemPrice) + '</td></tr>' +
+      '<tr><td>' + t('paypalFee') + '</td><td>' + money(c.paypalFee) + '</td></tr>' +
+      '<tr><td>' + t('intlFee') + '</td><td>' + money(c.internationalFee) + '</td></tr>' +
+      '<tr><td>' + t('convSpread') + '</td><td>' + money(c.conversionSpread) + '</td></tr>' +
+      '<tr><td><strong>' + t('totalEst') + '</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
       '</table>' +
-      '<div class="card"><p><strong>If something goes wrong</strong></p>' +
+      '<div class="card"><p><strong>' + t('troubleTitle') + '</strong></p>' +
       '<ul>' +
-      '<li>Chargeback: $' + (t.chargebackUSD || 20) + ' per case, on top of the lost sale.</li>' +
-      '<li>Dispute through PayPal: $' + (t.disputeStandardUSD || 15) + ' ($' + (t.disputeHighVolumeUSD || 30) + ' for high-volume sellers).</li>' +
-      '<li>Refund: the original fee is not returned, so a refunded order still costs the fee.</li>' +
-      '<li>Instant transfer to your bank: ' + (t.instantTransferPct || 1.5) + '% (min $' + (t.instantTransferMinUSD || 0.5) + '); standard transfer is free but takes 1–3 days.</li>' +
+      '<li>' + fmt(t('chargeback'), { n: tc.chargebackUSD || 20 }) + '</li>' +
+      '<li>' + fmt(t('disputeFee'), { a: tc.disputeStandardUSD || 15, b: tc.disputeHighVolumeUSD || 30 }) + '</li>' +
+      '<li>' + t('refundLine') + '</li>' +
+      '<li>' + fmt(t('instantLine'), { pct: tc.instantTransferPct || 1.5, min: tc.instantTransferMinUSD || 0.5 }) + '</li>' +
       '<li>' + refundLine + '</li>' +
       '</ul>' +
-      '<p><strong>Buyer Protection:</strong> ' + (t.protection || 'PayPal Buyer Protection covers Goods & Services payments. Friends & Family payments are not covered.') + '</p>' +
-      '<p class="hint">' + (t.note || 'Public PayPal merchant fee schedule (US, Oct 2026). Estimates, not a quote.') + '</p></div>',
+      '<p><strong>' + t('protectionLabel') + '</strong> ' + (tc.protection || 'PayPal Buyer Protection covers Goods & Services payments. Friends & Family payments are not covered.') + '</p>' +
+      '<p class="hint">' + (tc.note || 'Public PayPal merchant fee schedule (US, Oct 2026). Estimates, not a quote.') + '</p></div>',
       'cost');
   }
 
   function showCheckout() {
     var simNote = selected.marketplace
-      ? '<p><strong>Sandbox simulation:</strong> this creates a PayPal Sandbox order for the listing total. It does <strong>not</strong> buy the eBay item — it proves the total and saves the proof.</p>'
+      ? '<p>' + t('simNote') + '</p>'
       : '';
     var bubble = addBubble('agent',
-      '<p><strong>Ready to pay?</strong> I never pay without your approval.</p>' +
+      '<p><strong>' + t('readyToPay') + '</strong> ' + t('neverPay') + '</p>' +
       simNote +
-      '<p><label><input id="approve" type="checkbox"> I reviewed the risk score and total cost, and I approve this payment.</label></p>' +
-      '<button id="checkout-btn" type="button" disabled>Pay with PayPal Sandbox</button>' +
+      '<p><label><input id="approve" type="checkbox"> ' + t('approveLabel') + '</label></p>' +
+      '<button id="checkout-btn" type="button" disabled>' + t('payButton') + '</button>' +
       '<p id="checkout-status"></p>' +
-      '<p class="hint">Use a PayPal Sandbox buyer account to approve. No real money is involved.</p>',
+      '<p class="hint">' + t('checkoutHint') + '</p>',
       'checkout');
     bubble.querySelector('#approve').addEventListener('change', (e) => {
       bubble.querySelector('#checkout-btn').disabled = !(e.target.checked && selected);
@@ -357,7 +472,7 @@
 
   async function startCheckout() {
     if (!selected || !$('approve') || !$('approve').checked) return;
-    $('checkout-status').textContent = 'Creating PayPal order…';
+    $('checkout-status').textContent = t('creatingOrder');
     var total = selected.cost ? selected.cost.total : selected.product.priceUSD;
     var body = selected.marketplace
       ? {
@@ -388,15 +503,14 @@
     });
     var data = await res.json();
     if (!res.ok) {
-      $('checkout-status').textContent = 'Could not create the PayPal order: ' + (data.error || res.status);
+      $('checkout-status').textContent = fmt(t('orderFailed'), { msg: data.error || res.status });
       return;
     }
     $('checkout-status').innerHTML =
-      'Order created: <strong>' + data.orderId + '</strong> — total ' + money(data.totalUSD) + '. ' +
-      'Approve it in PayPal Sandbox, then you will be sent back here to capture it.';
+      fmt(t('orderCreated'), { id: data.orderId, total: money(data.totalUSD) });
     addBubble('agent',
-      '<p><a href="' + data.approveUrl + '" target="_blank" rel="noopener">Approve this order in PayPal Sandbox (opens in a new tab)</a></p>' +
-      '<p class="hint">Use a PayPal sandbox buyer account to approve. No real money is involved.</p>');
+      '<p><a href="' + data.approveUrl + '" target="_blank" rel="noopener">' + t('approveLink') + '</a></p>' +
+      '<p class="hint">' + t('approveHint') + '</p>');
     if (data.approveUrl) window.open(data.approveUrl, '_blank', 'noopener');
   }
 
@@ -407,7 +521,7 @@
     var data = await res.json();
     var body = '';
     if (!data.entries || data.entries.length === 0) {
-      body = '<p>No Proof Vault entries yet. Complete a successful checkout to save proof automatically.</p>';
+      body = '<p>' + t('vaultEmpty') + '</p>';
     } else {
       lastVaultId = data.entries[0].id;
       body = data.entries.map((e) =>
@@ -421,22 +535,21 @@
       var sres = await fetch('/api/subscriptions');
       var sdata = await sres.json();
       if (!sdata.patterns || !sdata.patterns.length) {
-        subs = '<p><strong>Subscription Watcher</strong></p><p>No recurring purchases detected yet. Buy the same product twice and it shows up here with the total you have spent on it.</p>';
+        subs = '<p><strong>' + t('subsTitle') + '</strong></p><p>' + t('subsEmpty') + '</p>';
       } else {
-        subs = '<p><strong>Subscription Watcher</strong> — recurring purchases found</p>' +
+        subs = '<p><strong>' + t('subsTitle') + '</strong> — ' + t('subsFound') + '</p>' +
           sdata.patterns.map((p) =>
-            '<p>' + p.productName + ' — bought ' + p.purchases + '×, total spent ' + money(p.totalSpent) +
-            ', last purchase ' + (p.lastPurchase ? p.lastPurchase.slice(0, 10) : '—') + '</p>'
+            '<p>' + fmt(t('subsLine'), { name: p.productName, n: p.purchases, total: money(p.totalSpent), date: p.lastPurchase ? p.lastPurchase.slice(0, 10) : '—' }) + '</p>'
           ).join('');
       }
     } catch (e) {
-      subs = '<p>Subscription Watcher unavailable.</p>';
+      subs = '<p>' + t('subsUnavailable') + '</p>';
     }
     var bubble = addBubble('agent',
       '<p><strong>Proof Vault</strong></p>' + body +
       '<div class="card">' + subs + '</div>' +
-      '<p><button id="vault-refresh" type="button">Refresh Vault</button> ' +
-      '<button id="dispute-btn" type="button"' + (data.entries && data.entries.length ? '' : ' disabled') + '>Simulate Dispute</button></p>' +
+      '<p><button id="vault-refresh" type="button">' + t('refreshVault') + '</button> ' +
+      '<button id="dispute-btn" type="button"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button></p>' +
       '<div id="dispute-draft" class="card hidden"></div>',
       'vault');
     bubble.querySelector('#vault-refresh').addEventListener('click', function () { showVault(); });
@@ -445,22 +558,22 @@
       var res = await fetch('/api/dispute/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vaultId: lastVaultId }),
+        body: JSON.stringify({ vaultId: lastVaultId, lang }),
       });
       var d = await res.json();
       var box = $('dispute-draft');
       if (!box) return;
       box.classList.remove('hidden');
       if (!res.ok) {
-        box.textContent = d.error || 'Could not generate a dispute draft.';
+        box.textContent = d.error || t('disputeFailed');
         return;
       }
       box.innerHTML =
-        '<p><strong>Simulated dispute draft</strong> — readiness ' + d.readinessScore + '/100</p>' +
+        '<p><strong>' + t('disputeTitle') + '</strong> — ' + fmt(t('disputeReadiness'), { n: d.readinessScore }) + '</p>' +
         '<p>' + d.draft + '</p>' +
         (d.missingProof && d.missingProof.length
-          ? '<p>Still missing: ' + d.missingProof.join(', ') + '</p>'
-          : '<p>No proof missing.</p>');
+          ? '<p>' + fmt(t('disputeMissing'), { list: d.missingProof.join(', ') }) + '</p>'
+          : '<p>' + t('disputeNone') + '</p>');
       scrollChat();
     });
   }
@@ -477,10 +590,10 @@
     await showVault();
     var params = new URLSearchParams(window.location.search);
     if (params.get('cancelled') === '1') {
-      addBubble('agent', '<p>Checkout was cancelled in PayPal. No payment was made.</p>');
+      addBubble('agent', '<p>' + t('checkoutCancelled') + '</p>');
     } else if (params.get('approved') === '1' && params.get('token')) {
       var orderId = params.get('token');
-      addBubble('agent', '<p>PayPal approved order ' + orderId + ' — capturing…</p>');
+      addBubble('agent', '<p>' + fmt(t('approvedCapturing'), { id: orderId }) + '</p>');
       var res = await fetch('/api/paypal/capture-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -488,13 +601,13 @@
       });
       var data = await res.json();
       if (!res.ok) {
-        addBubble('agent', '<p>Capture failed: ' + (data.error || res.status) + '</p>');
+        addBubble('agent', '<p>' + fmt(t('captureFailed'), { msg: data.error || res.status }) + '</p>');
         return;
       }
       addBubble('agent',
-        '<p><strong>Success — payment captured.</strong> Order ' + data.orderId +
+        '<p><strong>' + t('successTitle') + '</strong> Order ' + data.orderId +
         ' · Capture ' + data.captureId + ' · status ' + data.status + '</p>' +
-        '<p>Proof was saved to the Proof Vault automatically.</p>',
+        '<p>' + t('successProof') + '</p>',
         'success');
       await showVault();
       window.history.replaceState({}, '', window.location.pathname);
