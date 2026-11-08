@@ -181,6 +181,15 @@ tr.total-row td { border-top: 2px solid #1C2541; font-size: 1.15rem; padding-top
 .btn-secondary:hover { background: #f6f8fc; }
 .btn-secondary:disabled { background: #fff; color: #9aa5b1; border-color: #cbd5e1; cursor: not-allowed; }
 
+/* Dismiss button for the greeting: a quiet × at the top-right of the intro
+   bubble, so the introduction can be closed and the catalog stays. */
+.dismiss-btn {
+  float: right; background: transparent; color: #3A506B; border: none;
+  font-size: 1.3rem; line-height: 1; padding: 0.1rem 0.4rem; cursor: pointer;
+  border-radius: 6px; font-family: inherit;
+}
+.dismiss-btn:hover { background: #f6f8fc; color: #0B132B; }
+
 /* Compare: two stacked cards instead of a wide table, so nothing ever
    needs a horizontal scroll on a phone. */
 .compare-list { display: flex; flex-direction: column; gap: 0.6rem; }
@@ -254,4 +263,10 @@ button:disabled { background: #9aa5b1; color: #1a2233; cursor: not-allowed; }
   .msg { max-width: 94%; }
   .cards { grid-template-columns: 1fr; }
   .sandbox-badge { display: none; }
+  /* Compact horizontal product cards: thumbnail left, info right, so the
+     catalog reads as a list instead of a stack of full-screen photos. */
+  .product-card { display: flex; align-items: center; gap: 0.7rem; padding: 0.6rem; text-align: left; }
+  .product-card img { width: 88px; height: 88px; flex: none; border-radius: 8px; aspect-ratio: 1 / 1; }
+  .product-card .card-body { padding: 0; flex: 1; min-width: 0; }
+  .product-card .card-score { float: none; margin-left: 0.3rem; }
 }
