@@ -10,6 +10,30 @@
   var selected = null; // { product, seller, risk, cost }
   var lastResults = null; // products the last Ask reply showed — follow-ups ("yang termurah") refer to these
   var lastVaultId = null;
+  var phishingMode = false; // next Ask input is a suspicious message to check
+  var compareMode = false; // product cards add to the compare list instead of selecting
+  var compareList = []; // up to 2 products for the comparison table
+  var BUDGET_KEY = 'shoppal-budget-usd';
+
+  function getBudget() {
+    try {
+      var v = Number(localStorage.getItem(BUDGET_KEY));
+      return v > 0 ? v : null;
+    } catch (e) { return null; }
+  }
+  function setBudget(v) {
+    try { localStorage.setItem(BUDGET_KEY, String(v)); } catch (e) { /* storage unavailable */ }
+  }
+  function monthSpend(entries) {
+    var now = new Date();
+    var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    var sum = 0;
+    (entries || []).forEach(function (e) {
+      var d = (e.createdAt || e.paypal && e.paypal.createTime || '').slice(0, 7);
+      if (d === ym) sum += Number(e.totalCost && e.totalCost.total || e.product && e.product.priceUSD || 0);
+    });
+    return Math.round(sum * 100) / 100;
+  }
 
   // Bilingual replies (Dwibahasa). The agent answers in the language the
   // buyer types: Indonesian when the message has Indonesian words, English
@@ -92,6 +116,32 @@
       clKnown: 'Known marketplace', clUnknown: 'Unknown domain',
       clNoPrice: 'No price found on the page',
       linkHint: 'Or paste any product link — I will check the seller and the price from the page.',
+      impTitle: 'Import cost (estimate)', impDuty: 'Import duty ({rate}%)',
+      impVat: 'VAT / GST ({rate}%)',
+      impFree: 'Below the {country} de minimis ({min}) — no import duty.',
+      impNote: 'Estimate only. Exact duty depends on the product HS code.',
+      impNoCountry: 'No import (domestic)',
+      phChip: 'Check a suspicious message', phTitle: 'Phishing check',
+      phLegit: 'Looks legitimate', phSuspicious: 'Suspicious', phLikely: 'Likely phishing',
+      phEmpty: 'Paste the message you want checked.',
+      phDomainOk: 'Links point to a real PayPal domain.',
+      phDomainBad: 'Links point to a domain that is not PayPal: {domain}.',
+      phNoLink: 'No link found in the message.',
+      phNoPaypalLink: 'No link in the message points to PayPal.',
+      phUrgency: 'Uses urgency language to pressure you (“{word}”).',
+      phAsksSecret: 'Asks for a password, OTP code, or full card number — PayPal never does this by message.',
+      phGeneric: 'Generic greeting (“{word}”) instead of your name — PayPal uses your name.',
+      phMismatch: 'The text says PayPal but the link goes elsewhere.',
+      phNote: 'Rule-based check + AI review. When in doubt, never click — open paypal.com yourself.',
+      phPlaceholder: 'Paste the suspicious message…',
+      cmpToggle: 'Compare products', cmpTitle: 'Compare products',
+      cmpPick: 'Pick two products to compare.',
+      cmpSelected: '{n}/2 selected', cmpCompareBtn: 'Compare', cmpClear: 'Clear',
+      budTitle: 'Monthly budget', budSet: 'Set monthly budget (USD)',
+      budSave: 'Save', budSpent: 'Spent this month: {spent} of {budget} ({pct}%)',
+      budLeft: '{left} left this month.', budOver: 'Over budget by {over} this month.',
+      budWarn: 'This purchase would take you over your monthly budget ({spent} of {budget} spent).',
+      budNoBudget: 'No monthly budget set.',
       mpHeader: 'Real listings · eBay', mpNone: 'No eBay listings found for that search.',
       checkoutCancelled: 'Checkout was cancelled in PayPal. No payment was made.',
       approvedCapturing: 'PayPal approved order {id} — capturing…',
@@ -158,6 +208,32 @@
       clKnown: 'Marketplace dikenal', clUnknown: 'Domain tidak dikenal',
       clNoPrice: 'Tidak ada harga di halaman itu',
       linkHint: 'Atau tempel link produk apa pun — saya akan cek seller dan harganya dari halaman itu.',
+      impTitle: 'Biaya impor (perkiraan)', impDuty: 'Bea masuk ({rate}%)',
+      impVat: 'PPN / GST ({rate}%)',
+      impFree: 'Di bawah batas bebas bea {country} ({min}) — tidak ada bea masuk.',
+      impNote: 'Perkiraan saja. Bea pastinya tergantung kode HS barang.',
+      impNoCountry: 'Tidak ada impor (domestik)',
+      phChip: 'Cek pesan mencurigakan', phTitle: 'Cek phishing',
+      phLegit: 'Terlihat asli', phSuspicious: 'Mencurigakan', phLikely: 'Kemungkinan phishing',
+      phEmpty: 'Tempel pesan yang mau dicek.',
+      phDomainOk: 'Link mengarah ke domain PayPal asli.',
+      phDomainBad: 'Link mengarah ke domain yang bukan PayPal: {domain}.',
+      phNoLink: 'Tidak ada link di pesan itu.',
+      phNoPaypalLink: 'Tidak ada link di pesan itu yang mengarah ke PayPal.',
+      phUrgency: 'Memakai bahasa mendesak untuk menekanmu (“{word}”).',
+      phAsksSecret: 'Meminta password, kode OTP, atau nomor kartu lengkap — PayPal tidak pernah meminta itu lewat pesan.',
+      phGeneric: 'Sapaan generik (“{word}”) bukan namamu — PayPal memakai namamu.',
+      phMismatch: 'Teksnya bilang PayPal tapi link-nya ke tempat lain.',
+      phNote: 'Pemeriksaan berbasis aturan + tinjauan AI. Kalau ragu, jangan klik — buka paypal.com sendiri.',
+      phPlaceholder: 'Tempel pesan yang mencurigakan…',
+      cmpToggle: 'Bandingkan produk', cmpTitle: 'Bandingkan produk',
+      cmpPick: 'Pilih dua produk untuk dibandingkan.',
+      cmpSelected: '{n}/2 dipilih', cmpCompareBtn: 'Bandingkan', cmpClear: 'Bersihkan',
+      budTitle: 'Budget bulanan', budSet: 'Atur budget bulanan (USD)',
+      budSave: 'Simpan', budSpent: 'Belanja bulan ini: {spent} dari {budget} ({pct}%)',
+      budLeft: 'Sisa {left} bulan ini.', budOver: 'Melebihi budget {over} bulan ini.',
+      budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
+      budNoBudget: 'Belum ada budget bulanan.',
       mpHeader: 'Listing asli · eBay', mpNone: 'Tidak ada listing eBay untuk pencarian itu.',
       checkoutCancelled: 'Checkout dibatalkan di PayPal. Tidak ada pembayaran.',
       approvedCapturing: 'PayPal menyetujui order {id} — meng-capture…',
@@ -255,7 +331,17 @@
       var wrap = document.createElement('div');
       wrap.innerHTML = productCardHtml(p);
       var card = wrap.firstChild;
-      card.addEventListener('click', function () { selectProduct(p); });
+      card.addEventListener('click', function () {
+        if (compareMode) {
+          var idx = compareList.findIndex(function (x) { return x.id === p.id; });
+          if (idx >= 0) compareList.splice(idx, 1);
+          else if (compareList.length < 2) compareList.push(p);
+          card.classList.toggle('selected', compareList.some(function (x) { return x.id === p.id; }));
+          updateCompareBar();
+          return;
+        }
+        selectProduct(p);
+      });
       grid.appendChild(card);
     });
   }
@@ -323,9 +409,12 @@
       '<button type="button" class="chip" data-q="headphones under $60">Headphones under $60</button>' +
       '<button type="button" class="chip" data-q="smartwatch">Smartwatch</button>' +
       '<button type="button" class="chip" data-q="keyboard">Keyboard</button>' +
+      '<button type="button" class="chip" id="phish-chip">' + t('phChip') + '</button>' +
+      '<button type="button" class="chip" id="compare-toggle">' + t('cmpToggle') + '</button>' +
       '</div>' +
       '<p class="hint">Or pick any product below.</p>' +
       '<p class="hint">' + t('linkHint') + '</p>' +
+      '<div id="compare-bar" class="card hidden"></div>' +
       '<div class="cards" id="catalog"></div>');
     renderCatalogInto($('catalog'), catalog.products);
     var chips = chatEl.querySelectorAll('.chip');
@@ -335,6 +424,75 @@
         sendAsk();
       });
     }
+    $('phish-chip').addEventListener('click', function () {
+      phishingMode = true;
+      $('ask').placeholder = t('phPlaceholder');
+      $('ask').focus();
+    });
+    $('compare-toggle').addEventListener('click', function () {
+      compareMode = !compareMode;
+      compareList = [];
+      this.textContent = compareMode ? t('cmpToggle') + ' ✓' : t('cmpToggle');
+      updateCompareBar();
+    });
+  }
+
+  function updateCompareBar() {
+    var bar = $('compare-bar');
+    if (!bar) return;
+    if (!compareMode) {
+      bar.classList.add('hidden');
+      return;
+    }
+    bar.classList.remove('hidden');
+    bar.innerHTML = '<p><strong>' + t('cmpTitle') + '</strong> — ' + fmt(t('cmpSelected'), { n: compareList.length }) + ' · ' + t('cmpPick') + '</p>' +
+      '<p><button id="compare-go" type="button"' + (compareList.length === 2 ? '' : ' disabled') + '>' + t('cmpCompareBtn') + '</button> ' +
+      '<button id="compare-clear" type="button">' + t('cmpClear') + '</button></p>';
+    bar.querySelector('#compare-go').addEventListener('click', renderCompare);
+    bar.querySelector('#compare-clear').addEventListener('click', function () {
+      compareList = [];
+      updateCompareBar();
+    });
+  }
+
+  async function renderCompare() {
+    if (compareList.length !== 2) return;
+    var rows = [];
+    for (var i = 0; i < 2; i++) {
+      var p = compareList[i];
+      var seller = sellerOf(p);
+      var rRes = await fetch(API_BASE + '/api/risk-score', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerId: seller.id, productId: p.id, lang }),
+      });
+      var risk = await rRes.json();
+      var hRes = await fetch(API_BASE + '/api/hold-risk', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerId: seller.id, productId: p.id, lang }),
+      });
+      var hold = await hRes.json();
+      var cRes = await fetch(API_BASE + '/api/total-cost', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceUSD: p.priceUSD, international: true, currencyConversion: true, lang }),
+      });
+      var cost = await cRes.json();
+      rows.push({ product: p, seller: seller, risk: risk, hold: hold, cost: cost });
+    }
+    var cell = function (r, fn) { return '<td>' + fn(r) + '</td>'; };
+    addBubble('agent',
+      '<p><strong>' + t('cmpTitle') + '</strong></p>' +
+      '<table>' +
+      '<tr><th></th>' + rows.map(function (r) { return '<th>' + r.product.name + '</th>'; }).join('') + '</tr>' +
+      '<tr><td>Price</td>' + rows.map(function (r) { return cell(r, function (x) { return money(x.product.priceUSD); }); }).join('') + '</tr>' +
+      '<tr><td>' + t('riskScore') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return x.risk.score + '/100 · ' + labelText(x.risk.label); }); }).join('') + '</tr>' +
+      '<tr><td>' + t('holdTitle') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return holdLabelText(x.hold.label) + ' · ' + x.hold.chance; }); }).join('') + '</tr>' +
+      '<tr><td>' + t('honestTotal') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return money(x.cost.total); }); }).join('') + '</tr>' +
+      '<tr><td>Seller</td>' + rows.map(function (r) { return cell(r, function (x) { return x.seller.name; }); }).join('') + '</tr>' +
+      '<tr><td>Tracking / Returns</td>' + rows.map(function (r) { return cell(r, function (x) { return (x.seller.hasTracking ? '✓' : '✗') + ' / ' + (x.seller.hasReturnPolicy ? '✓' : '✗'); }); }).join('') + '</tr>' +
+      '</table>');
+    compareList = [];
+    updateCompareBar();
+    scrollChat();
   }
 
   async function sendAsk() {
@@ -345,6 +503,33 @@
     userBubble(q);
     clearSteps();
     var typing = showTyping();
+    // Phishing mode: the input holds a suspicious message, not a search.
+    if (phishingMode) {
+      phishingMode = false;
+      $('ask').placeholder = 'Ask ShopPal…';
+      var phRes = await fetch(API_BASE + '/api/phishing-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: q, lang }),
+      });
+      var ph = await phRes.json();
+      hideTyping(typing);
+      if (!phRes.ok) {
+        addBubble('agent', '<p>' + (ph.error || t('phEmpty')) + '</p>');
+        return;
+      }
+      var phZone = ph.score >= 80 ? 'safe' : ph.score >= 50 ? 'caution' : 'risky';
+      var phBody = '<p><strong>' + t('phTitle') + '</strong> — <span class="score score-' + phZone + '">' + ph.score + '/100 · ' + ph.label + '</span></p>';
+      if (ph.signals && ph.signals.length) {
+        phBody += '<ul>' + ph.signals.map(function (s) {
+          return '<li>' + (s.points > 0 ? '+' : '') + s.points + ' — ' + s.note + '</li>';
+        }).join('') + '</ul>';
+      }
+      if (ph.aiReview) phBody += '<p class="hint">' + ph.aiReview + '</p>';
+      if (ph.note) phBody += '<p class="hint">' + ph.note + '</p>';
+      addBubble('agent', phBody);
+      return;
+    }
     // A pasted product link goes to the link checker, not the catalog.
     if (/^https?:\/\/\S+/i.test(q)) {
       var clRes = await fetch(API_BASE + '/api/check-link', {
@@ -547,7 +732,7 @@
     var refundLine = c.itemPrice < 12
       ? t('microCheap')
       : t('microInfo');
-    addBubble('agent',
+    var bubble = addBubble('agent',
       '<p><strong>' + t('honestTotal') + '</strong></p>' +
       '<table>' +
       '<tr><td>' + t('itemPrice') + '</td><td>' + money(c.itemPrice) + '</td></tr>' +
@@ -556,6 +741,15 @@
       '<tr><td>' + t('convSpread') + '</td><td>' + money(c.conversionSpread) + '</td></tr>' +
       '<tr><td><strong>' + t('totalEst') + '</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
       '</table>' +
+      '<p><label>' + t('impTitle') + ': <select id="import-country">' +
+      '<option value="">' + t('impNoCountry') + '</option>' +
+      '<option value="ID">Indonesia</option>' +
+      '<option value="US">United States</option>' +
+      '<option value="EU">European Union</option>' +
+      '<option value="UK">United Kingdom</option>' +
+      '<option value="SG">Singapore</option>' +
+      '</select></label></p>' +
+      '<div id="import-cost"></div>' +
       '<div class="card"><p><strong>' + t('troubleTitle') + '</strong></p>' +
       '<ul>' +
       '<li>' + fmt(t('chargeback'), { n: tc.chargebackUSD || 20 }) + '</li>' +
@@ -567,6 +761,35 @@
       '<p><strong>' + t('protectionLabel') + '</strong> ' + (tc.protection || 'PayPal Buyer Protection covers Goods & Services payments. Friends & Family payments are not covered.') + '</p>' +
       '<p class="hint">' + (tc.note || 'Public PayPal merchant fee schedule (US, Oct 2026). Estimates, not a quote.') + '</p></div>',
       'cost');
+    // Import cost for the selected destination country (duty + VAT/GST).
+    bubble.querySelector('#import-country').addEventListener('change', async function () {
+      var box = $('import-cost');
+      if (!box) return;
+      var country = this.value;
+      if (!country) {
+        box.innerHTML = '';
+        return;
+      }
+      box.textContent = t('impTitle') + '…';
+      var res = await fetch(API_BASE + '/api/import-cost', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priceUSD: selected.product.priceUSD, country: country, lang }),
+      });
+      var d = await res.json();
+      if (!res.ok) {
+        box.textContent = d.error || t('impNotFound');
+        return;
+      }
+      box.innerHTML = '<table>' +
+        '<tr><td>' + fmt(t('impDuty'), { rate: d.dutyRate }) + '</td><td>' + money(d.duty) + '</td></tr>' +
+        '<tr><td>' + fmt(t('impVat'), { rate: d.vatRate }) + ' (' + d.vatLabel + ')</td><td>' + money(d.vat) + '</td></tr>' +
+        '<tr><td><strong>' + t('impTitle') + '</strong></td><td><strong>' + money(d.total) + '</strong></td></tr>' +
+        '<tr><td><strong>' + t('totalEst') + ' + import</strong></td><td><strong>' + money(c.total + d.total) + '</strong></td></tr>' +
+        '</table>' +
+        '<p class="hint">' + (d.notes || []).join(' ') + '</p>';
+      scrollChat();
+    });
   }
 
   function showCheckout() {
@@ -576,11 +799,25 @@
     var bubble = addBubble('agent',
       '<p><strong>' + t('readyToPay') + '</strong> ' + t('neverPay') + '</p>' +
       simNote +
+      '<div id="budget-warn"></div>' +
       '<p><label><input id="approve" type="checkbox"> ' + t('approveLabel') + '</label></p>' +
       '<button id="checkout-btn" type="button" disabled>' + t('payButton') + '</button>' +
       '<p id="checkout-status"></p>' +
       '<p class="hint">' + t('checkoutHint') + '</p>',
       'checkout');
+    // Monthly budget warning (background — never blocks the checkout UI).
+    var budget = getBudget();
+    if (budget) {
+      fetch(API_BASE + '/api/vault').then(function (r) { return r.json(); }).then(function (vData) {
+        var warn = $('budget-warn');
+        if (!warn) return;
+        var spent = monthSpend(vData.entries || []);
+        var total = selected && selected.cost ? selected.cost.total : (selected ? selected.product.priceUSD : 0);
+        if (spent + total > budget) {
+          warn.innerHTML = '<p><strong>' + fmt(t('budWarn'), { spent: money(spent), budget: money(budget) }) + '</strong></p>';
+        }
+      }).catch(function () { /* budget warning is a bonus */ });
+    }
     bubble.querySelector('#approve').addEventListener('change', (e) => {
       bubble.querySelector('#checkout-btn').disabled = !(e.target.checked && selected);
     });
@@ -662,9 +899,19 @@
     } catch (e) {
       subs = '<p>' + t('subsUnavailable') + '</p>';
     }
+    var budget = getBudget();
+    var spent = monthSpend(data.entries || []);
+    var budHtml = '<div class="card"><p><strong>' + t('budTitle') + '</strong></p>' +
+      '<p><input id="budget-input" type="number" min="1" step="1" placeholder="' + t('budSet') + '" value="' + (budget || '') + '" style="width:130px"> ' +
+      '<button id="budget-save" type="button">' + t('budSave') + '</button></p>' +
+      '<p id="budget-status">' + (budget
+        ? fmt(t('budSpent'), { spent: money(spent), budget: money(budget), pct: Math.round(spent / budget * 100) }) + ' ' +
+          (spent > budget ? fmt(t('budOver'), { over: money(spent - budget) }) : fmt(t('budLeft'), { left: money(Math.round((budget - spent) * 100) / 100) }))
+        : t('budNoBudget')) + '</p></div>';
     var bubble = addBubble('agent',
       '<p><strong>Proof Vault</strong></p>' + body +
       '<div class="card">' + subs + '</div>' +
+      budHtml +
       '<p><button id="vault-refresh" type="button">' + t('refreshVault') + '</button> ' +
       '<button id="dispute-btn" type="button"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button> ' +
       '<button id="sim-btn" type="button"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('simBtn') + '</button> ' +
@@ -677,6 +924,12 @@
       '<div id="paypal-actions" class="card hidden"></div>',
       'vault');
     bubble.querySelector('#vault-refresh').addEventListener('click', function () { showVault(); });
+    // Monthly budget (stored in this browser).
+    bubble.querySelector('#budget-save').addEventListener('click', function () {
+      var v = Number(bubble.querySelector('#budget-input').value);
+      if (v > 0) setBudget(v);
+      showVault();
+    });
     // Dispute simulation for the latest vault entry (post-purchase case).
     bubble.querySelector('#sim-btn').addEventListener('click', async function () {
       if (!lastVaultId) return;
