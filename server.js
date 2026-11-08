@@ -18,6 +18,9 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
+// Behind Render / any proxy, req.protocol and req.get('host') must reflect
+// the public URL — needed for the PayPal return/cancel URLs.
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 3000;
 const PAYPAL_MODE = process.env.PAYPAL_MODE || 'sandbox';
 const PAYPAL_API_BASE =
@@ -403,8 +406,10 @@ app.post('/api/paypal/create-order', async (req, res) => {
         brand_name: 'ShopPal v2',
         landing_page: 'LOGIN',
         user_action: 'PAY_NOW',
-        return_url: `http://localhost:${PORT}/?approved=1`,
-        cancel_url: `http://localhost:${PORT}/?cancelled=1`,
+        // Public base URL of this deployment (localhost when run locally,
+        // the Render URL when deployed) so PayPal can return here.
+        return_url: `${req.protocol}://${req.get('host')}/?approved=1`,
+        cancel_url: `${req.protocol}://${req.get('host')}/?cancelled=1`,
       },
     });
     const approveUrl =
