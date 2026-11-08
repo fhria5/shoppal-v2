@@ -91,7 +91,7 @@
       calloutWhy: 'This order is above the $20.00 auto-approve limit, so the agent stopped here for your approval.',
       toastCopyLink: 'Payment link for {name} copied', toastCopyJson: 'Dispute JSON copied', toastApproved: 'Order approved', toastRejected: 'Order rejected — left unpaid',
       openPayPal: 'Open PayPal Sandbox', copyLink: 'Copy link', copied: '✓ Copied!', copyJson: 'Copy JSON',
-      loadingAgent: 'Agent is working…',
+      loadingAgent: 'Agent is working…', trackingAdded: 'Tracking added',
       agentFailed: 'The agent could not finish that. Please try again.',
       vaultEmpty: 'No Proof Vault entries yet. Complete a successful checkout to save proof automatically.',
       subsTitle: 'Subscription Watcher',
@@ -226,7 +226,7 @@
       calloutWhy: 'Pesanan ini di atas batas setujui otomatis $20.00, jadi agen berhenti di sini menunggu persetujuanmu.',
       toastCopyLink: 'Link pembayaran {name} berhasil disalin', toastCopyJson: 'JSON sengketa disalin', toastApproved: 'Order disetujui', toastRejected: 'Order ditolak — dibiarkan belum dibayar',
       openPayPal: 'Buka PayPal Sandbox', copyLink: 'Salin link', copied: '✓ Tersalin!', copyJson: 'Salin JSON',
-      loadingAgent: 'Agen sedang bekerja…',
+      loadingAgent: 'Agen sedang bekerja…', trackingAdded: 'Resi ditambahkan',
       agentFailed: 'Agen tidak bisa menyelesaikan itu. Coba lagi.',
       vaultEmpty: 'Belum ada entri Proof Vault. Selesaikan checkout yang berhasil untuk menyimpan bukti otomatis.',
       subsTitle: 'Pemantau Langganan',
@@ -344,6 +344,28 @@
     } catch (e) {
       addBubble('agent', '<p class="hint">Could not load /api/config: ' + e.message + '</p>');
       return {};
+    }
+  }
+
+  // Health badge: fetch /api/health once on load and show the server,
+  // PayPal Sandbox and guardrail status in the header + sidebar.
+  async function loadHealth() {
+    var badge = $('health-badge');
+    var sideStatus = $('side-health');
+    var sideGuard = $('side-guardrail');
+    try {
+      const res = await fetch(API_BASE + '/api/health');
+      const h = await res.json();
+      if (!res.ok || !h.ok) throw new Error('health check failed');
+      var pp = (h.paypalSandbox && h.paypalSandbox.status === 'live') ? 'PayPal Sandbox: Live' : 'PayPal Sandbox: Not configured';
+      var gl = 'Guardrail Limit: $' + Number(h.guardrail && h.guardrail.autoApproveLimit !== undefined ? h.guardrail.autoApproveLimit : 20).toFixed(2);
+      var mcp = 'MCP Tools: ' + (h.mcpTools || 8) + ' Ready';
+      if (badge) badge.textContent = pp + ' · ' + gl + ' · ' + mcp;
+      if (sideStatus) sideStatus.textContent = pp + ' · ' + mcp;
+      if (sideGuard) sideGuard.textContent = '$' + Number(h.guardrail && h.guardrail.autoApproveLimit !== undefined ? h.guardrail.autoApproveLimit : 20).toFixed(2);
+    } catch (e) {
+      if (badge) badge.textContent = 'PayPal Sandbox: Unreachable';
+      if (sideStatus) sideStatus.textContent = 'PayPal Sandbox: Unreachable';
     }
   }
 
@@ -663,8 +685,9 @@
     var buy = /(beli|belikan|bayar|bayarkan|pesan|checkout|buy|purchase|pay|order)/.test(s);
     var watch = /(pantau|memantau|watch|awasi|snipe|cek pantauan|cek harga|check (my )?(price )?watch)/.test(s);
     var split = /(patungan|split|bagi rata|bagi-bagi)/.test(s);
-    var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d|pantauan|watch)/.test(s);
-    return (buy || watch || split) && target;
+    var track = /(lacak|track|dispute|sengketa)/.test(s);
+    var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d|pantauan|watch|pesanan|order|lacak|track|dispute|sengketa)/.test(s);
+    return (buy || watch || split || track) && target;
   }
 
   function renderAgentResult(ag, q) {
@@ -737,7 +760,7 @@
         (sp.initiatorShare ? '<div class="row"><span>' + t('splInitiator') + '</span><span class="num">$' + sp.initiatorShare + '</span></div>' : '') +
         '</div>' +
         sp.links.map(function (l) {
-          return '<div class="split-link-row"><span>' + escapeHtml(l.friend) + ' · <span class="num">' + money(l.amountUSD) + '</span> ' +
+          return '<div class="split-link-row"><span>' + escapeHtml(l.friend) + ' · <span class="num badge-amount">' + money(l.amountUSD) + '</span> ' +
             (l.status ? '<span class="score score-emerald">' + escapeHtml(l.status) + '</span>' : '') + '</span>' +
             '<span class="split-link-actions">' +
             (l.approveUrl ? '<a class="btn-primary" href="' + l.approveUrl + '" target="_blank" rel="noopener" style="display:inline-block;padding:0.55rem 0.8rem;border-radius:8px;text-decoration:none;min-height:44px;line-height:1.4">' + t('openPayPal') + ' ↗</a>' : '') +
@@ -753,6 +776,25 @@
           setTimeout(function () { b.textContent = orig; }, 1800);
         });
       });
+    }
+    if (ag.dispute && ag.dispute.disputePayload) {
+      var dp = ag.dispute.disputePayload;
+      var trLine = ag.tracking && ag.tracking.trackingNumber
+        ? '<p>' + t('trackingAdded') + ' · <span class="num">' + escapeHtml(ag.tracking.trackingNumber) + '</span> (' + escapeHtml(ag.tracking.carrier || '') + ' · ' + escapeHtml(ag.tracking.status || '') + ')</p>'
+        : '';
+      var dpBubble = addBubble('agent',
+        trLine +
+        '<p><strong>' + t('simTitle') + '</strong>, ' + fmt(t('simWinChance'), { n: ag.dispute.winChance }) +
+        ' · <span class="score score-' + (ag.dispute.winChance >= 70 ? 'safe' : ag.dispute.winChance >= 40 ? 'caution' : 'risky') + '">' + escapeHtml(ag.dispute.label || '') + '</span></p>' +
+        '<div class="dispute-summary">' +
+        '<span class="score score-risky">' + escapeHtml(dp.status || 'OPEN') + '</span>' +
+        '<span class="score score-caution">' + escapeHtml(dp.dispute_life_cycle_stage || '') + '</span>' +
+        '<span class="score order-id">' + escapeHtml(dp.dispute_id || '') + '</span>' +
+        '</div>' +
+        '<p><strong>' + t('simPayloadTitle') + '</strong></p>' +
+        '<pre class="codeblock"><code>' + escapeHtml(JSON.stringify(dp, null, 2)) + '</code></pre>' +
+        '<p><button type="button" class="btn-secondary sim-copy-json">' + t('copyJson') + '</button></p>');
+      wireSimCopy(dpBubble, ag.dispute);
     }
     scrollChat();
   }
@@ -1524,7 +1566,7 @@
                 (d2.initiatorShare ? '<div class="row"><span>' + t('splInitiator') + '</span><span class="num">$' + d2.initiatorShare + '</span></div>' : '') +
                 '</div>' +
                 d2.links.map(function (l) {
-                  return '<div class="split-link-row"><span>' + escapeHtml(l.friend) + ' · <span class="num">' + money(l.amountUSD) + '</span> ' +
+                  return '<div class="split-link-row"><span>' + escapeHtml(l.friend) + ' · <span class="num badge-amount">' + money(l.amountUSD) + '</span> ' +
                     (l.status ? '<span class="score score-emerald">' + escapeHtml(l.status) + '</span>' : '') + '</span>' +
                     '<span class="split-link-actions">' +
                     (l.approveUrl ? '<a class="btn-primary" href="' + l.approveUrl + '" target="_blank" rel="noopener" style="display:inline-block;padding:0.55rem 0.8rem;border-radius:8px;text-decoration:none;min-height:44px;line-height:1.4">' + t('openPayPal') + ' ↗</a>' : '') +
@@ -1692,10 +1734,21 @@
     $('ask').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendAsk();
     });
+    // Quick Demo chips: one tap fills the prompt and sends it, so a demo
+    // scenario runs without typing.
+    document.querySelectorAll('.quick-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var prompt = chip.getAttribute('data-prompt') || '';
+        if (!prompt) return;
+        $('ask').value = prompt;
+        sendAsk();
+      });
+    });
     await loadConfig();
     await loadCatalog();
     greet();
     await showVault();
+    loadHealth();
     var params = new URLSearchParams(window.location.search);
     if (params.get('cancelled') === '1') {
       addBubble('agent', '<p>' + t('checkoutCancelled') + '</p>');
