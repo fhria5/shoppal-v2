@@ -177,6 +177,32 @@
       clKnown: 'Known marketplace', clUnknown: 'Unknown domain',
       clNoPrice: 'No price found on the page',
       linkHint: 'Or paste any product link — I will check the seller and the price from the page (live server).',
+      impTitle: 'Import cost (estimate)', impDuty: 'Import duty ({rate}%)',
+      impVat: 'VAT / GST ({rate}%)',
+      impFree: 'Below the {country} de minimis ({min}) — no import duty.',
+      impNote: 'Estimate only. Exact duty depends on the product HS code.',
+      impNoCountry: 'No import (domestic)',
+      phChip: 'Check a suspicious message', phTitle: 'Phishing check',
+      phLegit: 'Looks legitimate', phSuspicious: 'Suspicious', phLikely: 'Likely phishing',
+      phEmpty: 'Paste the message you want checked.',
+      phDomainOk: 'Links point to a real PayPal domain.',
+      phDomainBad: 'Links point to a domain that is not PayPal: {domain}.',
+      phNoLink: 'No link found in the message.',
+      phNoPaypalLink: 'No link in the message points to PayPal.',
+      phUrgency: 'Uses urgency language to pressure you (“{word}”).',
+      phAsksSecret: 'Asks for a password, OTP code, or full card number — PayPal never does this by message.',
+      phGeneric: 'Generic greeting (“{word}”) instead of your name — PayPal uses your name.',
+      phMismatch: 'The text says PayPal but the link goes elsewhere.',
+      phNote: 'Rule-based check + AI review. When in doubt, never click — open paypal.com yourself.',
+      phPlaceholder: 'Paste the suspicious message…',
+      cmpToggle: 'Compare products', cmpTitle: 'Compare products',
+      cmpPick: 'Pick two products to compare.',
+      cmpSelected: '{n}/2 selected', cmpCompareBtn: 'Compare', cmpClear: 'Clear',
+      budTitle: 'Monthly budget', budSet: 'Set monthly budget (USD)',
+      budSave: 'Save', budSpent: 'Spent this month: {spent} of {budget} ({pct}%)',
+      budLeft: '{left} left this month.', budOver: 'Over budget by {over} this month.',
+      budWarn: 'This purchase would take you over your monthly budget ({spent} of {budget} spent).',
+      budNoBudget: 'No monthly budget set.',
       disputeTitle: 'Simulated dispute draft', disputeReadiness: 'readiness {n}/100',
       disputeBody: 'Dispute response draft (simulated, factual only): Order {order} for {product} ({total}) was paid via PayPal Sandbox and captured as {status}. Seller: {seller} (risk score {score} at checkout). Proof is attached in the Proof Vault entry {id}.',
       disputeMissing: 'Still missing: {list}', disputeNone: 'No proof missing.',
@@ -296,6 +322,32 @@
       clKnown: 'Marketplace dikenal', clUnknown: 'Domain tidak dikenal',
       clNoPrice: 'Tidak ada harga di halaman itu',
       linkHint: 'Atau tempel link produk apa pun — saya akan cek seller dan harganya dari halaman itu (server live).',
+      impTitle: 'Biaya impor (perkiraan)', impDuty: 'Bea masuk ({rate}%)',
+      impVat: 'PPN / GST ({rate}%)',
+      impFree: 'Di bawah batas bebas bea {country} ({min}) — tidak ada bea masuk.',
+      impNote: 'Perkiraan saja. Bea pastinya tergantung kode HS barang.',
+      impNoCountry: 'Tidak ada impor (domestik)',
+      phChip: 'Cek pesan mencurigakan', phTitle: 'Cek phishing',
+      phLegit: 'Terlihat asli', phSuspicious: 'Mencurigakan', phLikely: 'Kemungkinan phishing',
+      phEmpty: 'Tempel pesan yang mau dicek.',
+      phDomainOk: 'Link mengarah ke domain PayPal asli.',
+      phDomainBad: 'Link mengarah ke domain yang bukan PayPal: {domain}.',
+      phNoLink: 'Tidak ada link di pesan itu.',
+      phNoPaypalLink: 'Tidak ada link di pesan itu yang mengarah ke PayPal.',
+      phUrgency: 'Memakai bahasa mendesak untuk menekanmu (“{word}”).',
+      phAsksSecret: 'Meminta password, kode OTP, atau nomor kartu lengkap — PayPal tidak pernah meminta itu lewat pesan.',
+      phGeneric: 'Sapaan generik (“{word}”) bukan namamu — PayPal memakai namamu.',
+      phMismatch: 'Teksnya bilang PayPal tapi link-nya ke tempat lain.',
+      phNote: 'Pemeriksaan berbasis aturan + tinjauan AI. Kalau ragu, jangan klik — buka paypal.com sendiri.',
+      phPlaceholder: 'Tempel pesan yang mencurigakan…',
+      cmpToggle: 'Bandingkan produk', cmpTitle: 'Bandingkan produk',
+      cmpPick: 'Pilih dua produk untuk dibandingkan.',
+      cmpSelected: '{n}/2 dipilih', cmpCompareBtn: 'Bandingkan', cmpClear: 'Bersihkan',
+      budTitle: 'Budget bulanan', budSet: 'Atur budget bulanan (USD)',
+      budSave: 'Simpan', budSpent: 'Belanja bulan ini: {spent} dari {budget} ({pct}%)',
+      budLeft: 'Sisa {left} bulan ini.', budOver: 'Melebihi budget {over} bulan ini.',
+      budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
+      budNoBudget: 'Belum ada budget bulanan.',
       disputeTitle: 'Draf sengketa simulasi', disputeReadiness: 'kesiapan {n}/100',
       disputeBody: 'Draf jawaban sengketa (simulasi, hanya fakta): Order {order} untuk {product} ({total}) dibayar via PayPal Sandbox dan di-capture sebagai {status}. Seller: {seller} (skor risiko {score} saat checkout). Bukti terlampir di entri Proof Vault {id}.',
       disputeMissing: 'Masih kurang: {list}', disputeNone: 'Tidak ada bukti yang kurang.',
@@ -304,6 +356,155 @@
   };
   var lastVaultId = null;
   var paypalRenderToken = 0;
+  var phishingMode = false; // next Ask input is a suspicious message to check
+  var compareMode = false; // product cards add to the compare list instead of selecting
+  var compareList = []; // up to 2 products for the comparison table
+  var BUDGET_KEY = 'shoppal-budget-usd';
+
+  function getBudget() {
+    try {
+      var v = Number(localStorage.getItem(BUDGET_KEY));
+      return v > 0 ? v : null;
+    } catch (e) { return null; }
+  }
+  function setBudget(v) {
+    try { localStorage.setItem(BUDGET_KEY, String(v)); } catch (e) { /* storage unavailable */ }
+  }
+  function monthSpend(entries) {
+    var now = new Date();
+    var ym = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    var sum = 0;
+    (entries || []).forEach(function (e) {
+      var d = (e.createdAt || e.paypal && e.paypal.createTime || '').slice(0, 7);
+      if (d === ym) sum += Number(e.totalCost && e.totalCost.total || e.product && e.product.priceUSD || 0);
+    });
+    return Math.round(sum * 100) / 100;
+  }
+
+  // ---------- Import Cost (local mirror of the server rules) ----------
+  var IMPORT_RULES = {
+    ID: { name: 'Indonesia', currency: 'USD', deMinimis: 3, dutyRate: 0.075, vatRate: 0.11, vatLabel: 'PPN' },
+    US: { name: 'United States', currency: 'USD', deMinimis: 800, dutyRate: 0.02, vatRate: 0, vatLabel: 'VAT' },
+    EU: { name: 'European Union (Germany)', currency: 'EUR', deMinimis: 150, dutyRate: 0, vatRate: 0.19, vatLabel: 'VAT' },
+    UK: { name: 'United Kingdom', currency: 'GBP', deMinimis: 135, dutyRate: 0, vatRate: 0.20, vatLabel: 'VAT' },
+    SG: { name: 'Singapore', currency: 'SGD', deMinimis: 400, dutyRate: 0, vatRate: 0.09, vatLabel: 'GST' },
+  };
+
+  function calculateImportCostLocal(priceUSD, countryCode) {
+    var rule = IMPORT_RULES[countryCode];
+    if (!rule || !priceUSD || priceUSD <= 0) return null;
+    var dutyFree = priceUSD <= rule.deMinimis;
+    var duty = dutyFree ? 0 : Math.round(priceUSD * rule.dutyRate * 100) / 100;
+    var vat = Math.round((priceUSD + duty) * rule.vatRate * 100) / 100;
+    var total = Math.round((duty + vat) * 100) / 100;
+    return {
+      countryName: rule.name, currency: rule.currency, duty: duty,
+      dutyRate: Math.round(rule.dutyRate * 1000) / 10, vat: vat,
+      vatRate: Math.round(rule.vatRate * 1000) / 10, vatLabel: rule.vatLabel,
+      total: total, deMinimis: rule.deMinimis, deMinimisApplies: dutyFree,
+    };
+  }
+
+  // ---------- Phishing Check (rule-based mirror; the live server adds AI) ----------
+  var PAYPAL_DOMAINS = ['paypal.com', 'paypal.me', 'paypalobjects.com', 'paypal-communication.com'];
+  var PHISH_URGENCY = [
+    'urgent', 'immediately', 'account will be closed', 'account suspended', 'verify now',
+    'verify your account', 'limited time', 'act now', 'final notice', 'security alert',
+    'segera', 'akun akan ditutup', 'akun ditangguhkan', 'verifikasi sekarang', 'segera verifikasi',
+    'waktu terbatas', 'peringatan keamanan', 'pemberitahuan terakhir',
+  ];
+  var PHISH_GENERIC = ['dear customer', 'dear user', 'dear member', 'pelanggan yang terhormat', 'pengguna yang terhormat'];
+
+  function looksLikePaypal(host) {
+    var norm = String(host || '').toLowerCase()
+      .replace(/1/g, 'l').replace(/0/g, 'o').replace(/\|/g, 'l')
+      .replace(/[^a-z]/g, '');
+    return norm.indexOf('paypal') !== -1;
+  }
+
+  function checkPhishingLocal(text) {
+    var input = String(text || '').trim();
+    if (!input) return null;
+    var signals = [];
+    var score = 100;
+    var urls = [];
+    var re = /https?:\/\/[^\s<>"')\]]+/gi;
+    var m;
+    while ((m = re.exec(input)) !== null) urls.push(m[0]);
+    var lower = input.toLowerCase();
+    if (!urls.length) {
+      signals.push({ points: 0, note: t('phNoLink') });
+    } else {
+      var badDomain = null;
+      var goodDomain = false;
+      for (var i = 0; i < urls.length; i++) {
+        var host = '';
+        try { host = new URL(urls[i]).hostname.toLowerCase().replace(/^www\./, ''); } catch (e) { continue; }
+        var isPaypal = PAYPAL_DOMAINS.some(function (d) { return host === d || host.endsWith('.' + d); });
+        if (isPaypal) goodDomain = true;
+        else if (looksLikePaypal(host)) badDomain = host;
+      }
+      if (badDomain) {
+        score -= 50;
+        signals.push({ points: -50, note: fmt(t('phDomainBad'), { domain: badDomain }) });
+      } else if (goodDomain) {
+        signals.push({ points: 0, note: t('phDomainOk') });
+      } else {
+        score -= 15;
+        signals.push({ points: -15, note: t('phNoPaypalLink') });
+      }
+    }
+    for (var j = 0; j < PHISH_URGENCY.length; j++) {
+      if (lower.indexOf(PHISH_URGENCY[j]) !== -1) {
+        score -= 20;
+        signals.push({ points: -20, note: fmt(t('phUrgency'), { word: PHISH_URGENCY[j] }) });
+        break;
+      }
+    }
+    if (/password|otp|one-time|kode otp|nomor kartu|card number|cvv|pin/i.test(input) &&
+        /verif|confirm|masukkan|enter|send|kirim/i.test(input)) {
+      score -= 30;
+      signals.push({ points: -30, note: t('phAsksSecret') });
+    }
+    for (var k = 0; k < PHISH_GENERIC.length; k++) {
+      if (lower.indexOf(PHISH_GENERIC[k]) !== -1) {
+        score -= 10;
+        signals.push({ points: -10, note: fmt(t('phGeneric'), { word: PHISH_GENERIC[k] }) });
+        break;
+      }
+    }
+    if (/paypal/i.test(input) && urls.length) {
+      var hasReal = urls.some(function (u) {
+        try {
+          var h = new URL(u).hostname.toLowerCase().replace(/^www\./, '');
+          return PAYPAL_DOMAINS.some(function (d) { return h === d || h.endsWith('.' + d); });
+        } catch (e) { return false; }
+      });
+      var hasLookalike = urls.some(function (u) {
+        try { return looksLikePaypal(new URL(u).hostname); } catch (e) { return false; }
+      });
+      if (!hasReal && hasLookalike) {
+        score -= 20;
+        signals.push({ points: -20, note: t('phMismatch') });
+      }
+    }
+    score = Math.max(0, Math.min(100, score));
+    var label = score >= 80 ? t('phLegit') : score >= 50 ? t('phSuspicious') : t('phLikely');
+    return { score: score, label: label, signals: signals, aiReview: null, aiAvailable: false, note: t('phNote') };
+  }
+
+  function phishBubble(ph) {
+    var zone = ph.score >= 80 ? 'safe' : ph.score >= 50 ? 'caution' : 'risky';
+    var body = '<p><strong>' + t('phTitle') + '</strong> — <span class="score score-' + zone + '">' + ph.score + '/100 · ' + ph.label + '</span></p>';
+    if (ph.signals && ph.signals.length) {
+      body += '<ul>' + ph.signals.map(function (s) {
+        return '<li>' + (s.points > 0 ? '+' : '') + s.points + ' — ' + s.note + '</li>';
+      }).join('') + '</ul>';
+    }
+    if (ph.aiReview) body += '<p class="hint">' + ph.aiReview + '</p>';
+    if (ph.note) body += '<p class="hint">' + ph.note + '</p>';
+    return body;
+  }
 
   var $ = function (id) { return document.getElementById(id); };
   var money = function (n) { return '$' + Number(n).toFixed(2); };
@@ -787,7 +988,17 @@
       var wrap = document.createElement('div');
       wrap.innerHTML = productCardHtml(p);
       var card = wrap.firstChild;
-      card.addEventListener('click', function () { selectProduct(p); });
+      card.addEventListener('click', function () {
+        if (compareMode) {
+          var idx = compareList.findIndex(function (x) { return x.id === p.id; });
+          if (idx >= 0) compareList.splice(idx, 1);
+          else if (compareList.length < 2) compareList.push(p);
+          card.classList.toggle('selected', compareList.some(function (x) { return x.id === p.id; }));
+          updateCompareBar();
+          return;
+        }
+        selectProduct(p);
+      });
       grid.appendChild(card);
     });
   }
@@ -801,9 +1012,12 @@
       '<button type="button" class="chip" data-q="headphones under $60">Headphones under $60</button>' +
       '<button type="button" class="chip" data-q="smartwatch">Smartwatch</button>' +
       '<button type="button" class="chip" data-q="keyboard">Keyboard</button>' +
+      '<button type="button" class="chip" id="phish-chip">' + t('phChip') + '</button>' +
+      '<button type="button" class="chip" id="compare-toggle">' + t('cmpToggle') + '</button>' +
       '</div>' +
       '<p class="hint">Or pick any product below.</p>' +
       '<p class="hint">' + t('linkHint') + '</p>' +
+      '<div id="compare-bar" class="card hidden"></div>' +
       '<div class="cards" id="catalog"></div>');
     renderCatalogInto($('catalog'), CATALOG.products);
     var chips = chatEl.querySelectorAll('.chip');
@@ -813,6 +1027,63 @@
         sendAsk();
       });
     }
+    $('phish-chip').addEventListener('click', function () {
+      phishingMode = true;
+      $('ask').placeholder = t('phPlaceholder');
+      $('ask').focus();
+    });
+    $('compare-toggle').addEventListener('click', function () {
+      compareMode = !compareMode;
+      compareList = [];
+      this.textContent = compareMode ? t('cmpToggle') + ' ✓' : t('cmpToggle');
+      updateCompareBar();
+    });
+  }
+
+  function updateCompareBar() {
+    var bar = $('compare-bar');
+    if (!bar) return;
+    if (!compareMode) {
+      bar.classList.add('hidden');
+      return;
+    }
+    bar.classList.remove('hidden');
+    bar.innerHTML = '<p><strong>' + t('cmpTitle') + '</strong> — ' + fmt(t('cmpSelected'), { n: compareList.length }) + ' · ' + t('cmpPick') + '</p>' +
+      '<p><button id="compare-go" type="button"' + (compareList.length === 2 ? '' : ' disabled') + '>' + t('cmpCompareBtn') + '</button> ' +
+      '<button id="compare-clear" type="button">' + t('cmpClear') + '</button></p>';
+    bar.querySelector('#compare-go').addEventListener('click', renderCompare);
+    bar.querySelector('#compare-clear').addEventListener('click', function () {
+      compareList = [];
+      updateCompareBar();
+    });
+  }
+
+  function renderCompare() {
+    if (compareList.length !== 2) return;
+    var rows = compareList.map(function (p) {
+      var seller = sellerOf(p);
+      return {
+        product: p, seller: seller,
+        risk: calculateRiskScore(seller, p),
+        hold: calculateHoldRisk(seller, p),
+        cost: calculateTotalCost(p.priceUSD, true, true),
+      };
+    });
+    var cell = function (r, fn) { return '<td>' + fn(r) + '</td>'; };
+    addBubble('agent',
+      '<p><strong>' + t('cmpTitle') + '</strong></p>' +
+      '<table>' +
+      '<tr><th></th>' + rows.map(function (r) { return '<th>' + r.product.name + '</th>'; }).join('') + '</tr>' +
+      '<tr><td>Price</td>' + rows.map(function (r) { return cell(r, function (x) { return money(x.product.priceUSD); }); }).join('') + '</tr>' +
+      '<tr><td>' + t('riskScore') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return x.risk.score + '/100 · ' + labelText(x.risk.label); }); }).join('') + '</tr>' +
+      '<tr><td>' + t('holdTitle') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return holdLabelText(x.hold.label) + ' · ' + x.hold.chance; }); }).join('') + '</tr>' +
+      '<tr><td>' + t('honestTotal') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return money(x.cost.total); }); }).join('') + '</tr>' +
+      '<tr><td>Seller</td>' + rows.map(function (r) { return cell(r, function (x) { return x.seller.name; }); }).join('') + '</tr>' +
+      '<tr><td>Tracking / Returns</td>' + rows.map(function (r) { return cell(r, function (x) { return (x.seller.hasTracking ? '✓' : '✗') + ' / ' + (x.seller.hasReturnPolicy ? '✓' : '✗'); }); }).join('') + '</tr>' +
+      '</table>');
+    compareList = [];
+    updateCompareBar();
+    scrollChat();
   }
 
   function sendAsk() {
@@ -823,6 +1094,33 @@
     userBubble(q);
     clearSteps();
     var typing = showTyping();
+    // Phishing mode: the input holds a suspicious message, not a search.
+    // The live server adds an AI review; the local rule-based check is the
+    // fallback when the server cannot be reached.
+    if (phishingMode) {
+      phishingMode = false;
+      $('ask').placeholder = 'Ask ShopPal…';
+      fetch(WORKER_API + '/api/phishing-check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: q, lang: lang }),
+      }).then(function (res) { return res.json().then(function (ph) { return { ok: res.ok, ph: ph }; }); })
+        .then(function (out) {
+          hideTyping(typing);
+          if (!out.ok || out.ph.error) {
+            var local = checkPhishingLocal(q);
+            addBubble('agent', local ? phishBubble(local) : '<p>' + t('phEmpty') + '</p>');
+            return;
+          }
+          addBubble('agent', phishBubble(out.ph));
+        })
+        .catch(function () {
+          hideTyping(typing);
+          var local = checkPhishingLocal(q);
+          addBubble('agent', local ? phishBubble(local) : '<p>' + t('phEmpty') + '</p>');
+        });
+      return;
+    }
     // A pasted product link goes to the link checker on the live server
     // (the static demo cannot fetch other sites from the browser).
     if (/^https?:\/\/\S+/i.test(q)) {
@@ -956,7 +1254,7 @@
     var refundLine = c.itemPrice < 12
       ? t('microCheap')
       : t('microInfo');
-    addBubble('agent',
+    var bubble = addBubble('agent',
       '<p><strong>' + t('honestTotal') + '</strong></p>' +
       '<table>' +
       '<tr><td>' + t('itemPrice') + '</td><td>' + money(c.itemPrice) + '</td></tr>' +
@@ -965,6 +1263,15 @@
       '<tr><td>' + t('convSpread') + '</td><td>' + money(c.conversionSpread) + '</td></tr>' +
       '<tr><td><strong>' + t('totalEst') + '</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
       '</table>' +
+      '<p><label>' + t('impTitle') + ': <select id="import-country">' +
+      '<option value="">' + t('impNoCountry') + '</option>' +
+      '<option value="ID">Indonesia</option>' +
+      '<option value="US">United States</option>' +
+      '<option value="EU">European Union</option>' +
+      '<option value="UK">United Kingdom</option>' +
+      '<option value="SG">Singapore</option>' +
+      '</select></label></p>' +
+      '<div id="import-cost"></div>' +
       '<div class="card"><p><strong>' + t('troubleTitle') + '</strong></p>' +
       '<ul>' +
       '<li>' + fmt(t('chargeback'), { n: tc.chargebackUSD }) + '</li>' +
@@ -976,16 +1283,51 @@
       '<p><strong>' + t('protectionLabel') + '</strong> ' + t('protection') + '</p>' +
       '<p class="hint">' + t('troubleNote') + '</p></div>',
       'cost');
+    // Import cost for the selected destination country (local estimate).
+    bubble.querySelector('#import-country').addEventListener('change', function () {
+      var box = $('import-cost');
+      if (!box) return;
+      var country = this.value;
+      if (!country) {
+        box.innerHTML = '';
+        return;
+      }
+      var d = calculateImportCostLocal(selected.product.priceUSD, country);
+      if (!d) {
+        box.textContent = t('impNotFound');
+        return;
+      }
+      box.innerHTML = '<table>' +
+        '<tr><td>' + fmt(t('impDuty'), { rate: d.dutyRate }) + '</td><td>' + money(d.duty) + '</td></tr>' +
+        '<tr><td>' + fmt(t('impVat'), { rate: d.vatRate }) + ' (' + d.vatLabel + ')</td><td>' + money(d.vat) + '</td></tr>' +
+        '<tr><td><strong>' + t('impTitle') + '</strong></td><td><strong>' + money(d.total) + '</strong></td></tr>' +
+        '<tr><td><strong>' + t('totalEst') + ' + import</strong></td><td><strong>' + money(c.total + d.total) + '</strong></td></tr>' +
+        '</table>' +
+        '<p class="hint">' + t('impNote') + '</p>';
+      scrollChat();
+    });
   }
 
   function showCheckout() {
     var bubble = addBubble('agent',
       '<p><strong>' + t('readyToPay') + '</strong> ' + t('neverPay') + '</p>' +
+      '<div id="budget-warn"></div>' +
       '<p><label><input id="approve" type="checkbox"> ' + t('approveLabel') + '</label></p>' +
       '<div id="paypal-button-container"></div>' +
       '<p id="checkout-status"></p>' +
       '<p class="hint">' + t('checkoutHint') + ' <a href="https://developer.paypal.com/dashboard/accounts" target="_blank" rel="noopener">PayPal Sandbox Personal (buyer)</a></p>',
       'checkout');
+    // Monthly budget warning from the local vault (this browser).
+    var budget = getBudget();
+    if (budget) {
+      var entries = loadVault();
+      var spent = monthSpend(entries);
+      var total = selected && selected.cost ? selected.cost.total : (selected ? selected.product.priceUSD : 0);
+      var warn = $('budget-warn');
+      if (warn && spent + total > budget) {
+        warn.innerHTML = '<p><strong>' + fmt(t('budWarn'), { spent: money(spent), budget: money(budget) }) + '</strong></p>';
+      }
+    }
     var approve = bubble.querySelector('#approve');
     approve.addEventListener('change', function () { renderPayPalButton(); });
     renderPayPalButton();
@@ -1109,9 +1451,19 @@
           return '<p>' + fmt(t('subsLine'), { name: p.productName, n: p.purchases, total: money(p.totalSpent), date: p.lastPurchase ? p.lastPurchase.slice(0, 10) : '—' }) + '</p>';
         }).join('');
     }
+    var budget = getBudget();
+    var spent = monthSpend(entries);
+    var budHtml = '<div class="card"><p><strong>' + t('budTitle') + '</strong></p>' +
+      '<p><input id="budget-input" type="number" min="1" step="1" placeholder="' + t('budSet') + '" value="' + (budget || '') + '" style="width:130px"> ' +
+      '<button id="budget-save" type="button">' + t('budSave') + '</button></p>' +
+      '<p id="budget-status">' + (budget
+        ? fmt(t('budSpent'), { spent: money(spent), budget: money(budget), pct: Math.round(spent / budget * 100) }) + ' ' +
+          (spent > budget ? fmt(t('budOver'), { over: money(spent - budget) }) : fmt(t('budLeft'), { left: money(Math.round((budget - spent) * 100) / 100) }))
+        : t('budNoBudget')) + '</p></div>';
     var bubble = addBubble('agent',
       '<p><strong>Proof Vault</strong></p>' + body +
       '<div class="card">' + subs + '</div>' +
+      budHtml +
       '<p><button id="vault-refresh" type="button">' + t('refreshVault') + '</button> ' +
       '<button id="dispute-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button> ' +
       '<button id="sim-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('simBtn') + '</button> ' +
@@ -1124,6 +1476,12 @@
       '<div id="paypal-actions" class="card hidden"></div>',
       'vault');
     bubble.querySelector('#vault-refresh').addEventListener('click', function () { showVault(); });
+    // Monthly budget (stored in this browser).
+    bubble.querySelector('#budget-save').addEventListener('click', function () {
+      var v = Number(bubble.querySelector('#budget-input').value);
+      if (v > 0) setBudget(v);
+      showVault();
+    });
     bubble.querySelector('#dispute-btn').addEventListener('click', function () { showDisputeDraft(); });
     // Dispute simulation for the latest vault entry (rule-based, local).
     bubble.querySelector('#sim-btn').addEventListener('click', function () {
