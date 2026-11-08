@@ -5,6 +5,7 @@
 
   var catalog = null;
   var selected = null; // { product, seller, risk, cost }
+  var lastResults = null; // products the last Ask reply showed — follow-ups ("yang termurah") refer to these
   var lastVaultId = null;
 
   var $ = function (id) { return document.getElementById(id); };
@@ -183,16 +184,33 @@
     userBubble(q);
     clearSteps();
     var typing = showTyping();
-    var res = await fetch('/api/ask?q=' + encodeURIComponent(q));
+    var askParams = new URLSearchParams({ q });
+    if (lastResults && lastResults.length) {
+      askParams.set('context', lastResults.map((p) => p.id).join(','));
+    }
+    var res = await fetch('/api/ask?' + askParams.toString());
     var data = await res.json();
     var products = data.products || catalog.products;
+    lastResults = products;
+    // "yang pertama" picks the first result shown — go straight to it.
+    if (data.selectFirst && products.length) {
+      hideTyping(typing);
+      selectProduct(products[0]);
+      return;
+    }
     var understood = [];
     if (data.understood && data.understood.category) understood.push(data.understood.category);
-    if (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) understood.push('under $' + data.understood.maxPrice);
+    if (data.understood && data.understood.minPrice !== null && data.understood.minPrice !== undefined && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) understood.push('$' + data.understood.minPrice + '–$' + data.understood.maxPrice);
+    else if (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) understood.push('under $' + data.understood.maxPrice);
+    if (data.understood && data.understood.seller) understood.push('from ' + data.understood.seller + ' only');
+    if (data.understood && data.understood.needsReturn) understood.push('with returns');
+    if (data.understood && data.understood.needsTracking) understood.push('with tracking');
     if (data.understood && data.understood.cheapest) understood.push('cheapest first');
+    if (data.understood && data.understood.best) understood.push('best match first');
     addBubble('agent',
       '<p>Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
-      ' — ' + (data.understood ? data.understood.note : '') + '</p>' +
+      ' — ' + (data.understood ? data.understood.note : '') +
+      (data.understood && data.understood.aiParsed ? ' (parsed by AI)' : '') + '</p>' +
       '<div class="cards" id="catalog"></div>');
     renderCatalogInto($('catalog'), products);
     // Real marketplace search (eBay), same query. Runs after the demo
