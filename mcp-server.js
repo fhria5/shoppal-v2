@@ -30,11 +30,27 @@ const { z } = require('zod');
 const API_BASE = (process.env.SHOPPAL_API_BASE || 'http://localhost:3000').replace(/\/$/, '');
 
 async function api(path, method, body) {
-  const res = await fetch(API_BASE + path, {
-    method: method || 'GET',
-    headers: { 'Content-Type': 'application/json' },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res;
+  try {
+    res = await fetch(API_BASE + path, {
+      method: method || 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch (err) {
+    // Fail fast with a clear message instead of a raw fetch error: the
+    // MCP server is only a thin wrapper, the ShopPal web server must be
+    // running first.
+    const cause = err && err.cause ? err.cause.code || err.cause.message : '';
+    const isConnRefused = /ECONNREFUSED|ENOTFOUND|fetch failed/i.test(
+      ((err && err.message) || '') + ' ' + cause
+    );
+    throw new Error(
+      isConnRefused
+        ? 'ShopPal server is not running at ' + API_BASE + ' (' + (cause || 'connection refused') + '). Start it first with `node server.js`, then run mcp-server.js.'
+        : 'Could not reach the ShopPal server at ' + API_BASE + ': ' + (err && err.message ? err.message : String(err))
+    );
+  }
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
     const err = new Error(data.error || ('ShopPal API ' + path + ' failed (HTTP ' + res.status + ')'));
