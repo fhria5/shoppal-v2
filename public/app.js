@@ -34,6 +34,16 @@
     return catalog.sellers.find((s) => s.id === product.sellerId);
   }
 
+  // eBay titles are external content — escape before injecting into HTML.
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+  }
+  function safeImageUrl(url) {
+    return typeof url === 'string' && url.startsWith('https://') ? url : null;
+  }
+
   // Chat helpers. Every step is a message; picking a new product clears
   // the old step messages so element IDs stay unique.
   function scrollChat() {
@@ -90,10 +100,65 @@
     });
   }
 
+  function marketplaceCardHtml(l) {
+    var risk = l.risk || {};
+    var zone = (risk.label || 'Caution').toLowerCase();
+    var img = safeImageUrl(l.image);
+    return '<button type="button" class="product-card" data-marketplace="eBay">' +
+      (img ? '<img src="' + img + '" alt="">' : '') +
+      '<span class="card-body"><strong>' + escapeHtml(l.title) + '</strong>' +
+      '<span class="price">' + money(l.priceUSD) + '</span> · eBay<br>' +
+      '<span class="seller">Seller: ' + escapeHtml(l.sellerName) +
+      (l.sellerFeedbackPercentage !== null && l.sellerFeedbackPercentage !== undefined
+        ? ' (' + l.sellerFeedbackPercentage + '% positive)' : '') + '</span><br>' +
+      '<span class="score score-' + zone + '">' +
+      (risk.score !== undefined ? risk.score + '/100 · ' + risk.label : risk.label) + '</span> ' +
+      (l.itemUrl ? '<a href="' + l.itemUrl + '" target="_blank" rel="noopener" class="ext-link">View on eBay ↗</a>' : '') +
+      '</span></button>';
+  }
+  function renderMarketplaceInto(grid, listings) {
+    grid.innerHTML = '';
+    listings.forEach(function (l) {
+      var wrap = document.createElement('div');
+      wrap.innerHTML = marketplaceCardHtml(l);
+      var card = wrap.firstChild;
+      var link = card.querySelector('a');
+      if (link) link.addEventListener('click', function (e) { e.stopPropagation(); });
+      card.addEventListener('click', function () { selectMarketplaceItem(l); });
+      grid.appendChild(card);
+    });
+  }
+
+  // A real eBay listing flows through the same 7 steps as a demo product,
+  // with its marketplace risk score (attached by the search endpoint).
+  // Checkout is a PayPal Sandbox simulation — it never buys the eBay item.
+  function selectMarketplaceItem(l) {
+    var seller = {
+      id: 'ebay:' + (l.sellerName || 'unknown'),
+      name: l.sellerName || 'Unknown seller',
+      hasTracking: !!l.hasShipping,
+      hasReturnPolicy: !!l.returnsAccepted,
+    };
+    var product = {
+      id: 'ebay:' + String(l.itemId || '').slice(0, 60),
+      name: l.title,
+      priceUSD: l.priceUSD,
+      category: 'Marketplace · eBay',
+    };
+    selected = { product: product, seller: seller, risk: l.risk, holdRisk: l.holdRisk, cost: null, marketplace: l };
+    clearSteps();
+    userBubble(l.title + ' — ' + money(l.priceUSD) + ' (eBay)');
+    showRisk();
+    showHold();
+    showCost();
+    showCheckout();
+  }
+
   function greet() {
     addBubble('agent',
       '<p>Hi, I’m ShopPal — your AI shopping agent. Tell me what you’re looking for, and I’ll check the seller, show you the real total (fees included), and keep your proof if you pay.</p>' +
       '<p>Everything here runs on PayPal Sandbox, so no real money moves.</p>' +
+      '<p class="hint">The server version can also search real eBay listings when EBAY_APP_ID + EBAY_CERT_ID are set in .env (free eBay developer keys) — otherwise I search the 10-product demo catalog.</p>' +
       '<div class="chips">' +
       '<button type="button" class="chip" data-q="headphones under $60">Headphones under $60</button>' +
       '<button type="button" class="chip" data-q="smartwatch">Smartwatch</button>' +
@@ -120,16 +185,42 @@
     var typing = showTyping();
     var res = await fetch('/api/ask?q=' + encodeURIComponent(q));
     var data = await res.json();
-    hideTyping(typing);
     var products = data.products || catalog.products;
     var understood = [];
     if (data.understood && data.understood.category) understood.push(data.understood.category);
     if (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) understood.push('under $' + data.understood.maxPrice);
+    if (data.understood && data.understood.cheapest) understood.push('cheapest first');
     addBubble('agent',
       '<p>Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
       ' — ' + (data.understood ? data.understood.note : '') + '</p>' +
       '<div class="cards" id="catalog"></div>');
     renderCatalogInto($('catalog'), products);
+    // Real marketplace search (eBay), same query. Runs after the demo
+    // catalog reply so the Ask answer never waits on the marketplace.
+    try {
+      var mpParams = new URLSearchParams({ q });
+      if (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) mpParams.set('maxPrice', data.understood.maxPrice);
+      if (data.understood && data.understood.cheapest) mpParams.set('cheapest', 'true');
+      var mpRes = await fetch('/api/marketplace/search?' + mpParams.toString());
+      var mp = await mpRes.json();
+      if (mp.configured && mp.listings && mp.listings.length) {
+        hideTyping(typing);
+        addBubble('agent',
+          '<p><strong>Real listings · eBay</strong></p>' +
+          '<p class="hint">' + (mp.note || '') + '</p>' +
+          '<div class="cards" id="marketplace"></div>');
+        renderMarketplaceInto($('marketplace'), mp.listings);
+        return;
+      }
+      if (mp.configured) {
+        hideTyping(typing);
+        addBubble('agent', '<p class="hint">No eBay listings found for that search.</p>');
+        return;
+      }
+    } catch (e) {
+      // Marketplace search is a bonus — a failure never breaks the Ask flow.
+    }
+    hideTyping(typing);
   }
 
   async function selectProduct(product) {
@@ -155,10 +246,18 @@
   function showRisk() {
     var r = selected.risk;
     var zone = r.label.toLowerCase();
+    var extra = '';
+    if (r.comparison) extra += '<p>' + r.comparison + '</p>';
+    if (r.warning) extra += '<p><strong>Watch out:</strong> ' + r.warning + '</p>';
+    if (r.checklist && r.checklist.length) {
+      extra += '<p><strong>Before you pay:</strong></p><ul>' +
+        r.checklist.map((c) => '<li>' + c + '</li>').join('') + '</ul>';
+    }
     addBubble('agent',
       '<p><strong>' + selected.seller.name + '</strong> — Risk Score <span class="score score-' + zone + '">' + r.score + '/100 · ' + r.label + '</span></p>' +
       '<ul>' + r.reasons.map((reason) => '<li>' + reason + '</li>').join('') + '</ul>' +
       '<p><strong>Recommendation:</strong> ' + r.recommendation + '</p>' +
+      extra +
       '<p class="hint">Profile ' + r.components.profile + ' · History ' + r.components.history +
       ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking +
       (r.aiAvailable ? '' : ' · ' + (r.aiNote || 'AI explanation unavailable.')) + '</p>',
@@ -166,13 +265,17 @@
   }
 
   async function showHold() {
-    var res = await fetch('/api/hold-risk', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sellerId: selected.seller.id, productId: selected.product.id }),
-    });
-    var h = await res.json();
-    if (!res.ok) return;
+    // Marketplace listings already carry their hold estimate from search.
+    var h = selected.holdRisk || null;
+    if (!h) {
+      var res = await fetch('/api/hold-risk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerId: selected.seller.id, productId: selected.product.id }),
+      });
+      h = await res.json();
+      if (!res.ok) return;
+    }
     var zone = h.label === 'Low' ? 'safe' : h.label === 'Moderate' ? 'caution' : 'risky';
     addBubble('agent',
       '<p><strong>Hold Predictor</strong> — hold risk <span class="score score-' + zone + '">' + h.label + ' · ' + h.chance + '</span></p>' +
@@ -217,8 +320,12 @@
   }
 
   function showCheckout() {
+    var simNote = selected.marketplace
+      ? '<p><strong>Sandbox simulation:</strong> this creates a PayPal Sandbox order for the listing total. It does <strong>not</strong> buy the eBay item — it proves the total and saves the proof.</p>'
+      : '';
     var bubble = addBubble('agent',
       '<p><strong>Ready to pay?</strong> I never pay without your approval.</p>' +
+      simNote +
       '<p><label><input id="approve" type="checkbox"> I reviewed the risk score and total cost, and I approve this payment.</label></p>' +
       '<button id="checkout-btn" type="button" disabled>Pay with PayPal Sandbox</button>' +
       '<p id="checkout-status"></p>' +
@@ -233,15 +340,33 @@
   async function startCheckout() {
     if (!selected || !$('approve') || !$('approve').checked) return;
     $('checkout-status').textContent = 'Creating PayPal order…';
+    var total = selected.cost ? selected.cost.total : selected.product.priceUSD;
+    var body = selected.marketplace
+      ? {
+          marketplace: {
+            marketplace: 'eBay',
+            itemId: selected.marketplace.itemId,
+            title: selected.marketplace.title,
+            priceUSD: selected.product.priceUSD,
+            itemUrl: selected.marketplace.itemUrl,
+            image: selected.marketplace.image,
+            sellerName: selected.marketplace.sellerName,
+            riskScore: selected.risk ? { score: selected.risk.score, label: selected.risk.label } : null,
+          },
+          totalUSD: total,
+          international: true,
+          currencyConversion: true,
+        }
+      : {
+          productId: selected.product.id,
+          totalUSD: total,
+          international: true,
+          currencyConversion: true,
+        };
     var res = await fetch('/api/paypal/create-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        productId: selected.product.id,
-        totalUSD: selected.cost ? selected.cost.total : selected.product.priceUSD,
-        international: true,
-        currencyConversion: true,
-      }),
+      body: JSON.stringify(body),
     });
     var data = await res.json();
     if (!res.ok) {
@@ -269,7 +394,8 @@
       lastVaultId = data.entries[0].id;
       body = data.entries.map((e) =>
         '<p><strong>' + (e.product?.name || e.id) + '</strong> — ' +
-        (e.paypal?.status || 'unknown') + ' · Order ' + (e.paypal?.orderId || '—') + '</p>'
+        (e.paypal?.status || 'unknown') + ' · Order ' + (e.paypal?.orderId || '—') +
+        (e.marketplace ? ' · ' + e.marketplace.name + ' (simulation)' : '') + '</p>'
       ).join('');
     }
     var subs = '';
