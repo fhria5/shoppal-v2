@@ -155,13 +155,19 @@ table { width: 100%; border-collapse: collapse; }
 td { padding: 0.35rem 0; border-bottom: 1px solid #e5e7eb; }
 td:last-child { text-align: right; white-space: nowrap; }
 
-/* Wide tables (Compare) scroll inside the bubble instead of spilling
-   past the screen on phones. */
-.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -0.25rem; padding: 0 0.25rem; }
-.compare-table { font-size: 0.92rem; table-layout: fixed; }
-.compare-table th, .compare-table td { padding: 0.35rem 0.3rem; text-align: left; white-space: normal; word-break: break-word; vertical-align: top; }
-.compare-table th:first-child, .compare-table td:first-child { width: 5.2rem; }
-.compare-table td:last-child { text-align: left; white-space: normal; }
+/* Compare: two stacked cards instead of a wide table, so nothing ever
+   needs a horizontal scroll on a phone. */
+.compare-list { display: flex; flex-direction: column; gap: 0.6rem; }
+.compare-card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 0.6rem 0.7rem; background: #f8fafc; }
+.compare-card.compare-safer { border-color: #16a34a; background: #f0fdf4; }
+.compare-head { display: flex; gap: 0.6rem; align-items: center; }
+.compare-head img { width: 48px; height: 48px; object-fit: cover; border-radius: 8px; flex: none; }
+.compare-head .price { font-weight: 700; }
+.compare-card ul { margin: 0.5rem 0 0; padding-left: 1.1rem; }
+.compare-card li { margin: 0.15rem 0; }
+.pick-badge { font-size: 0.8rem; font-weight: 700; padding: 0.1rem 0.45rem; border-radius: 999px; white-space: nowrap; }
+.pick-safer { background: #dcfce7; color: #166534; }
+.pick-cheaper { background: #dbeafe; color: #1e40af; }
 code { background: #e5e7eb; padding: 0.1rem 0.3rem; border-radius: 4px; }
 
 button {
