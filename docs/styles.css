@@ -54,7 +54,27 @@ body {
   gap: 0.6rem;
 }
 
-.msg { max-width: 88%; padding: 0.7rem 0.9rem; border-radius: 16px; }
+.msg { max-width: 88%; padding: 0.7rem 0.9rem; border-radius: 16px; animation: msg-in 0.25s ease-out; }
+@keyframes msg-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Typing indicator: three pulsing dots, like a messaging app. */
+.typing span {
+  display: inline-block;
+  width: 8px; height: 8px;
+  margin-right: 4px;
+  border-radius: 50%;
+  background: #9aa5b1;
+  animation: typing-dot 1.2s infinite;
+}
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
 .msg.agent {
   align-self: flex-start;
   background: #fff;
