@@ -227,6 +227,17 @@
     var old = chatEl.querySelectorAll('[data-step]');
     for (var i = 0; i < old.length; i++) old[i].remove();
   }
+  function showTyping() {
+    var div = document.createElement('div');
+    div.className = 'msg agent typing';
+    div.innerHTML = '<span></span><span></span><span></span>';
+    chatEl.appendChild(div);
+    scrollChat();
+    return div;
+  }
+  function hideTyping(el) {
+    if (el && el.remove) el.remove();
+  }
 
   function productCardHtml(p) {
     var seller = sellerOf(p);
@@ -273,16 +284,20 @@
     if (!q) return;
     $('ask').value = '';
     userBubble(q);
-    var parsed = parseAsk(q);
-    var products = parsed.matches.length ? parsed.matches : CATALOG.products;
-    var understood = [];
-    if (parsed.category) understood.push(parsed.category);
-    if (parsed.maxPrice !== null) understood.push('under $' + parsed.maxPrice);
-    addBubble('agent',
-      '<p>Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
-      ' — ' + (parsed.matches.length ? 'matches sorted safest first.' : 'No exact match in the demo catalog — showing all 10 demo products.') + '</p>' +
-      '<div class="cards" id="catalog"></div>');
-    renderCatalogInto($('catalog'), products);
+    var typing = showTyping();
+    setTimeout(function () {
+      hideTyping(typing);
+      var parsed = parseAsk(q);
+      var products = parsed.matches.length ? parsed.matches : CATALOG.products;
+      var understood = [];
+      if (parsed.category) understood.push(parsed.category);
+      if (parsed.maxPrice !== null) understood.push('under $' + parsed.maxPrice);
+      addBubble('agent',
+        '<p>Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
+        ' — ' + (parsed.matches.length ? 'matches sorted safest first.' : 'No exact match in the demo catalog — showing all 10 demo products.') + '</p>' +
+        '<div class="cards" id="catalog"></div>');
+      renderCatalogInto($('catalog'), products);
+    }, 500);
   }
 
   function selectProduct(product) {
@@ -290,10 +305,14 @@
     selected = { product: product, seller: seller, risk: calculateRiskScore(seller, product), cost: null };
     clearSteps();
     userBubble(product.name + ' — ' + money(product.priceUSD));
-    showRisk();
-    showHold();
-    showCost();
-    showCheckout();
+    var typing = showTyping();
+    setTimeout(function () {
+      hideTyping(typing);
+      showRisk();
+      showHold();
+      showCost();
+      showCheckout();
+    }, 500);
   }
 
   function showRisk() {
