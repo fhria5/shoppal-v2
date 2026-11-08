@@ -309,6 +309,19 @@ tr.total-row td { border-top: 2px solid var(--navy); font-size: 1.15rem; padding
 .split-breakdown .row { display: flex; justify-content: space-between; gap: 0.5rem; padding: 0.3rem 0; border-bottom: 1px solid var(--border); }
 .split-breakdown .row:last-child { border-bottom: none; }
 .split-breakdown .row.total { font-weight: 700; border-top: 2px solid var(--navy); margin-top: 0.2rem; padding-top: 0.5rem; }
+/* Nominal amount badge on a split-payment link row: the share stands out
+   as a pill so each participant's amount is scannable at a glance. */
+.badge-amount {
+  display: inline-block;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: var(--navy);
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.1rem 0.55rem;
+  white-space: nowrap;
+}
+
 .split-link-row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
 .split-link-row:last-child { border-bottom: none; }
 .split-link-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
@@ -432,6 +445,20 @@ button:active:not(:disabled) { transform: translateY(1px); }
   .typing span, .spinner { animation: none; }
   .product-card, .chip, button { transition: none; }
 }
+
+/* Quick Demo chips: one-tap scenario prompts above the composer, so a
+   demo runs without typing. Always visible, unlike the greeting chips. */
+.quick-demo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.quick-demo-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+.quick-chip { padding: 0.5rem 0.8rem; min-height: 38px; font-size: 0.85rem; }
 
 /* Composer: input + send, pinned to the bottom. */
 .composer {
