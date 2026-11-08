@@ -785,10 +785,10 @@
     return '<!DOCTYPE html><html lang="' + lang + '"><head><meta charset="utf-8">' +
       '<title>' + esc(t('evTitle')) + ', ' + esc(entry.id) + '</title>' +
       '<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:32px auto;padding:0 20px;color:#1a2233}' +
-      'h1{font-size:22px}h2{font-size:16px;margin-top:28px;border-bottom:2px solid #1d4ed8;padding-bottom:4px}' +
+      'h1{font-size:22px}h2{font-size:16px;margin-top:28px;border-bottom:2px solid #1C2541;padding-bottom:4px}' +
       'table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top}' +
       'th{width:200px;color:#475569}.note{font-size:13px;color:#64748b;margin-top:28px}' +
-      'button{background:#1d4ed8;color:#fff;border:0;padding:10px 18px;border-radius:8px;font-size:15px;cursor:pointer}' +
+      'button{background:#1C2541;color:#fff;border:0;padding:10px 18px;border-radius:8px;font-size:15px;cursor:pointer}' +
       '@media print{button{display:none}}</style></head><body>' +
       '<h1>' + esc(t('evTitle')) + '</h1>' +
       '<p>ShopPal v2 · ' + esc(entry.id) + ' · ' + esc(entry.createdAt || '') + '</p>' +
@@ -1072,7 +1072,8 @@
       '<img src="' + IMAGE[p.category] + '" alt="' + p.name + '">' +
       '<span class="card-body"><strong>' + p.name + '</strong>' +
       '<span class="price">' + money(p.priceUSD) + '</span> · ' + p.category + '<br>' +
-      '<span class="seller">Seller: ' + seller.name + ' (' + seller.riskProfile + ')</span></span></button>';
+      '<span class="seller">Seller: ' + seller.name + '</span> ' +
+      '<span class="score score-' + seller.riskProfile.toLowerCase() + ' card-score">' + seller.riskProfile + '</span></span></button>';
   }
   function renderCatalogInto(grid, products) {
     grid.innerHTML = '';
@@ -1130,6 +1131,7 @@
       compareMode = !compareMode;
       compareList = [];
       this.textContent = compareMode ? t('cmpToggle') + ' ✓' : t('cmpToggle');
+      this.classList.toggle('active', compareMode);
       updateCompareBar();
     });
   }
@@ -1323,7 +1325,9 @@
         extras.checklist.map(function (c) { return '<li>' + c + '</li>'; }).join('') + '</ul>';
     }
     var bubble = addBubble('agent',
-      '<p><strong>' + selected.seller.name + '</strong>, ' + t('riskScore') + ' <span class="score score-' + zone + '">' + r.score + '/100 · ' + labelText(r.label) + '</span></p>' +
+      '<div class="feature-head"><span class="feature-title">' + t('riskScore') + '</span></div>' +
+      '<p><strong>' + selected.seller.name + '</strong></p>' +
+      '<div class="feature-metric">' + r.score + '<span class="feature-metric-sub">/100</span> <span class="score score-' + zone + '">' + labelText(r.label) + '</span></div>' +
       '<ul>' + r.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' +
       '<p><strong>' + t('recommendation') + '</strong> ' + r.recommendation + '</p>' +
       extra +
@@ -1351,7 +1355,8 @@
     var h = calculateHoldRisk(selected.seller, selected.product);
     var zone = h.label === 'Low' ? 'safe' : h.label === 'Moderate' ? 'caution' : 'risky';
     var bubble = addBubble('agent',
-      '<p><strong>' + t('holdTitle') + '</strong>, hold risk <span class="score score-' + zone + '">' + holdLabelText(h.label) + ' · ' + h.chance + '</span></p>' +
+      '<div class="feature-head"><span class="feature-title">' + t('holdTitle') + '</span></div>' +
+      '<p><span class="score score-' + zone + '">' + holdLabelText(h.label) + ' · ' + h.chance + '</span></p>' +
       '<ul>' + h.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' +
       '<p>' + h.tip + '</p>' +
       '<p class="hint">' + t('holdHint') + '</p>' +
@@ -1381,13 +1386,13 @@
       ? t('microCheap')
       : t('microInfo');
     var bubble = addBubble('agent',
-      '<p><strong>' + t('honestTotal') + '</strong></p>' +
+      '<div class="feature-head"><span class="feature-title">' + t('honestTotal') + '</span></div>' +
       '<table>' +
       '<tr><td>' + t('itemPrice') + '</td><td>' + money(c.itemPrice) + '</td></tr>' +
       '<tr><td>' + t('paypalFee') + '</td><td>' + money(c.paypalFee) + '</td></tr>' +
       '<tr><td>' + t('intlFee') + '</td><td>' + money(c.internationalFee) + '</td></tr>' +
       '<tr><td>' + t('convSpread') + '</td><td>' + money(c.conversionSpread) + '</td></tr>' +
-      '<tr><td><strong>' + t('totalEst') + '</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
+      '<tr class="total-row"><td><strong>' + t('totalEst') + '</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
       '</table>' +
       '<p><label>' + t('impTitle') + ': <select id="import-country">' +
       '<option value="">' + t('impNoCountry') + '</option>' +
@@ -1427,7 +1432,7 @@
         '<tr><td>' + fmt(t('impDuty'), { rate: d.dutyRate }) + '</td><td>' + money(d.duty) + '</td></tr>' +
         '<tr><td>' + fmt(t('impVat'), { rate: d.vatRate }) + ' (' + d.vatLabel + ')</td><td>' + money(d.vat) + '</td></tr>' +
         '<tr><td><strong>' + t('impTitle') + '</strong></td><td><strong>' + money(d.total) + '</strong></td></tr>' +
-        '<tr><td><strong>' + t('totalEst') + ' + import</strong></td><td><strong>' + money(c.total + d.total) + '</strong></td></tr>' +
+        '<tr class="total-row"><td><strong>' + t('totalEst') + ' + import</strong></td><td><strong>' + money(c.total + d.total) + '</strong></td></tr>' +
         '</table>' +
         '<p class="hint">' + t('impNote') + '</p>';
       scrollChat();
