@@ -142,6 +142,13 @@
       budLeft: '{left} left this month.', budOver: 'Over budget by {over} this month.',
       budWarn: 'This purchase would take you over your monthly budget ({spent} of {budget} spent).',
       budNoBudget: 'No monthly budget set.',
+      hrcTitle: 'Hold release checklist', hrcBtn: 'How to release this hold faster',
+      hrcIntro: 'PayPal holds new or risky sellers’ money for up to 21 days. Each step below can release it sooner — tick what is already done and see the estimated release.',
+      hrcEstimated: 'Estimated release: {n} days', hrcCurrent: 'Current hold: {n} days',
+      hrcDone: 'Done', hrcTodo: 'To do', hrcSaves: 'saves up to {n} days',
+      hrcPrevents: 'prevents future holds',
+      hrcNote: 'PayPal’s published hold rules (new-seller and risk holds, up to 21 days). Estimates, not a guarantee — PayPal decides each case.',
+      hrcNotFound: 'Pick a product first to see its hold checklist.',
       mpHeader: 'Real listings · eBay', mpNone: 'No eBay listings found for that search.',
       checkoutCancelled: 'Checkout was cancelled in PayPal. No payment was made.',
       approvedCapturing: 'PayPal approved order {id} — capturing…',
@@ -234,6 +241,13 @@
       budLeft: 'Sisa {left} bulan ini.', budOver: 'Melebihi budget {over} bulan ini.',
       budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
       budNoBudget: 'Belum ada budget bulanan.',
+      hrcTitle: 'Checklist cairkan hold', hrcBtn: 'Cara cairkan hold ini lebih cepat',
+      hrcIntro: 'PayPal menahan uang seller baru atau berisiko sampai 21 hari. Tiap langkah di bawah bisa mencairkannya lebih cepat — centang yang sudah dilakukan dan lihat perkiraan cairnya.',
+      hrcEstimated: 'Perkiraan cair: {n} hari', hrcCurrent: 'Hold saat ini: {n} hari',
+      hrcDone: 'Selesai', hrcTodo: 'Belum', hrcSaves: 'hemat sampai {n} hari',
+      hrcPrevents: 'mencegah hold berikutnya',
+      hrcNote: 'Aturan hold resmi PayPal (hold seller baru dan berisiko, sampai 21 hari). Perkiraan, bukan jaminan — PayPal yang memutuskan tiap kasus.',
+      hrcNotFound: 'Pilih produk dulu untuk melihat checklist hold-nya.',
       mpHeader: 'Listing asli · eBay', mpNone: 'Tidak ada listing eBay untuk pencarian itu.',
       checkoutCancelled: 'Checkout dibatalkan di PayPal. Tidak ada pembayaran.',
       approvedCapturing: 'PayPal menyetujui order {id} — meng-capture…',
@@ -712,12 +726,64 @@
       if (!res.ok) return;
     }
     var zone = h.label === 'Low' ? 'safe' : h.label === 'Moderate' ? 'caution' : 'risky';
-    addBubble('agent',
+    var bubble = addBubble('agent',
       '<p><strong>' + t('holdTitle') + '</strong> — hold risk <span class="score score-' + zone + '">' + holdLabelText(h.label) + ' · ' + h.chance + '</span></p>' +
       '<ul>' + h.reasons.map((reason) => '<li>' + reason + '</li>').join('') + '</ul>' +
       '<p>' + h.tip + '</p>' +
-      '<p class="hint">' + t('holdHint') + '</p>',
+      '<p class="hint">' + t('holdHint') + '</p>' +
+      '<p><button id="hrc-btn" type="button">' + t('hrcBtn') + '</button></p>' +
+      '<div id="hrc-box" class="card hidden"></div>',
       'hold');
+    // Hold Release Checklist: the steps that release the hold early.
+    bubble.querySelector('#hrc-btn').addEventListener('click', async function () {
+      var box = $('hrc-box');
+      if (!box) return;
+      box.classList.remove('hidden');
+      box.textContent = t('hrcTitle') + '…';
+      var res = await fetch(API_BASE + '/api/hold-checklist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerId: selected.seller.id, productId: selected.product.id, lang }),
+      });
+      var d = await res.json();
+      if (!res.ok) {
+        box.textContent = d.error || t('hrcNotFound');
+        return;
+      }
+      renderHoldChecklist(box, d);
+      scrollChat();
+    });
+  }
+
+  // Interactive checklist: ticking a step recomputes the estimated release.
+  function renderHoldChecklist(box, d) {
+    var state = {};
+    d.steps.forEach(function (s) { state[s.id] = s.done; });
+    var estDays = function () {
+      if (state.buyer) return 1;
+      if (state.tracking) return 3;
+      if (state.shipped) return 7;
+      return 21;
+    };
+    var render = function () {
+      var html = '<p><strong>' + t('hrcTitle') + '</strong></p>' +
+        '<p>' + t('hrcIntro') + '</p>' +
+        '<p><strong>' + fmt(t('hrcCurrent'), { n: d.currentDays }) + '</strong> · <strong>' + fmt(t('hrcEstimated'), { n: estDays() }) + '</strong></p>' +
+        '<ul>' + d.steps.map(function (s) {
+          return '<li><label><input type="checkbox" data-step="' + s.id + '"' + (state[s.id] ? ' checked' : '') + '> ' +
+            '<strong>' + s.title + '</strong> — ' + s.detail + ' <em>(' +
+            (s.savesDays > 0 ? fmt(t('hrcSaves'), { n: s.savesDays }) : t('hrcPrevents')) + ')</em></label></li>';
+        }).join('') + '</ul>' +
+        '<p class="hint">' + d.note + '</p>';
+      box.innerHTML = html;
+      box.querySelectorAll('input[data-step]').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          state[cb.getAttribute('data-step')] = cb.checked;
+          render();
+        });
+      });
+    };
+    render();
   }
 
   async function showCost() {
