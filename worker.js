@@ -1589,7 +1589,14 @@ async function agentSplitPaymentLink(args, ctx) {
   if (!friends.length) return { data: { error: 'Add at least one friend to split with.' }, summary: 'no friends' };
   const total = calculateTotalCost(p.priceUSD, true, true, ctx.lang);
   const people = friends.length + 1;
-  const share = Math.round((total.total / people) * 100) / 100;
+  // Integer-cents split (same as /api/split-payment-link): each friend pays
+  // the share rounded to the nearest cent; the initiator's share absorbs
+  // the leftover cents so the exact total adds up.
+  const totalCents = Math.round(total.total * 100);
+  const shareCents = Math.round(totalCents / people);
+  const share = shareCents / 100;
+  const initiatorShare = ((totalCents - friends.length * shareCents) / 100).toFixed(2);
+  const exactTotalVerified = (totalCents / 100).toFixed(2);
   const links = [];
   for (const friend of friends) {
     try {
@@ -1600,7 +1607,7 @@ async function agentSplitPaymentLink(args, ctx) {
     }
   }
   return {
-    data: { product: p.name, total: total.total, people, share, friends, links },
+    data: { product: p.name, total: total.total, people, share, initiatorShare, exactTotalVerified, friends, links },
     summary: 'split ' + p.name + ' ' + people + ' ways, $' + share + ' each, ' + links.filter((l) => l.approveUrl).length + ' payment link(s)',
   };
 }
@@ -3508,7 +3515,16 @@ routes.push({ method: 'POST', path: '/api/split-payment-link', handler: async (r
   if (!total || total <= 0) return res.status(400).json({ error: 'No amount to split. Pick a product or a vault entry first.' });
   if (!friends.length) return res.status(400).json({ error: t(lang, 'sbNoFriends') });
   const people = friends.length + 1;
-  const share = Math.round((total / people) * 100) / 100;
+  // Integer-cents split: each friend's order is the share rounded to the
+  // nearest cent (e.g. $59.99 / 3 = $20.00 per friend). The initiator's own
+  // share absorbs the leftover cents so the exact total still adds up:
+  // initiatorShare = total - (friends x share). Both are extra info fields;
+  // the existing share/total/people fields are unchanged.
+  const totalCents = Math.round(total * 100);
+  const shareCents = Math.round(totalCents / people);
+  const share = shareCents / 100;
+  const initiatorShare = ((totalCents - friends.length * shareCents) / 100).toFixed(2);
+  const exactTotalVerified = (totalCents / 100).toFixed(2);
   const baseUrl = req.protocol + '://' + req.get('host');
   const links = [];
   for (const friend of friends) {
@@ -3524,6 +3540,8 @@ routes.push({ method: 'POST', path: '/api/split-payment-link', handler: async (r
     total: Math.round(total * 100) / 100,
     people,
     share,
+    initiatorShare,
+    exactTotalVerified,
     friends,
     links,
     note: t(lang, 'splNote'),
