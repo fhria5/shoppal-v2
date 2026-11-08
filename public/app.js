@@ -55,6 +55,17 @@
     var old = chatEl.querySelectorAll('[data-step]');
     for (var i = 0; i < old.length; i++) old[i].remove();
   }
+  function showTyping() {
+    var div = document.createElement('div');
+    div.className = 'msg agent typing';
+    div.innerHTML = '<span></span><span></span><span></span>';
+    chatEl.appendChild(div);
+    scrollChat();
+    return div;
+  }
+  function hideTyping(el) {
+    if (el && el.remove) el.remove();
+  }
 
   function productCardHtml(p) {
     var seller = sellerOf(p);
@@ -101,8 +112,10 @@
     if (!q || !catalog) return;
     $('ask').value = '';
     userBubble(q);
+    var typing = showTyping();
     var res = await fetch('/api/ask?q=' + encodeURIComponent(q));
     var data = await res.json();
+    hideTyping(typing);
     var products = data.products || catalog.products;
     var understood = [];
     if (data.understood && data.understood.category) understood.push(data.understood.category);
@@ -119,6 +132,7 @@
     selected = { product: product, seller: seller, risk: null, cost: null };
     clearSteps();
     userBubble(product.name + ' — ' + money(product.priceUSD));
+    var typing = showTyping();
 
     var riskRes = await fetch('/api/risk-score', {
       method: 'POST',
@@ -129,6 +143,7 @@
     showRisk();
     await showHold();
     await showCost();
+    hideTyping(typing);
     showCheckout();
   }
 
