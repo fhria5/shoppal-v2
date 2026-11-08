@@ -1,0 +1,25 @@
+# ShopPal v2 — Render Blueprint (free Web Service).
+# Deploy: connect the fhria5/shoppal-v2 repo in Render, or apply this file.
+# Env vars PAYPAL_CLIENT_ID / PAYPAL_CLIENT_SECRET must be set in the
+# Render dashboard (never committed). PAYPAL_MODE is always sandbox here.
+services:
+  - type: web
+    name: shoppal-v2
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PAYPAL_MODE
+        value: sandbox
+      - key: PAYPAL_API_BASE
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
