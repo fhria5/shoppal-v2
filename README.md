@@ -190,8 +190,12 @@ type. What matters is that no fee appears after checkout starts.
 | `GET /api/evidence?vaultId=` | Evidence Pack: a standalone printable HTML proof page (order, verified capture, risk score, timeline, refund) returned as JSON `{ html }` — the client opens it via a blob URL and prints to PDF. |
 | `POST /api/check-link` | Paste any product URL: reads the page's public metadata (title, price, image — like a chat link preview), scores the domain + price vs the demo catalog median, returns a verdict + honest total. Blocks private/localhost hosts. |
 | `GET /api/deadlines` | Deadline Tracker: 180-day dispute-filing + 20-day escalation + 30-day return deadlines, from a vault entry (`vaultId`) or a product (`sellerId` + `productId`, purchase assumed today). |
+| `POST /api/import-cost` | Import Cost: duty + VAT/GST for a cross-border purchase, per destination country (ID / US / EU / UK / SG). Indonesia rates verified against PMK 96/2023 + PMK 4/2025 (de minimis FOB US$3; US$3–1,500: duty 7.5% + VAT 11% effective, PPh waived for parcels). Always labelled an estimate — exact duty depends on the product HS code. |
+| `POST /api/phishing-check` | PayPal Phishing Check: paste a message claiming to be from PayPal, get a verdict (0–100) from rule-based signals (lookalike-domain detection with character-swap normalisation, urgency language, requests for passwords/OTP/card numbers, generic greetings, link/text mismatch) + an AI review from Vyce (45s timeout — Vyce is slow, ~30s per call). |
 | `GET /api/vault` | List saved Proof Vault entries. |
 | `POST /api/dispute/draft` | Simulated dispute draft from a Proof Vault entry (labelled as a simulation). |
+
+Two features are client-side (no server endpoint — they reuse the vault and the existing risk/cost/hold endpoints): **Compare 2 Products** (side-by-side risk + honest total + hold table) and **Monthly Budget** (a budget limit stored in the browser; the Proof Vault shows this month's spend vs the limit and the checkout warns when a purchase would exceed it).
 
 PayPal integration (Day 1+): OAuth 2.0 Sandbox (`POST /v1/oauth2/token`),
 Orders API v2 create / capture, Payments API v2 capture verification, and
