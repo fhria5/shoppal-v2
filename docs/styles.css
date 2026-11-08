@@ -154,6 +154,14 @@ body {
 table { width: 100%; border-collapse: collapse; }
 td { padding: 0.35rem 0; border-bottom: 1px solid #e5e7eb; }
 td:last-child { text-align: right; white-space: nowrap; }
+
+/* Wide tables (Compare) scroll inside the bubble instead of spilling
+   past the screen on phones. */
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -0.25rem; padding: 0 0.25rem; }
+.compare-table { font-size: 0.92rem; table-layout: fixed; }
+.compare-table th, .compare-table td { padding: 0.35rem 0.3rem; text-align: left; white-space: normal; word-break: break-word; vertical-align: top; }
+.compare-table th:first-child, .compare-table td:first-child { width: 5.2rem; }
+.compare-table td:last-child { text-align: left; white-space: normal; }
 code { background: #e5e7eb; padding: 0.1rem 0.3rem; border-radius: 4px; }
 
 button {
@@ -166,6 +174,14 @@ button {
   font: inherit;
 }
 button:disabled { background: #9aa5b1; cursor: not-allowed; }
+
+/* Accessibility: a visible keyboard-focus ring, and no motion for users
+   who asked for it (prefers-reduced-motion). */
+:focus-visible { outline: 3px solid #1d4ed8; outline-offset: 2px; border-radius: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .msg { animation: none; }
+  .typing span { animation: none; }
+}
 
 /* Composer: input + send, pinned to the bottom. */
 .composer {
