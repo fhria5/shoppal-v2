@@ -30,6 +30,9 @@
       <div id="risk" class="card">
         <p>Select a product to see its seller risk score (0–100).</p>
       </div>
+      <div id="hold-risk" class="card">
+        <p>Hold Predictor appears here once a product is selected.</p>
+      </div>
     </section>
 
     <!-- Step 3: Total Cost -->
@@ -40,7 +43,9 @@
       <div id="cost" class="card">
         <p>Select a product to see the full cost breakdown.</p>
       </div>
-      <p id="hold-warning" class="warning hidden"></p>
+      <div id="trouble-costs" class="card">
+        <p>The cost of things going wrong (chargeback, dispute, refund) appears here once a product is selected.</p>
+      </div>
     </section>
 
     <!-- Step 4: PayPal checkout -->
@@ -51,7 +56,7 @@
       <div id="paypal-button-container"></div>
       <button id="checkout-btn" type="button" disabled>Pay with PayPal Sandbox</button>
       <p id="checkout-status"></p>
-      <p class="hint">PayPal checkout is a Day 1 stub in this scaffold: it returns 501 until Orders API v2 is wired up. The PayPal client ID is loaded from <code>/api/config</code> — never hardcoded.</p>
+      <p class="hint">PayPal checkout is live in this build: creating an order uses Orders API v2, and the capture is verified before proof is saved. The PayPal client ID is loaded from <code>/api/config</code> — never hardcoded.</p>
     </section>
 
     <!-- Step 5: Success -->
@@ -68,6 +73,9 @@
       <button id="vault-refresh" type="button">Refresh Vault</button>
       <div id="vault" class="card">
         <p>No Proof Vault entries yet.</p>
+      </div>
+      <div id="subscriptions" class="card">
+        <p>Subscription Watcher appears here once the vault has entries.</p>
       </div>
     </section>
 
