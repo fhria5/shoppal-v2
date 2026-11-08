@@ -1195,14 +1195,29 @@
 
   // Chat helpers. Every step is a message; picking a new product clears
   // the old step messages so element IDs stay unique.
+  // Smooth-scroll the chat to the newest message. Respects
+  // prefers-reduced-motion (instant scroll instead of smooth).
   function scrollChat() {
-    if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+    if (!chatEl) return;
+    var smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    chatEl.scrollTo({ top: chatEl.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
   }
+  // Contextual assistant header per flow step (Modern AI Chat: the label
+  // says what the agent is doing, not just "ShopPal").
+  var STEP_TITLES = {
+    greeting: 'ShopPal AI · Assistant',
+    catalog: 'ShopPal AI · Catalog',
+    vault: 'ShopPal AI · Proof Vault & Subscriptions',
+    risk: 'ShopPal AI · Seller Risk & Guardrails',
+    hold: 'ShopPal AI · Delivery & Dispute Watch',
+    cost: 'ShopPal AI · Spending & Cost Breakdown',
+    checkout: 'ShopPal AI · Checkout',
+  };
   function addBubble(who, html, step) {
     var div = document.createElement('div');
     div.className = 'msg ' + who;
     if (step) div.setAttribute('data-step', step);
-    div.innerHTML = (who === 'agent' ? '<div class="msg-label">ShopPal</div>' : '') + html;
+    div.innerHTML = (who === 'agent' ? '<div class="msg-label">' + (STEP_TITLES[step] || 'ShopPal AI · Assistant') + '</div>' : '') + html;
     chatEl.appendChild(div);
     scrollChat();
     return div;
@@ -2368,6 +2383,25 @@
     $('ask-btn').addEventListener('click', sendAsk);
     $('ask').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') sendAsk();
+    });
+    // The composer is a real form now: Enter submits it, so stop the
+    // reload. The keydown handler above already calls sendAsk, so the
+    // submit handler only prevents the default navigation.
+    var chatForm = $('chat-form');
+    if (chatForm) chatForm.addEventListener('submit', function (e) { e.preventDefault(); });
+    // Modern AI Chat interaction: mark the clicked product card as
+    // selected (single selection; compare mode manages its own selection)
+    // and smooth-scroll to the newest message after a card or chip click.
+    document.addEventListener('click', function (e) {
+      var card = e.target.closest('.product-card');
+      var chip = e.target.closest('.chip');
+      if (card && !compareMode) {
+        chatEl.querySelectorAll('.product-card.selected').forEach(function (el) { el.classList.remove('selected'); });
+        card.classList.add('selected');
+      }
+      if (card || chip) {
+        setTimeout(scrollChat, 120);
+      }
     });
     // Quick Demo chips: one tap fills the prompt and sends it, so a demo
     // scenario runs without typing.
