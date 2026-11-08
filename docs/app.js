@@ -116,6 +116,10 @@
       checkoutHint: 'Pay with the gold PayPal button above. Approve with a PayPal Sandbox Personal (buyer) account, no real money is involved. The order total is exactly the total shown above.',
       sdkFailed: 'PayPal SDK failed to load. Check your connection and reload.',
       tickFirst: 'Please tick the approval checkbox first.', creatingOrder: 'Creating PayPal order…',
+      agentSteps: 'What the agent did', agentApprove: 'Approve and pay with PayPal',
+      agentFailed: 'The agent could not finish that. Please try again.',
+      agentPayLink: 'Approve this order in PayPal Sandbox (opens in a new tab)',
+      agentPayHint: 'Use a PayPal sandbox buyer account to approve. No real money is involved.',
       approvedCapturing: 'PayPal approved order {id}, capturing…',
       captureFailed: 'Capture did not complete (status: {status}). Nothing was saved to the Proof Vault.',
       paymentCaptured: 'Payment captured: {id}',
@@ -307,6 +311,10 @@
       checkoutHint: 'Bayar dengan tombol PayPal emas di atas. Setujui dengan akun Personal (buyer) PayPal Sandbox, tidak ada uang asli yang terlibat. Total order sama persis dengan total di atas.',
       sdkFailed: 'PayPal SDK gagal dimuat. Periksa koneksi dan muat ulang.',
       tickFirst: 'Centang kotak persetujuan dulu.', creatingOrder: 'Membuat order PayPal…',
+      agentSteps: 'Yang agen lakukan', agentApprove: 'Setujui dan bayar dengan PayPal',
+      agentFailed: 'Agen tidak bisa menyelesaikan itu. Coba lagi.',
+      agentPayLink: 'Setujui order ini di PayPal Sandbox (terbuka di tab baru)',
+      agentPayHint: 'Pakai akun buyer sandbox PayPal untuk menyetujui. Tidak ada uang asli yang terlibat.',
       approvedCapturing: 'PayPal menyetujui order {id}, meng-capture…',
       captureFailed: 'Capture tidak selesai (status: {status}). Tidak ada yang tersimpan ke Proof Vault.',
       paymentCaptured: 'Pembayaran berhasil di-capture: {id}',
@@ -1280,6 +1288,62 @@
     scrollChat();
   }
 
+  // Pay Agent: a buying goal (buy/pay verb + product or budget) goes to the
+  // agent on the live server, which runs the whole flow (search, score,
+  // total, guardrails, PayPal order) and only asks the user to approve.
+  // Everything else keeps the local Ask flow below.
+  function isBuyGoal(q) {
+    var s = ' ' + q.toLowerCase() + ' ';
+    var buy = /(beli|belikan|bayar|bayarkan|pesan|checkout|buy|purchase|pay|order)/.test(s);
+    var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d)/.test(s);
+    return buy && target;
+  }
+
+  function renderAgentResult(ag, q) {
+    var html = '';
+    if (ag.steps && ag.steps.length) {
+      html += '<p><strong>' + t('agentSteps') + '</strong></p><ul>' +
+        ag.steps.map(function (st) {
+          return '<li>' + escapeHtml(st.action) + ': ' + escapeHtml(st.summary || '') + '</li>';
+        }).join('') + '</ul>';
+    }
+    if (ag.reply) html += '<p>' + escapeHtml(ag.reply) + '</p>';
+    var bubble = addBubble('agent', html);
+    if (ag.order && ag.order.approveUrl) {
+      addBubble('agent',
+        '<p><strong>Order ' + escapeHtml(ag.order.orderId) + '</strong>, total ' + money(ag.order.totalUSD) + '.</p>' +
+        '<p><a href="' + ag.order.approveUrl + '" target="_blank" rel="noopener">' + t('agentPayLink') + '</a></p>' +
+        '<p class="hint">' + t('agentPayHint') + '</p>');
+      window.open(ag.order.approveUrl, '_blank', 'noopener');
+    } else if (ag.needsApproval && ag.pendingOrder) {
+      var btn = document.createElement('button');
+      btn.className = 'btn-primary';
+      btn.textContent = t('agentApprove');
+      btn.addEventListener('click', function () {
+        btn.disabled = true;
+        var typing2 = showTyping();
+        fetch(WORKER_API + '/api/agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: q, lang: lang, guardrails: getGuardrails(), approved: true, approvedOrder: ag.pendingOrder }),
+        }).then(function (r2) { return r2.json().then(function (ag2) { return { ok: r2.ok, ag2: ag2 }; }); })
+          .then(function (out) {
+            hideTyping(typing2);
+            if (out.ok) renderAgentResult(out.ag2, q);
+            else addBubble('agent', '<p>' + escapeHtml(out.ag2.error || 'error') + '</p>');
+            scrollChat();
+          })
+          .catch(function () {
+            hideTyping(typing2);
+            addBubble('agent', '<p>' + t('agentFailed') + '</p>');
+            scrollChat();
+          });
+      });
+      bubble.appendChild(btn);
+    }
+    scrollChat();
+  }
+
   function sendAsk() {
     var q = $('ask').value.trim();
     if (!q) return;
@@ -1348,6 +1412,27 @@
         .catch(function (e) {
           hideTyping(typing);
           addBubble('agent', '<p>' + fmt(t('clFailed'), { msg: String(e && e.message || e) }) + '</p>');
+        });
+      return;
+    }
+    // Pay Agent: buying goals go to the agent on the live server.
+    if (isBuyGoal(q)) {
+      fetch(WORKER_API + '/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: q, lang: lang, guardrails: getGuardrails() }),
+      }).then(function (res) { return res.json().then(function (ag) { return { ok: res.ok, ag: ag, status: res.status }; }); })
+        .then(function (out) {
+          hideTyping(typing);
+          if (!out.ok) {
+            addBubble('agent', '<p>' + escapeHtml(out.ag.error || String(out.status)) + '</p>');
+            return;
+          }
+          renderAgentResult(out.ag, q);
+        })
+        .catch(function () {
+          hideTyping(typing);
+          addBubble('agent', '<p>' + t('agentFailed') + '</p>');
         });
       return;
     }
