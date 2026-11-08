@@ -1,16 +1,10 @@
-// ShopPal v2 — Day 0 skeleton.
-// PayPal AI Hackathon. Sandbox only. No real money.
-// The agent never pays without explicit user approval.
-//
-// Stack: Node.js (>= 20) + Express + static frontend.
-// PayPal: JS SDK (client) + REST API (server). AI: one server function
-// (Vyce API, DeepSeek, with a rule-based fallback when the key is absent).
-// Storage: JSON file for the catalog, JSON files in data/vault/ for proofs.
-//
-// SECURITY: secrets come only from environment variables. This file never
-// logs PAYPAL_CLIENT_SECRET or VYCE_API_KEY, and never returns them in
-// any API response. The PayPal Client ID is a public identifier and is the
-// only PayPal credential ever sent to the browser (via /api/config).
+// ShopPal v2 — PayPal AI Hackathon. Sandbox only, no real money.
+// Express + static frontend. PayPal: JS SDK (client) + REST API (server).
+// AI: one server function (Vyce API / DeepSeek) that rewrites the
+// rule-based risk reasons in plain language; it never changes the score.
+// Secrets come from env vars only. Nothing secret is logged or returned
+// to the browser — the PayPal Client ID is the only credential the
+// browser ever sees (via /api/config).
 
 require('dotenv').config();
 const express = require('express');
@@ -29,25 +23,16 @@ const PAYPAL_API_BASE =
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// ---------------------------------------------------------------------------
-// Data: demo catalog (10 products, 3 sellers)
-// ---------------------------------------------------------------------------
+// Demo catalog: 10 products, 3 sellers.
 const catalogPath = path.join(__dirname, 'data', 'catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
 const sellersById = new Map(catalog.sellers.map((s) => [s.id, s]));
 const productsById = new Map(catalog.products.map((p) => [p.id, p]));
 
-// ---------------------------------------------------------------------------
-// AI: one server function for explanations.
-// Rule-based reasons are always produced first (deterministic, auditable).
-// If VYCE_API_KEY is set, the Vyce API (OpenAI-compatible chat completions,
-// default model deepseek-v4.1) rewrites those reasons into plain
-// language only — the model never changes the numeric score. If the key is
-// absent or the call fails/times out, the rule-based reasons are returned
-// with aiAvailable: false.
-// The key is never committed, never logged, and never sent to the browser:
-// it lives only in .env (local, gitignored) or in the host's env vars.
-// ---------------------------------------------------------------------------
+// AI explanations. The rule-based reasons come first (deterministic,
+// auditable). If VYCE_API_KEY is set, the Vyce API (default model
+// deepseek-v4.1) rewrites them in plain language only. No key, or a
+// failed call, falls back to the rule-based reasons.
 async function explainScore(components, label) {
   // Rule-based explanation — deterministic, auditable, works offline.
   const reasons = [];
@@ -134,12 +119,9 @@ async function explainScore(components, label) {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Risk Score (0-100, higher = safer). Weights from the spec:
-// profile age/completeness 25, transaction/dispute history 35,
-// price fairness vs. median 20, tracking/return policy 20.
-// Zones: 80-100 Safe, 50-79 Caution, 0-49 Risky.
-// ---------------------------------------------------------------------------
+// Risk Score (0-100, higher = safer). Weights: profile 25, history 35,
+// price fairness 20, tracking/returns 20. Zones: 80+ Safe, 50-79 Caution,
+// under 50 Risky.
 function scoreProfile(seller) {
   const agePart = Math.min(seller.accountAgeYears / 3, 1) * 60;
   const completePart = seller.profileComplete ? 40 : 0;
@@ -187,11 +169,8 @@ function calculateRiskScore(seller, product) {
   return { score: total, label, components };
 }
 
-// ---------------------------------------------------------------------------
-// Total Cost (open, estimated). Public rates from the project research.
-// PayPal Checkout 3.49% + $0.49, international 1.5%,
-// currency conversion spread ~3.5% (estimate).
-// ---------------------------------------------------------------------------
+// Total Cost. Public rates: PayPal Checkout 3.49% + $0.49, international
+// 1.5%, conversion spread ~3.5% (estimate).
 function calculateTotalCost(priceUSD, international, currencyConversion) {
   const price = Number(priceUSD);
   if (!Number.isFinite(price) || price < 0) {
@@ -213,13 +192,113 @@ function calculateTotalCost(priceUSD, international, currencyConversion) {
     conversionSpread,
     total,
     estimated: true,
+    troubleCosts: TROUBLE_COSTS,
     note: 'Estimated fees. PayPal Checkout 3.49% + $0.49, international 1.5%, conversion spread ~3.5%.',
   };
 }
 
-// ---------------------------------------------------------------------------
+// Hold Predictor. Rule-based estimate of how likely PayPal is to hold
+// this seller's funds, from public hold patterns (new account, high
+// dispute rate, few transactions, price far below median, no tracking).
+// This is an estimate from patterns, not a PayPal decision.
+function calculateHoldRisk(seller, product) {
+  const reasons = [];
+  let points = 0;
+  if (seller.disputeRate >= 5) { points += 40; reasons.push('Dispute rate is very high (' + seller.disputeRate + '%).'); }
+  else if (seller.disputeRate >= 2) { points += 25; reasons.push('Dispute rate is above average (' + seller.disputeRate + '%).'); }
+  else if (seller.disputeRate >= 1) { points += 10; reasons.push('Dispute rate is slightly above 1%.'); }
+  if (seller.accountAgeYears < 0.5) { points += 25; reasons.push('Seller account is less than 6 months old.'); }
+  else if (seller.accountAgeYears < 1.5) { points += 15; reasons.push('Seller account is less than 18 months old.'); }
+  else if (seller.accountAgeYears < 3) { points += 5; reasons.push('Seller account is less than 3 years old.'); }
+  if (seller.totalTransactions < 50) { points += 15; reasons.push('Very few completed transactions (' + seller.totalTransactions + ').'); }
+  else if (seller.totalTransactions < 1000) { points += 5; reasons.push('Relatively few completed transactions.'); }
+  const median = product.referencePriceUSD;
+  if (median && median > 0) {
+    const below = 1 - product.priceUSD / median;
+    if (below >= 0.5) { points += 15; reasons.push('Price is 50% or more below the category median.'); }
+    else if (below >= 0.2) { points += 5; reasons.push('Price is notably below the category median.'); }
+  }
+  if (!seller.hasTracking) { points += 5; reasons.push('No tracking offered, so delivery is harder to prove.'); }
+  const score = Math.min(points, 100);
+  const label = score < 25 ? 'Low' : score < 60 ? 'Moderate' : 'High';
+  const chance = label === 'Low' ? 'under 5%' : label === 'Moderate' ? '5–20%' : 'over 20%';
+  return {
+    score,
+    label,
+    chance: chance + ' (estimate)',
+    reasons: reasons.length ? reasons : ['No hold-risk signals in this seller pattern.'],
+    tip: label === 'Low'
+      ? 'Funds usually clear on the normal schedule for this pattern.'
+      : 'Ask the seller to upload tracking promptly, and keep the order total close to the seller’s usual range.',
+  };
+}
+
+// Ask parser. Pulls a category and a max budget out of plain language
+// ("headphones under $60") and ranks matches by risk score, safest first.
+const ASK_SYNONYMS = {
+  headphones: ['headphone', 'earbud', 'earphone', 'headset', 'audio'],
+  smartwatch: ['smartwatch', 'watch'],
+  keyboard: ['keyboard'],
+  speaker: ['speaker', 'bluetooth'],
+  charger: ['charger', 'cable', 'power', 'gan', 'adapter'],
+};
+function parseAsk(query) {
+  const q = String(query || '').toLowerCase();
+  const budgetMatch = q.match(/(?:under|below|less than|max|up to|budget)\s*\$?\s*(\d+(?:\.\d{1,2})?)|\$\s*(\d+(?:\.\d{1,2})?)/);
+  const maxPrice = budgetMatch ? Number(budgetMatch[1] || budgetMatch[2]) : null;
+  let category = null;
+  for (const [cat, words] of Object.entries(ASK_SYNONYMS)) {
+    if (words.some((w) => q.includes(w))) { category = cat; break; }
+  }
+  let matches = [...catalog.products];
+  if (category) {
+    const want = category.charAt(0).toUpperCase() + category.slice(1);
+    matches = matches.filter((p) => p.category === want);
+  }
+  if (maxPrice !== null) matches = matches.filter((p) => p.priceUSD <= maxPrice);
+  matches.sort((a, b) => {
+    const sa = calculateRiskScore(sellersById.get(a.sellerId), a).score;
+    const sb = calculateRiskScore(sellersById.get(b.sellerId), b).score;
+    return sb - sa;
+  });
+  return { category, maxPrice, matches };
+}
+
+// Subscription Watcher. Groups saved Proof Vault entries by product;
+// buying the same product twice or more counts as a recurring pattern.
+function findSubscriptions(entries) {
+  const groups = new Map();
+  for (const e of entries || []) {
+    const name = e.product && e.product.name ? e.product.name : null;
+    if (!name) continue;
+    const g = groups.get(name) || { productName: name, purchases: 0, totalSpent: 0, lastPurchase: null };
+    g.purchases += 1;
+    g.totalSpent = Math.round((g.totalSpent + Number(e.totalCost && e.totalCost.total || 0)) * 100) / 100;
+    if (!g.lastPurchase || (e.createdAt || '') > g.lastPurchase) g.lastPurchase = e.createdAt || null;
+    groups.set(name, g);
+  }
+  return [...groups.values()]
+    .filter((g) => g.purchases >= 2)
+    .sort((a, b) => b.purchases - a.purchases);
+}
+
+// Public PayPal fee figures that the cost table doesn't show (US merchant
+// schedule, Oct 2026). Estimates — the exact fee depends on the account.
+const TROUBLE_COSTS = {
+  chargebackUSD: 20,
+  disputeStandardUSD: 15,
+  disputeHighVolumeUSD: 30,
+  refundKeepsFee: true,
+  instantTransferPct: 1.5,
+  instantTransferMinUSD: 0.5,
+  micropaymentRate: 0.0499,
+  micropaymentFixedUSD: 0.09,
+  micropaymentCheaperBelowUSD: 12,
+  protection: 'PayPal Buyer Protection covers Goods & Services payments. Friends & Family payments are not covered.',
+  note: 'Public PayPal merchant fee schedule (US, Oct 2026). Estimates, not a quote.',
+};
+
 // Routes
-// ---------------------------------------------------------------------------
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'shoppal-v2', mode: PAYPAL_MODE });
 });
@@ -282,11 +361,50 @@ app.post('/api/total-cost', (req, res) => {
   }
 });
 
-// --- PayPal (Day 1, live Sandbox) ------------------------------------------
-// Server-side only. Secrets never leave this file: no logging of the secret,
-// no token value in any API response. Access tokens are cached in memory
+app.post('/api/hold-risk', (req, res) => {
+  const { sellerId, productId } = req.body || {};
+  const seller = sellersById.get(sellerId);
+  const product = productsById.get(productId);
+  if (!seller || !product) {
+    return res.status(400).json({ error: 'Unknown sellerId or productId.' });
+  }
+  if (product.sellerId !== seller.id) {
+    return res.status(400).json({ error: 'Product does not belong to this seller.' });
+  }
+  res.json({
+    sellerId: seller.id,
+    sellerName: seller.name,
+    productId: product.id,
+    productName: product.name,
+    ...calculateHoldRisk(seller, product),
+  });
+});
+
+app.get('/api/ask', (req, res) => {
+  const { category, maxPrice, matches } = parseAsk(req.query.q || '');
+  res.json({
+    query: req.query.q || '',
+    understood: {
+      category,
+      maxPrice,
+      note: matches.length
+        ? 'Matches sorted safest first.'
+        : 'No exact match in the demo catalog — showing all 10 demo products.',
+    },
+    products: matches.length ? matches : catalog.products,
+  });
+});
+
+app.get('/api/subscriptions', (req, res) => {
+  const entries = [...vaultEntries.values()].sort((a, b) =>
+    (b.createdAt || '').localeCompare(a.createdAt || '')
+  );
+  res.json({ patterns: findSubscriptions(entries) });
+});
+
+// PayPal. Server-side only — the secret never leaves this file: no logging
+// of it, no token value in any API response. Tokens are cached in memory
 // until shortly before expiry.
-// ---------------------------------------------------------------------------
 let cachedToken = null;
 let cachedTokenExpiresAt = 0;
 
@@ -352,10 +470,9 @@ function vaultDir() {
     : path.join(__dirname, 'data', 'vault');
 }
 
-// Proof Vault entries live in memory (the source of truth for reads) and
-// are also written to disk best-effort, so a local restart keeps them.
-// On Vercel the disk copy is per-instance /tmp; the in-memory copy is what
-// a judge's sequential checkout -> vault flow actually reads.
+// Vault entries live in memory (source of truth for reads) and are also
+// written to disk best-effort. On Vercel the disk copy is per-instance
+// /tmp, so a judge's checkout -> vault flow reads the in-memory copy.
 const vaultEntries = new Map();
 try {
   const dir = vaultDir();
@@ -380,8 +497,7 @@ function saveVaultEntry(entry) {
 }
 
 app.post('/api/paypal/token', async (req, res) => {
-  // Health check for the PayPal connection. The token value itself is
-  // never returned to the browser.
+  // The token value itself is never returned to the browser.
   try {
     await getPayPalAccessToken();
     res.json({ ok: true, configured: true, mode: PAYPAL_MODE });
@@ -395,7 +511,7 @@ app.post('/api/paypal/create-order', async (req, res) => {
     const { productId, totalUSD, international, currencyConversion } = req.body || {};
     const product = productsById.get(productId);
     if (!product) return res.status(400).json({ error: 'Unknown productId.' });
-    // The order amount must equal the total the user approved in step 3.
+    // The order amount has to match the total the user approved in step 3.
     const expected = calculateTotalCost(
       product.priceUSD,
       international !== false,
@@ -438,8 +554,7 @@ app.post('/api/paypal/create-order', async (req, res) => {
         brand_name: 'ShopPal v2',
         landing_page: 'LOGIN',
         user_action: 'PAY_NOW',
-        // Public base URL of this deployment (localhost when run locally,
-        // the Render URL when deployed) so PayPal can return here.
+        // PayPal returns here after approval (localhost, or the deploy URL).
         return_url: `${req.protocol}://${req.get('host')}/?approved=1`,
         cancel_url: `${req.protocol}://${req.get('host')}/?cancelled=1`,
       },
@@ -463,8 +578,8 @@ app.post('/api/paypal/capture-order', async (req, res) => {
     const { orderId } = req.body || {};
     if (!orderId) return res.status(400).json({ error: 'orderId is required.' });
     const captured = await paypalFetch(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, 'POST', {});
-    // Verify with the Orders API, then with the Payments API, before
-    // trusting the result. Only a COMPLETED capture is saved as proof.
+    // Verify with the Orders API, then the Payments API, before trusting
+    // the result. Only a COMPLETED capture is saved as proof.
     const verifiedOrder = await paypalFetch(
       `/v2/checkout/orders/${encodeURIComponent(orderId)}`,
       'GET'
@@ -524,7 +639,7 @@ app.post('/api/paypal/capture-order', async (req, res) => {
   }
 });
 
-// --- Proof Vault -----------------------------------------------------------
+// Proof Vault
 app.get('/api/vault', (req, res) => {
   const entries = [...vaultEntries.values()].sort((a, b) =>
     (b.createdAt || '').localeCompare(a.createdAt || '')
@@ -533,8 +648,7 @@ app.get('/api/vault', (req, res) => {
 });
 
 app.post('/api/dispute/draft', (req, res) => {
-  // Simulated dispute draft, built only from a saved Proof Vault entry.
-  // Clearly labelled as a simulation — never presented as a real dispute.
+  // Simulated draft, built only from a saved Proof Vault entry.
   const { vaultId } = req.body || {};
   const entry = vaultId ? vaultEntries.get(vaultId) : null;
   if (!entry) {
@@ -562,18 +676,15 @@ app.post('/api/dispute/draft', (req, res) => {
   });
 });
 
-// Fallback: serve the frontend for any other route.
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 module.exports = app;
 
-// Only listen when run directly (node server.js / npm start).
-// Vercel imports the app from api/index.js instead and serves it serverless.
+// Vercel imports the app from api/index.js; running node directly listens.
 if (require.main === module) {
   app.listen(PORT, () => {
-    // Never log secrets here.
     console.log(`ShopPal v2 listening on http://localhost:${PORT} (mode: ${PAYPAL_MODE})`);
   });
 }
