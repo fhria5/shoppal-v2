@@ -2,6 +2,8 @@
    navy #0a2472, blue #1d4ed8, light bg #f6f8fc, ink #1a2233. */
 * { box-sizing: border-box; }
 
+.ext-link { font-size: 0.85rem; color: #1d4ed8; }
+
 body {
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   margin: 0;
