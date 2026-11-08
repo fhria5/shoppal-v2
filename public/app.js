@@ -1,5 +1,5 @@
-// ShopPal v2 — frontend skeleton for the 7-step demo flow.
-// No secrets here. The PayPal client ID is loaded from /api/config at runtime.
+// ShopPal v2 — 7-step demo flow. No secrets here; the PayPal client ID
+// comes from /api/config at runtime.
 (function () {
   'use strict';
 
@@ -86,6 +86,30 @@
       '<p class="hint">Profile ' + r.components.profile + ' · History ' + r.components.history +
       ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking +
       (r.aiAvailable ? '' : ' · ' + (r.aiNote || 'AI explanation unavailable.')) + '</p>';
+    renderHoldRisk();
+  }
+
+  async function renderHoldRisk() {
+    const box = $('hold-risk');
+    if (!box || !selected) return;
+    box.innerHTML = '<p>Checking hold risk…</p>';
+    try {
+      const res = await fetch('/api/hold-risk', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sellerId: selected.seller.id, productId: selected.product.id }),
+      });
+      const h = await res.json();
+      if (!res.ok) { box.innerHTML = '<p>Hold risk unavailable.</p>'; return; }
+      const zone = h.label === 'Low' ? 'safe' : h.label === 'Moderate' ? 'caution' : 'risky';
+      box.innerHTML =
+        '<p><strong>Hold Predictor</strong> — hold risk <span class="score score-' + zone + '">' + h.label + ' · ' + h.chance + '</span></p>' +
+        '<ul>' + h.reasons.map((reason) => '<li>' + reason + '</li>').join('') + '</ul>' +
+        '<p>' + h.tip + '</p>' +
+        '<p class="hint">Estimate from public hold patterns, not a PayPal decision.</p>';
+    } catch (e) {
+      box.innerHTML = '<p>Hold risk unavailable.</p>';
+    }
   }
 
   async function refreshCost() {
@@ -109,18 +133,27 @@
       '<tr><td>Currency conversion spread (~3.5%, estimated)</td><td>' + money(c.conversionSpread) + '</td></tr>' +
       '<tr><td><strong>Total (estimated)</strong></td><td><strong>' + money(c.total) + '</strong></td></tr>' +
       '</table>';
+    renderTroubleCosts(c);
+  }
 
-    // Hold Predictor (rule-based card, stretch): warn when the seller is risky.
-    const warning = $('hold-warning');
-    if (selected.risk && selected.risk.label === 'Risky') {
-      warning.classList.remove('hidden');
-      warning.textContent =
-        'Hold warning: this seller pattern is at higher risk of a payment hold. ' +
-        'Ask the seller to upload tracking promptly and avoid unusual payment spikes.';
-    } else {
-      warning.classList.add('hidden');
-      warning.textContent = '';
-    }
+  function renderTroubleCosts(c) {
+    const box = $('trouble-costs');
+    if (!box) return;
+    const t = c.troubleCosts || {};
+    const refundLine = c.itemPrice < 12
+      ? 'Micropayments rate (4.99% + $0.09) would be cheaper for this item than the standard Checkout rate.'
+      : 'For items under $12, the Micropayments rate (4.99% + $0.09) is cheaper than the standard Checkout rate.';
+    box.innerHTML =
+      '<p><strong>If something goes wrong</strong></p>' +
+      '<ul>' +
+      '<li>Chargeback: $' + (t.chargebackUSD || 20) + ' per case, on top of the lost sale.</li>' +
+      '<li>Dispute through PayPal: $' + (t.disputeStandardUSD || 15) + ' ($' + (t.disputeHighVolumeUSD || 30) + ' for high-volume sellers).</li>' +
+      '<li>Refund: the original fee is not returned, so a refunded order still costs the fee.</li>' +
+      '<li>Instant transfer to your bank: ' + (t.instantTransferPct || 1.5) + '% (min $' + (t.instantTransferMinUSD || 0.5) + '); standard transfer is free but takes 1–3 days.</li>' +
+      '<li>' + refundLine + '</li>' +
+      '</ul>' +
+      '<p><strong>Buyer Protection:</strong> ' + (t.protection || 'PayPal Buyer Protection covers Goods & Services payments. Friends & Family payments are not covered.') + '</p>' +
+      '<p class="hint">' + (t.note || 'Public PayPal merchant fee schedule (US, Oct 2026). Estimates, not a quote.') + '</p>';
   }
 
   async function refreshVault() {
@@ -130,29 +163,52 @@
     if (!data.entries || data.entries.length === 0) {
       vault.innerHTML = '<p>No Proof Vault entries yet. Complete a successful checkout to save proof automatically.</p>';
       $('dispute-btn').disabled = true;
-      return;
+    } else {
+      lastVaultId = data.entries[0].id;
+      $('dispute-btn').disabled = false;
+      vault.innerHTML = data.entries.map((e) =>
+        '<p><strong>' + (e.product?.name || e.id) + '</strong> — ' +
+        (e.paypal?.status || 'unknown') + ' · Order ' + (e.paypal?.orderId || '—') + '</p>'
+      ).join('');
     }
-    lastVaultId = data.entries[0].id;
-    $('dispute-btn').disabled = false;
-    vault.innerHTML = data.entries.map((e) =>
-      '<p><strong>' + (e.product?.name || e.id) + '</strong> — ' +
-      (e.paypal?.status || 'unknown') + ' · Order ' + (e.paypal?.orderId || '—') + '</p>'
-    ).join('');
+    renderSubscriptions();
+  }
+
+  async function renderSubscriptions() {
+    const box = $('subscriptions');
+    if (!box) return;
+    try {
+      const res = await fetch('/api/subscriptions');
+      const data = await res.json();
+      if (!data.patterns || !data.patterns.length) {
+        box.innerHTML = '<p><strong>Subscription Watcher</strong></p><p>No recurring purchases detected yet. Buy the same product twice and it shows up here with the total you have spent on it.</p>';
+        return;
+      }
+      box.innerHTML =
+        '<p><strong>Subscription Watcher</strong> — recurring purchases found</p>' +
+        data.patterns.map((p) =>
+          '<p>' + p.productName + ' — bought ' + p.purchases + '×, total spent ' + money(p.totalSpent) +
+          ', last purchase ' + (p.lastPurchase ? p.lastPurchase.slice(0, 10) : '—') + '</p>'
+        ).join('');
+    } catch (e) {
+      box.innerHTML = '<p>Subscription Watcher unavailable.</p>';
+    }
   }
 
   function bindEvents() {
-    $('ask-btn').addEventListener('click', () => {
-      const q = $('ask').value.trim().toLowerCase();
+    $('ask-btn').addEventListener('click', async () => {
+      const q = $('ask').value.trim();
       if (!q || !catalog) return;
-      // Simple demo matching: filter by category or name words.
-      const matches = catalog.products.filter((p) =>
-        q.includes(p.category.toLowerCase()) || q.includes(p.name.toLowerCase().split(' ')[0])
-      );
-      renderCatalog(matches.length ? matches : catalog.products);
-      if (!matches.length) {
-        $('catalog').insertAdjacentHTML('beforeend',
-          '<p class="hint">No exact match in the demo catalog — showing all 10 demo products.</p>');
-      }
+      const res = await fetch('/api/ask?q=' + encodeURIComponent(q));
+      const data = await res.json();
+      const products = data.products || catalog.products;
+      renderCatalog(products);
+      const understood = [];
+      if (data.understood && data.understood.category) understood.push(data.understood.category);
+      if (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) understood.push('under $' + data.understood.maxPrice);
+      $('catalog').insertAdjacentHTML('beforeend',
+        '<p class="hint">Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
+        ' — ' + (data.understood ? data.understood.note : '') + '</p>');
     });
     $('opt-international').addEventListener('change', refreshCost);
     $('opt-conversion').addEventListener('change', refreshCost);
