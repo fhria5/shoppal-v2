@@ -186,6 +186,10 @@ type. What matters is that no fee appears after checkout starts.
 | `POST /api/paypal/capture-order` | Orders API v2 capture, verified via Orders + Payments API. Only COMPLETED saves a Proof Vault entry. Re-capturing an already-captured order recovers the existing capture (`alreadyCaptured: true`) instead of erroring. |
 | `POST /api/paypal/refund` | Payments API v2 refund of a capture (full by default; optional partial `amount` + `reason` → `note_to_payer`). Accepts `vaultId` or a direct `captureId`. The vault entry is updated with the refund record. |
 | `GET /api/paypal/order?orderId=` | Live order status: Orders API + Payments API capture re-verification (status, payer, capture, amount, whether the order is in the Proof Vault). |
+| `POST /api/dispute/simulate` | Dispute Win Simulator: win-chance estimate (0–100) for a PayPal dispute, from a Proof Vault entry (`vaultId`) or a product (`sellerId` + `productId`, pre-purchase). Transparent rule-based components + missing-proof list + recommendation; Vyce rewrites the explanation only (never the number). |
+| `GET /api/evidence?vaultId=` | Evidence Pack: a standalone printable HTML proof page (order, verified capture, risk score, timeline, refund) returned as JSON `{ html }` — the client opens it via a blob URL and prints to PDF. |
+| `POST /api/check-link` | Paste any product URL: reads the page's public metadata (title, price, image — like a chat link preview), scores the domain + price vs the demo catalog median, returns a verdict + honest total. Blocks private/localhost hosts. |
+| `GET /api/deadlines` | Deadline Tracker: 180-day dispute-filing + 20-day escalation + 30-day return deadlines, from a vault entry (`vaultId`) or a product (`sellerId` + `productId`, purchase assumed today). |
 | `GET /api/vault` | List saved Proof Vault entries. |
 | `POST /api/dispute/draft` | Simulated dispute draft from a Proof Vault entry (labelled as a simulation). |
 
