@@ -1506,12 +1506,14 @@ async function agentSplitPaymentLink(args, ctx) {
   if (!p) return { data: { error: 'Unknown productId.' }, summary: 'unknown product' };
   const friends = (Array.isArray(args.friends) ? args.friends : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 10);
   if (!friends.length) return { data: { error: 'Add at least one friend to split with.' }, summary: 'no friends' };
-  const total = calculateTotalCost(p.priceUSD, true, true, ctx.lang);
+  // Split the ITEM price (same as /api/split-payment-link for a productId),
+  // not the fee-inclusive total: p01 $59.99 / 3 = $20.00 per friend.
+  const totalPrice = p.priceUSD;
   const people = friends.length + 1;
   // Integer-cents split (same as /api/split-payment-link): each friend pays
   // the share rounded to the nearest cent; the initiator's share absorbs
   // the leftover cents so the exact total adds up.
-  const totalCents = Math.round(total.total * 100);
+  const totalCents = Math.round(totalPrice * 100);
   const shareCents = Math.round(totalCents / people);
   const share = shareCents / 100;
   const initiatorShare = ((totalCents - friends.length * shareCents) / 100).toFixed(2);
@@ -1526,7 +1528,7 @@ async function agentSplitPaymentLink(args, ctx) {
     }
   }
   return {
-    data: { product: p.name, total: total.total, people, share, initiatorShare, exactTotalVerified, friends, links },
+    data: { product: p.name, total: totalPrice, people, share, initiatorShare, exactTotalVerified, friends, links },
     summary: 'split ' + p.name + ' ' + people + ' ways, $' + share + ' each, ' + links.filter((l) => l.approveUrl).length + ' payment link(s)',
   };
 }
