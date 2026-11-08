@@ -1,1 +1,129 @@
-{"products":[{"category":"Headphones","id":"p01","image":"placeholder: product photo (demo catalog, no real listing)","name":"Aurora Wireless Headphones","priceUSD":59.99,"referencePriceUSD":59.99,"sellerId":"seller-safe"},{"category":"Headphones","id":"p02","image":"placeholder: product photo (demo catalog, no real listing)","name":"Aurora Wireless Headphones","priceUSD":54.99,"referencePriceUSD":59.99,"sellerId":"seller-caution"},{"category":"Headphones","id":"p03","image":"placeholder: product photo (demo catalog, no real listing)","name":"Aurora Wireless Headphones","priceUSD":29.99,"referencePriceUSD":59.99,"sellerId":"seller-risky"},{"category":"Smartwatch","id":"p04","image":"placeholder: product photo (demo catalog, no real listing)","name":"Pulse Smartwatch Series 5","priceUSD":89.0,"referencePriceUSD":89.0,"sellerId":"seller-safe"},{"category":"Smartwatch","id":"p05","image":"placeholder: product photo (demo catalog, no real listing)","name":"Pulse Smartwatch Series 5","priceUSD":44.0,"referencePriceUSD":89.0,"sellerId":"seller-risky"},{"category":"Keyboard","id":"p06","image":"placeholder: product photo (demo catalog, no real listing)","name":"Nova Mechanical Keyboard","priceUSD":79.0,"referencePriceUSD":79.0,"sellerId":"seller-safe"},{"category":"Keyboard","id":"p07","image":"placeholder: product photo (demo catalog, no real listing)","name":"Nova Mechanical Keyboard","priceUSD":69.0,"referencePriceUSD":79.0,"sellerId":"seller-caution"},{"category":"Speaker","id":"p08","image":"placeholder: product photo (demo catalog, no real listing)","name":"Echo Bluetooth Speaker","priceUSD":39.99,"referencePriceUSD":39.99,"sellerId":"seller-safe"},{"category":"Speaker","id":"p09","image":"placeholder: product photo (demo catalog, no real listing)","name":"Echo Bluetooth Speaker","priceUSD":19.99,"referencePriceUSD":39.99,"sellerId":"seller-risky"},{"category":"Charger","id":"p10","image":"placeholder: product photo (demo catalog, no real listing)","name":"Volt 65W GaN Charger","priceUSD":24.99,"referencePriceUSD":24.99,"sellerId":"seller-caution"}],"sellers":[{"accountAgeYears":4.2,"disputeRate":0.4,"hasReturnPolicy":true,"hasTracking":true,"id":"seller-safe","name":"TechHub Official","profileComplete":true,"riskProfile":"Safe","totalTransactions":12400},{"accountAgeYears":1.1,"disputeRate":2.8,"hasReturnPolicy":false,"hasTracking":true,"id":"seller-caution","name":"GadgetZone ID","profileComplete":true,"riskProfile":"Caution","totalTransactions":340},{"accountAgeYears":0.2,"disputeRate":6.5,"hasReturnPolicy":false,"hasTracking":false,"id":"seller-risky","name":"DealHunter88","profileComplete":false,"riskProfile":"Risky","totalTransactions":18}]}
+{
+  "products": [
+    {
+      "category": "Headphones",
+      "id": "p01",
+      "image": "images/headphones.jpg",
+      "name": "Aurora Wireless Headphones",
+      "priceUSD": 59.99,
+      "referencePriceUSD": 59.99,
+      "sellerId": "seller-safe"
+    },
+    {
+      "category": "Headphones",
+      "id": "p02",
+      "image": "images/headphones.jpg",
+      "name": "Aurora Wireless Headphones",
+      "priceUSD": 54.99,
+      "referencePriceUSD": 59.99,
+      "sellerId": "seller-caution"
+    },
+    {
+      "category": "Headphones",
+      "id": "p03",
+      "image": "images/headphones.jpg",
+      "name": "Aurora Wireless Headphones",
+      "priceUSD": 29.99,
+      "referencePriceUSD": 59.99,
+      "sellerId": "seller-risky"
+    },
+    {
+      "category": "Smartwatch",
+      "id": "p04",
+      "image": "images/smartwatch.jpg",
+      "name": "Pulse Smartwatch Series 5",
+      "priceUSD": 89.0,
+      "referencePriceUSD": 89.0,
+      "sellerId": "seller-safe"
+    },
+    {
+      "category": "Smartwatch",
+      "id": "p05",
+      "image": "images/smartwatch.jpg",
+      "name": "Pulse Smartwatch Series 5",
+      "priceUSD": 44.0,
+      "referencePriceUSD": 89.0,
+      "sellerId": "seller-risky"
+    },
+    {
+      "category": "Keyboard",
+      "id": "p06",
+      "image": "images/keyboard.jpg",
+      "name": "Nova Mechanical Keyboard",
+      "priceUSD": 79.0,
+      "referencePriceUSD": 79.0,
+      "sellerId": "seller-safe"
+    },
+    {
+      "category": "Keyboard",
+      "id": "p07",
+      "image": "images/keyboard.jpg",
+      "name": "Nova Mechanical Keyboard",
+      "priceUSD": 69.0,
+      "referencePriceUSD": 79.0,
+      "sellerId": "seller-caution"
+    },
+    {
+      "category": "Speaker",
+      "id": "p08",
+      "image": "images/speaker.jpg",
+      "name": "Echo Bluetooth Speaker",
+      "priceUSD": 39.99,
+      "referencePriceUSD": 39.99,
+      "sellerId": "seller-safe"
+    },
+    {
+      "category": "Speaker",
+      "id": "p09",
+      "image": "images/speaker.jpg",
+      "name": "Echo Bluetooth Speaker",
+      "priceUSD": 19.99,
+      "referencePriceUSD": 39.99,
+      "sellerId": "seller-risky"
+    },
+    {
+      "category": "Charger",
+      "id": "p10",
+      "image": "images/charger.jpg",
+      "name": "Volt 65W GaN Charger",
+      "priceUSD": 24.99,
+      "referencePriceUSD": 24.99,
+      "sellerId": "seller-caution"
+    }
+  ],
+  "sellers": [
+    {
+      "accountAgeYears": 4.2,
+      "disputeRate": 0.4,
+      "hasReturnPolicy": true,
+      "hasTracking": true,
+      "id": "seller-safe",
+      "name": "TechHub Official",
+      "profileComplete": true,
+      "riskProfile": "Safe",
+      "totalTransactions": 12400
+    },
+    {
+      "accountAgeYears": 1.1,
+      "disputeRate": 2.8,
+      "hasReturnPolicy": false,
+      "hasTracking": true,
+      "id": "seller-caution",
+      "name": "GadgetZone ID",
+      "profileComplete": true,
+      "riskProfile": "Caution",
+      "totalTransactions": 340
+    },
+    {
+      "accountAgeYears": 0.2,
+      "disputeRate": 6.5,
+      "hasReturnPolicy": false,
+      "hasTracking": false,
+      "id": "seller-risky",
+      "name": "DealHunter88",
+      "profileComplete": false,
+      "riskProfile": "Risky",
+      "totalTransactions": 18
+    }
+  ]
+}
