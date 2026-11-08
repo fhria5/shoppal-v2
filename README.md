@@ -196,7 +196,7 @@ type. What matters is that no fee appears after checkout starts.
 | `GET /api/vault` | List saved Proof Vault entries. |
 | `POST /api/dispute/draft` | Simulated dispute draft from a Proof Vault entry (labelled as a simulation). |
 
-Two features are client-side (no server endpoint — they reuse the vault and the existing risk/cost/hold endpoints): **Compare 2 Products** (side-by-side risk + honest total + hold table; on phones the table scrolls horizontally inside the chat bubble) and **Monthly Budget** (a budget limit stored in the browser; the Proof Vault shows this month's spend vs the limit and the checkout warns when a purchase would exceed it).
+Two features are client-side (no server endpoint — they reuse the vault and the existing risk/cost/hold endpoints): **Compare 2 Products** (one-line verdict — which is safer, which is cheaper — plus two stacked product cards with photo, risk, hold, honest total, and tracking/returns; the safer card is highlighted green, so nothing ever needs a horizontal scroll on a phone) and **Monthly Budget** (a budget limit stored in the browser; the Proof Vault shows this month's spend vs the limit and the checkout warns when a purchase would exceed it).
 
 ## SEO, GEO & accessibility
 
