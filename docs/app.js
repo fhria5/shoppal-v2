@@ -1,8 +1,8 @@
-// ShopPal v2 — static demo for GitHub Pages, chat UI.
+// ShopPal v2: static demo for GitHub Pages, chat UI.
 // Same 7-step flow as the Node.js server, running fully in the browser:
 // risk score and total cost use the same rule formulas as server.js;
 // checkout uses the official PayPal JS SDK (Sandbox); Proof Vault lives
-// in localStorage. No secrets here — the Client ID in index.html is
+// in localStorage. No secrets here, the Client ID in index.html is
 // a public identifier.
 (function () {
   'use strict';
@@ -41,11 +41,11 @@
   // demo has no server of its own). CORS on the Worker is open.
   var WORKER_API = 'https://shoppal-v2.fahriannor07.workers.dev';
   var selected = null; // { product, seller, risk, cost }
-  var lastResults = null; // products the last Ask reply showed — follow-ups ("yang termurah") refer to these
+  var lastResults = null; // products the last Ask reply showed, follow-ups ("yang termurah") refer to these
 
   // Bilingual replies (Dwibahasa). The agent answers in the language the
   // buyer types: Indonesian when the message has Indonesian words, English
-  // otherwise (English is the demo's default — Devpost requires English
+  // otherwise (English is the demo's default, Devpost requires English
   // materials). The greeting stays English (it renders before any input).
   var lang = 'en';
   function detectLang(text) {
@@ -68,25 +68,25 @@
       under: 'under $', fromSeller: 'from {seller} only', withReturns: 'with returns', withTracking: 'with tracking',
       cheapestFirst: 'cheapest first', bestFirst: 'best match first',
       noteCheapest: 'Matches sorted cheapest first.', noteBest: 'Best match first (safest, then cheapest).',
-      noteSafest: 'Matches sorted safest first.', noteNoMatch: 'No exact match in the demo catalog — showing all 10 demo products.',
+      noteSafest: 'Matches sorted safest first.', noteNoMatch: 'No exact match in the demo catalog, showing all 10 demo products.',
       riskScore: 'Risk Score', labelSafe: 'Safe', labelCaution: 'Caution', labelRisky: 'Risky',
       recommendation: 'Recommendation:', watchOut: 'Watch out:', beforeYouPay: 'Before you pay:',
       riskProfileLow: 'This seller account is new or its profile is incomplete.',
       riskProfileHigh: 'This seller has an established, complete profile.',
       riskHistoryLow: 'This seller has a high dispute rate compared with other sellers.',
       riskHistoryHigh: 'This seller has a low dispute rate across many transactions.',
-      riskPriceLow: 'This price is far below the category median — a common scam pattern.',
+      riskPriceLow: 'This price is far below the category median, a common scam pattern.',
       riskTrackingLow: 'This seller does not offer tracking or a clear return policy.',
       riskPriceFair: 'The price is fair for this category, with tracking and returns offered.',
       recSafe: 'Safe to proceed with PayPal Goods & Services.',
-      recCaution: 'Proceed with caution. Use PayPal Goods & Services — never Friends & Family.',
+      recCaution: 'Proceed with caution. Use PayPal Goods & Services, never Friends & Family.',
       recRisky: 'Risky. Consider an alternative seller before paying.',
       comparison: 'Safer than {n} of {total} demo listings.',
       warning: 'Too-good-to-be-true pattern: a price far below the median from a seller with a high dispute rate. This is the most common scam shape in the demo.',
-      checklistSafe: ['Pay with PayPal Goods & Services (not Friends & Family).', 'Save the tracking number when the seller ships.', 'Keep the Proof Vault entry — it is saved automatically.'],
-      checklistCaution: ['Pay only with PayPal Goods & Services.', 'Ask the seller for tracking before the money clears.', 'If the seller asks you to pay outside PayPal, stop — that voids Buyer Protection.'],
-      checklistRisky: ['Do not pay this seller if you can avoid it.', 'If you still proceed, use Goods & Services only — never Friends & Family.', 'Screenshot the listing and the chat before paying; you will need them for a dispute.'],
-      aiNoteStatic: 'AI explanation unavailable in the static demo — showing rule-based reasons.',
+      checklistSafe: ['Pay with PayPal Goods & Services (not Friends & Family).', 'Save the tracking number when the seller ships.', 'Keep the Proof Vault entry, it is saved automatically.'],
+      checklistCaution: ['Pay only with PayPal Goods & Services.', 'Ask the seller for tracking before the money clears.', 'If the seller asks you to pay outside PayPal, stop, that voids Buyer Protection.'],
+      checklistRisky: ['Do not pay this seller if you can avoid it.', 'If you still proceed, use Goods & Services only, never Friends & Family.', 'Screenshot the listing and the chat before paying; you will need them for a dispute.'],
+      aiNoteStatic: 'AI explanation unavailable in the static demo, showing rule-based reasons.',
       holdTitle: 'Hold Predictor', holdLow: 'Low', holdModerate: 'Moderate', holdHigh: 'High',
       holdHint: 'Estimate from public hold patterns, not a PayPal decision.',
       holdChanceLow: 'under 5% (estimate)', holdChanceModerate: '5–20% (estimate)', holdChanceHigh: 'over 20% (estimate)',
@@ -113,13 +113,13 @@
       costNote: 'Estimated fees. PayPal Checkout 3.49% + $0.49, international 1.5%, conversion spread ~3.5%.',
       readyToPay: 'Ready to pay?', neverPay: 'I never pay without your approval.',
       approveLabel: 'I reviewed the risk score and total cost, and I approve this payment.',
-      checkoutHint: 'Pay with the gold PayPal button above. Approve with a PayPal Sandbox Personal (buyer) account — no real money is involved. The order total is exactly the total shown above.',
+      checkoutHint: 'Pay with the gold PayPal button above. Approve with a PayPal Sandbox Personal (buyer) account, no real money is involved. The order total is exactly the total shown above.',
       sdkFailed: 'PayPal SDK failed to load. Check your connection and reload.',
       tickFirst: 'Please tick the approval checkbox first.', creatingOrder: 'Creating PayPal order…',
-      approvedCapturing: 'PayPal approved order {id} — capturing…',
+      approvedCapturing: 'PayPal approved order {id}, capturing…',
       captureFailed: 'Capture did not complete (status: {status}). Nothing was saved to the Proof Vault.',
       paymentCaptured: 'Payment captured: {id}',
-      successTitle: 'Success — paid {total} via PayPal Sandbox.',
+      successTitle: 'Success, paid {total} via PayPal Sandbox.',
       successProof: 'Proof was saved to the Proof Vault automatically (this browser).',
       checkoutCancelled: 'Checkout was cancelled in PayPal. No payment was made.',
       checkoutError: 'PayPal checkout error: {msg}',
@@ -127,42 +127,42 @@
       subsTitle: 'Subscription Watcher',
       subsEmpty: 'No recurring purchases detected yet. Buy the same product twice and it shows up here with the total you have spent on it.',
       subsFound: 'recurring purchases found',
-      subsLine: '{name} — bought {n}×, total spent {total}, last purchase {date}',
+      subsLine: '{name}, bought {n}×, total spent {total}, last purchase {date}',
       refreshVault: 'Refresh Vault', disputeBtn: 'Simulate Dispute',
       disputeNotFound: 'Proof Vault entry not found. Save a successful checkout first.',
       refundBtn: 'Refund (Sandbox)', refundConfirm: 'Confirm refund?', refundTitle: 'Refund',
-      refundSuccess: 'Refund {id} — {status}, {amount}.', refundFailed: 'Refund failed: {msg}',
+      refundSuccess: 'Refund {id}, {status}, {amount}.', refundFailed: 'Refund failed: {msg}',
       refundAlready: 'Already refunded.', orderStatusBtn: 'Check live status',
       orderStatusTitle: 'Live order status (PayPal)',
       orderStatusFailed: 'Could not check the order status: {msg}',
       simBtn: 'Simulate a dispute', simTitle: 'Dispute simulation',
       simWinChance: 'Win chance: {n}%', simMissing: 'Missing proof: {list}',
       simFailed: 'Could not simulate the dispute: {msg}',
-      simPreNote: 'Pre-purchase simulation — what your case would look like if you buy now.',
+      simPreNote: 'Pre-purchase simulation, what your case would look like if you buy now.',
       simStrong: 'Strong case', simModerate: 'Moderate case', simWeak: 'Weak case',
       simCaptureOk: 'Payment captured and verified (COMPLETED).',
       simCapturePlanned: 'Payment would be captured and verified (COMPLETED).',
-      simTrackingYes: 'Seller provides tracking — delivery can be proved.',
-      simTrackingNo: 'No tracking from this seller — delivery is hard to prove.',
+      simTrackingYes: 'Seller provides tracking, delivery can be proved.',
+      simTrackingNo: 'No tracking from this seller, delivery is hard to prove.',
       simReturnsYes: 'Seller accepts returns.',
       simReturnsNo: 'Seller does not accept returns.',
-      simDisputeRateHigh: 'Seller dispute rate is high ({rate}%) — a pattern that supports the buyer.',
+      simDisputeRateHigh: 'Seller dispute rate is high ({rate}%), a pattern that supports the buyer.',
       simDisputeRateLow: 'Seller dispute rate is low ({rate}%).',
       simWithinWindow: 'Still inside the 180-day PayPal filing window ({days} days left).',
       simExpiredWindow: 'The 180-day filing window has passed.',
-      simTypeUnauthorized: 'Unauthorized payment — PayPal usually sides with the buyer when reported quickly.',
-      simTypeNotReceived: 'Item not received — tracking decides the outcome.',
-      simTypeNotDescribed: 'Item not as described — photos and the listing text decide the outcome.',
+      simTypeUnauthorized: 'Unauthorized payment, PayPal usually sides with the buyer when reported quickly.',
+      simTypeNotReceived: 'Item not received, tracking decides the outcome.',
+      simTypeNotDescribed: 'Item not as described, photos and the listing text decide the outcome.',
       simMissingTracking: 'Tracking number / delivery proof',
       simMissingPhotos: 'Photos of the item received vs the listing',
       simMissingChat: 'Message history with the seller',
       simMissingPolicy: 'Screenshot of the seller return policy',
       simMissingReport: 'Report the unauthorized payment to PayPal and your bank/card issuer quickly',
-      simRecStrong: 'File with confidence — attach the proof from the Proof Vault.',
-      simRecModerate: 'File, but collect the missing proof first — it decides the outcome.',
+      simRecStrong: 'File with confidence, attach the proof from the Proof Vault.',
+      simRecModerate: 'File, but collect the missing proof first, it decides the outcome.',
       simRecWeak: 'Collect the missing proof before filing, or ask the seller for a refund first.',
       simRecTooLate: 'The filing window has passed. Your remaining option is a chargeback through your bank/card issuer.',
-      simAlreadyRefunded: 'This capture was already refunded — there is nothing left to dispute.',
+      simAlreadyRefunded: 'This capture was already refunded, there is nothing left to dispute.',
       evBtn: 'Download Evidence Pack',
       evFailed: 'Could not build the evidence pack: {msg}',
       evTitle: 'ShopPal Evidence Pack',
@@ -176,10 +176,10 @@
       clTitle: 'Link check', clFailed: 'Could not check that link: {msg}',
       clKnown: 'Known marketplace', clUnknown: 'Unknown domain',
       clNoPrice: 'No price found on the page',
-      linkHint: 'Or paste any product link — I will check the seller and the price from the page (live server).',
+      linkHint: 'Or paste any product link, I will check the seller and the price from the page (live server).',
       impTitle: 'Import cost (estimate)', impDuty: 'Import duty ({rate}%)',
       impVat: 'VAT / GST ({rate}%)',
-      impFree: 'Below the {country} de minimis ({min}) — no import duty.',
+      impFree: 'Below the {country} de minimis ({min}), no import duty.',
       impNote: 'Estimate only. Exact duty depends on the product HS code.',
       impNoCountry: 'No import (domestic)',
       phChip: 'Check a suspicious message', phTitle: 'Phishing check',
@@ -190,10 +190,10 @@
       phNoLink: 'No link found in the message.',
       phNoPaypalLink: 'No link in the message points to PayPal.',
       phUrgency: 'Uses urgency language to pressure you (“{word}”).',
-      phAsksSecret: 'Asks for a password, OTP code, or full card number — PayPal never does this by message.',
-      phGeneric: 'Generic greeting (“{word}”) instead of your name — PayPal uses your name.',
+      phAsksSecret: 'Asks for a password, OTP code, or full card number, PayPal never does this by message.',
+      phGeneric: 'Generic greeting (“{word}”) instead of your name, PayPal uses your name.',
       phMismatch: 'The text says PayPal but the link goes elsewhere.',
-      phNote: 'Rule-based check + AI review. When in doubt, never click — open paypal.com yourself.',
+      phNote: 'Rule-based check + AI review. When in doubt, never click, open paypal.com yourself.',
       phPlaceholder: 'Paste the suspicious message…',
       cmpToggle: 'Compare products', cmpTitle: 'Compare products',
       cmpSafer: 'Safer pick', cmpCheaper: 'Cheapest',
@@ -207,7 +207,7 @@
       budWarn: 'This purchase would take you over your monthly budget ({spent} of {budget} spent).',
       budNoBudget: 'No monthly budget set.',
       hrcTitle: 'Hold release checklist', hrcBtn: 'How to release this hold faster',
-      hrcIntro: 'PayPal holds new or risky sellers’ money for up to 21 days. Each step below can release it sooner — tick what is already done and see the estimated release.',
+      hrcIntro: 'PayPal holds new or risky sellers’ money for up to 21 days. Each step below can release it sooner, tick what is already done and see the estimated release.',
       hrcEstimated: 'Estimated release: {n} days', hrcCurrent: 'Current hold: {n} days',
       hrcDone: 'Done', hrcTodo: 'To do', hrcSaves: 'saves up to {n} days',
       hrcPrevents: 'prevents future holds',
@@ -223,37 +223,37 @@
       hrcStepShipFastDetail: 'Late shipping can extend the hold.',
       hrcStepDisputes: 'Keep the dispute rate low and respond to disputes fast',
       hrcStepDisputesDetail: 'High dispute rates trigger holds on future sales.',
-      hrcNote: 'PayPal’s published hold rules (new-seller and risk holds, up to 21 days). Estimates, not a guarantee — PayPal decides each case.',
+      hrcNote: 'PayPal’s published hold rules (new-seller and risk holds, up to 21 days). Estimates, not a guarantee, PayPal decides each case.',
       hrcNotFound: 'Pick a product first to see its hold checklist.',
       disputeTitle: 'Simulated dispute draft', disputeReadiness: 'readiness {n}/100',
       disputeBody: 'Dispute response draft (simulated, factual only): Order {order} for {product} ({total}) was paid via PayPal Sandbox and captured as {status}. Seller: {seller} (risk score {score} at checkout). Proof is attached in the Proof Vault entry {id}.',
       disputeMissing: 'Still missing: {list}', disputeNone: 'No proof missing.',
-      sdkNotLoaded: 'PayPal SDK did not load yet — it loads from paypal.com; check your connection and reload the page if the PayPal button never appears.'
+      sdkNotLoaded: 'PayPal SDK did not load yet, it loads from paypal.com; check your connection and reload the page if the PayPal button never appears.'
     },
     id: {
       understood: 'Mengerti:', noCategory: 'tidak ada kategori atau budget yang dikenali',
       under: 'di bawah $', fromSeller: 'dari {seller} saja', withReturns: 'ada garansi/retur', withTracking: 'ada tracking',
       cheapestFirst: 'termurah dulu', bestFirst: 'terbaik dulu',
       noteCheapest: 'Hasil diurutkan termurah dulu.', noteBest: 'Hasil terbaik dulu (paling aman, lalu termurah).',
-      noteSafest: 'Hasil diurutkan paling aman dulu.', noteNoMatch: 'Tidak ada yang cocok di katalog demo — menampilkan 10 produk demo.',
+      noteSafest: 'Hasil diurutkan paling aman dulu.', noteNoMatch: 'Tidak ada yang cocok di katalog demo, menampilkan 10 produk demo.',
       riskScore: 'Skor Risiko', labelSafe: 'Aman', labelCaution: 'Hati-hati', labelRisky: 'Berisiko',
       recommendation: 'Rekomendasi:', watchOut: 'Perhatian:', beforeYouPay: 'Sebelum bayar:',
       riskProfileLow: 'Akun seller ini baru atau profilnya belum lengkap.',
       riskProfileHigh: 'Seller ini sudah lama dan profilnya lengkap.',
       riskHistoryLow: 'Seller ini punya tingkat sengketa tinggi dibanding seller lain.',
       riskHistoryHigh: 'Seller ini punya tingkat sengketa rendah dari banyak transaksi.',
-      riskPriceLow: 'Harga ini jauh di bawah median kategori — pola scam yang umum.',
+      riskPriceLow: 'Harga ini jauh di bawah median kategori, pola scam yang umum.',
       riskTrackingLow: 'Seller ini tidak menyediakan tracking atau kebijakan retur yang jelas.',
       riskPriceFair: 'Harganya wajar untuk kategori ini, dengan tracking dan retur.',
       recSafe: 'Aman lanjut dengan PayPal Goods & Services.',
-      recCaution: 'Lanjut dengan hati-hati. Pakai PayPal Goods & Services — jangan Friends & Family.',
+      recCaution: 'Lanjut dengan hati-hati. Pakai PayPal Goods & Services, jangan Friends & Family.',
       recRisky: 'Berisiko. Pertimbangkan seller lain sebelum bayar.',
       comparison: 'Lebih aman dari {n} dari {total} listing demo.',
       warning: 'Pola terlalu-bagus-untuk-jadi-kenyataan: harga jauh di bawah median dari seller dengan tingkat sengketa tinggi. Ini pola scam paling umum di demo.',
-      checklistSafe: ['Bayar dengan PayPal Goods & Services (bukan Friends & Family).', 'Simpan nomor tracking saat seller mengirim.', 'Simpan entri Proof Vault — tersimpan otomatis.'],
-      checklistCaution: ['Bayar hanya dengan PayPal Goods & Services.', 'Minta tracking ke seller sebelum dananya cair.', 'Kalau seller minta bayar di luar PayPal, berhenti — itu membatalkan Perlindungan Pembeli.'],
-      checklistRisky: ['Jangan bayar seller ini kalau bisa dihindari.', 'Kalau tetap lanjut, pakai Goods & Services saja — jangan Friends & Family.', 'Screenshot listing dan chat sebelum bayar; kamu akan butuh untuk sengketa.'],
-      aiNoteStatic: 'Penjelasan AI tidak tersedia di demo statis — menampilkan alasan berbasis aturan.',
+      checklistSafe: ['Bayar dengan PayPal Goods & Services (bukan Friends & Family).', 'Simpan nomor tracking saat seller mengirim.', 'Simpan entri Proof Vault, tersimpan otomatis.'],
+      checklistCaution: ['Bayar hanya dengan PayPal Goods & Services.', 'Minta tracking ke seller sebelum dananya cair.', 'Kalau seller minta bayar di luar PayPal, berhenti, itu membatalkan Perlindungan Pembeli.'],
+      checklistRisky: ['Jangan bayar seller ini kalau bisa dihindari.', 'Kalau tetap lanjut, pakai Goods & Services saja, jangan Friends & Family.', 'Screenshot listing dan chat sebelum bayar; kamu akan butuh untuk sengketa.'],
+      aiNoteStatic: 'Penjelasan AI tidak tersedia di demo statis, menampilkan alasan berbasis aturan.',
       holdTitle: 'Prediktor Hold', holdLow: 'Rendah', holdModerate: 'Sedang', holdHigh: 'Tinggi',
       holdHint: 'Perkiraan dari pola hold publik, bukan keputusan PayPal.',
       holdChanceLow: 'di bawah 5% (perkiraan)', holdChanceModerate: '5–20% (perkiraan)', holdChanceHigh: 'di atas 20% (perkiraan)',
@@ -280,13 +280,13 @@
       costNote: 'Perkiraan biaya. PayPal Checkout 3.49% + $0.49, internasional 1.5%, selisih kurs ~3.5%.',
       readyToPay: 'Siap bayar?', neverPay: 'Saya tidak pernah bayar tanpa persetujuanmu.',
       approveLabel: 'Saya sudah memeriksa skor risiko dan total biaya, dan saya menyetujui pembayaran ini.',
-      checkoutHint: 'Bayar dengan tombol PayPal emas di atas. Setujui dengan akun Personal (buyer) PayPal Sandbox — tidak ada uang asli yang terlibat. Total order sama persis dengan total di atas.',
+      checkoutHint: 'Bayar dengan tombol PayPal emas di atas. Setujui dengan akun Personal (buyer) PayPal Sandbox, tidak ada uang asli yang terlibat. Total order sama persis dengan total di atas.',
       sdkFailed: 'PayPal SDK gagal dimuat. Periksa koneksi dan muat ulang.',
       tickFirst: 'Centang kotak persetujuan dulu.', creatingOrder: 'Membuat order PayPal…',
-      approvedCapturing: 'PayPal menyetujui order {id} — meng-capture…',
+      approvedCapturing: 'PayPal menyetujui order {id}, meng-capture…',
       captureFailed: 'Capture tidak selesai (status: {status}). Tidak ada yang tersimpan ke Proof Vault.',
       paymentCaptured: 'Pembayaran berhasil di-capture: {id}',
-      successTitle: 'Berhasil — dibayar {total} via PayPal Sandbox.',
+      successTitle: 'Berhasil, dibayar {total} via PayPal Sandbox.',
       successProof: 'Bukti tersimpan otomatis ke Proof Vault (browser ini).',
       checkoutCancelled: 'Checkout dibatalkan di PayPal. Tidak ada pembayaran.',
       checkoutError: 'Error checkout PayPal: {msg}',
@@ -294,42 +294,42 @@
       subsTitle: 'Pemantau Langganan',
       subsEmpty: 'Belum ada pembelian berulang. Beli produk yang sama dua kali dan akan muncul di sini beserta total yang sudah kamu belanjakan.',
       subsFound: 'pembelian berulang ditemukan',
-      subsLine: '{name} — dibeli {n}×, total belanja {total}, pembelian terakhir {date}',
+      subsLine: '{name}, dibeli {n}×, total belanja {total}, pembelian terakhir {date}',
       refreshVault: 'Muat Ulang Vault', disputeBtn: 'Simulasikan Sengketa',
       disputeNotFound: 'Entri Proof Vault tidak ditemukan. Simpan checkout yang berhasil dulu.',
       refundBtn: 'Refund (Sandbox)', refundConfirm: 'Konfirmasi refund?', refundTitle: 'Refund',
-      refundSuccess: 'Refund {id} — {status}, {amount}.', refundFailed: 'Refund gagal: {msg}',
+      refundSuccess: 'Refund {id}, {status}, {amount}.', refundFailed: 'Refund gagal: {msg}',
       refundAlready: 'Sudah di-refund.', orderStatusBtn: 'Cek status live',
       orderStatusTitle: 'Status order live (PayPal)',
       orderStatusFailed: 'Tidak bisa cek status order: {msg}',
       simBtn: 'Simulasikan sengketa', simTitle: 'Simulasi sengketa',
       simWinChance: 'Peluang menang: {n}%', simMissing: 'Bukti yang kurang: {list}',
       simFailed: 'Tidak bisa mensimulasikan sengketa: {msg}',
-      simPreNote: 'Simulasi sebelum beli — gambaran kasusmu kalau beli sekarang.',
+      simPreNote: 'Simulasi sebelum beli, gambaran kasusmu kalau beli sekarang.',
       simStrong: 'Kasus kuat', simModerate: 'Kasus sedang', simWeak: 'Kasus lemah',
       simCaptureOk: 'Pembayaran ter-capture dan terverifikasi (COMPLETED).',
       simCapturePlanned: 'Pembayaran akan ter-capture dan terverifikasi (COMPLETED).',
-      simTrackingYes: 'Seller menyediakan tracking — pengiriman bisa dibuktikan.',
-      simTrackingNo: 'Seller tidak menyediakan tracking — pengiriman sulit dibuktikan.',
+      simTrackingYes: 'Seller menyediakan tracking, pengiriman bisa dibuktikan.',
+      simTrackingNo: 'Seller tidak menyediakan tracking, pengiriman sulit dibuktikan.',
       simReturnsYes: 'Seller menerima retur.',
       simReturnsNo: 'Seller tidak menerima retur.',
-      simDisputeRateHigh: 'Tingkat sengketa seller tinggi ({rate}%) — pola yang mendukung pembeli.',
+      simDisputeRateHigh: 'Tingkat sengketa seller tinggi ({rate}%), pola yang mendukung pembeli.',
       simDisputeRateLow: 'Tingkat sengketa seller rendah ({rate}%).',
       simWithinWindow: 'Masih dalam batas 180 hari pengajuan sengketa PayPal (sisa {days} hari).',
       simExpiredWindow: 'Batas 180 hari pengajuan sudah lewat.',
-      simTypeUnauthorized: 'Pembayaran tidak sah — PayPal biasanya memihak pembeli kalau dilaporkan cepat.',
-      simTypeNotReceived: 'Barang tidak diterima — tracking yang menentukan hasil.',
-      simTypeNotDescribed: 'Barang tidak sesuai deskripsi — foto dan teks listing yang menentukan hasil.',
+      simTypeUnauthorized: 'Pembayaran tidak sah, PayPal biasanya memihak pembeli kalau dilaporkan cepat.',
+      simTypeNotReceived: 'Barang tidak diterima, tracking yang menentukan hasil.',
+      simTypeNotDescribed: 'Barang tidak sesuai deskripsi, foto dan teks listing yang menentukan hasil.',
       simMissingTracking: 'Nomor tracking / bukti pengiriman',
       simMissingPhotos: 'Foto barang yang diterima vs listing',
       simMissingChat: 'Riwayat chat dengan seller',
       simMissingPolicy: 'Screenshot kebijakan retur seller',
       simMissingReport: 'Laporkan pembayaran tidak sah ke PayPal dan bank/penerbit kartu secepatnya',
-      simRecStrong: 'Ajukan dengan percaya diri — lampirkan bukti dari Proof Vault.',
-      simRecModerate: 'Ajukan, tapi lengkapi dulu bukti yang kurang — itu yang menentukan hasil.',
+      simRecStrong: 'Ajukan dengan percaya diri, lampirkan bukti dari Proof Vault.',
+      simRecModerate: 'Ajukan, tapi lengkapi dulu bukti yang kurang, itu yang menentukan hasil.',
       simRecWeak: 'Lengkapi dulu bukti yang kurang sebelum mengajukan, atau minta refund ke seller dulu.',
       simRecTooLate: 'Batas pengajuan sudah lewat. Opsi yang tersisa adalah chargeback lewat bank/penerbit kartu.',
-      simAlreadyRefunded: 'Capture ini sudah di-refund — tidak ada lagi yang bisa disengketakan.',
+      simAlreadyRefunded: 'Capture ini sudah di-refund, tidak ada lagi yang bisa disengketakan.',
       evBtn: 'Unduh Paket Bukti',
       evFailed: 'Tidak bisa membuat paket bukti: {msg}',
       evTitle: 'Paket Bukti ShopPal',
@@ -343,10 +343,10 @@
       clTitle: 'Cek link', clFailed: 'Tidak bisa mengecek link itu: {msg}',
       clKnown: 'Marketplace dikenal', clUnknown: 'Domain tidak dikenal',
       clNoPrice: 'Tidak ada harga di halaman itu',
-      linkHint: 'Atau tempel link produk apa pun — saya akan cek seller dan harganya dari halaman itu (server live).',
+      linkHint: 'Atau tempel link produk apa pun, saya akan cek seller dan harganya dari halaman itu (server live).',
       impTitle: 'Biaya impor (perkiraan)', impDuty: 'Bea masuk ({rate}%)',
       impVat: 'PPN / GST ({rate}%)',
-      impFree: 'Di bawah batas bebas bea {country} ({min}) — tidak ada bea masuk.',
+      impFree: 'Di bawah batas bebas bea {country} ({min}), tidak ada bea masuk.',
       impNote: 'Perkiraan saja. Bea pastinya tergantung kode HS barang.',
       impNoCountry: 'Tidak ada impor (domestik)',
       phChip: 'Cek pesan mencurigakan', phTitle: 'Cek phishing',
@@ -357,10 +357,10 @@
       phNoLink: 'Tidak ada link di pesan itu.',
       phNoPaypalLink: 'Tidak ada link di pesan itu yang mengarah ke PayPal.',
       phUrgency: 'Memakai bahasa mendesak untuk menekanmu (“{word}”).',
-      phAsksSecret: 'Meminta password, kode OTP, atau nomor kartu lengkap — PayPal tidak pernah meminta itu lewat pesan.',
-      phGeneric: 'Sapaan generik (“{word}”) bukan namamu — PayPal memakai namamu.',
+      phAsksSecret: 'Meminta password, kode OTP, atau nomor kartu lengkap, PayPal tidak pernah meminta itu lewat pesan.',
+      phGeneric: 'Sapaan generik (“{word}”) bukan namamu, PayPal memakai namamu.',
       phMismatch: 'Teksnya bilang PayPal tapi link-nya ke tempat lain.',
-      phNote: 'Pemeriksaan berbasis aturan + tinjauan AI. Kalau ragu, jangan klik — buka paypal.com sendiri.',
+      phNote: 'Pemeriksaan berbasis aturan + tinjauan AI. Kalau ragu, jangan klik, buka paypal.com sendiri.',
       phPlaceholder: 'Tempel pesan yang mencurigakan…',
       cmpToggle: 'Bandingkan produk', cmpTitle: 'Bandingkan produk',
       cmpSafer: 'Paling aman', cmpCheaper: 'Termurah',
@@ -374,7 +374,7 @@
       budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
       budNoBudget: 'Belum ada budget bulanan.',
       hrcTitle: 'Checklist cairkan hold', hrcBtn: 'Cara cairkan hold ini lebih cepat',
-      hrcIntro: 'PayPal menahan uang seller baru atau berisiko sampai 21 hari. Tiap langkah di bawah bisa mencairkannya lebih cepat — centang yang sudah dilakukan dan lihat perkiraan cairnya.',
+      hrcIntro: 'PayPal menahan uang seller baru atau berisiko sampai 21 hari. Tiap langkah di bawah bisa mencairkannya lebih cepat, centang yang sudah dilakukan dan lihat perkiraan cairnya.',
       hrcEstimated: 'Perkiraan cair: {n} hari', hrcCurrent: 'Hold saat ini: {n} hari',
       hrcDone: 'Selesai', hrcTodo: 'Belum', hrcSaves: 'hemat sampai {n} hari',
       hrcPrevents: 'mencegah hold berikutnya',
@@ -390,12 +390,12 @@
       hrcStepShipFastDetail: 'Pengiriman terlambat bisa memperpanjang hold.',
       hrcStepDisputes: 'Jaga dispute tetap rendah dan balas sengketa dengan cepat',
       hrcStepDisputesDetail: 'Tingkat dispute tinggi memicu hold di penjualan berikutnya.',
-      hrcNote: 'Aturan hold resmi PayPal (hold seller baru dan berisiko, sampai 21 hari). Perkiraan, bukan jaminan — PayPal yang memutuskan tiap kasus.',
+      hrcNote: 'Aturan hold resmi PayPal (hold seller baru dan berisiko, sampai 21 hari). Perkiraan, bukan jaminan, PayPal yang memutuskan tiap kasus.',
       hrcNotFound: 'Pilih produk dulu untuk melihat checklist hold-nya.',
       disputeTitle: 'Draf sengketa simulasi', disputeReadiness: 'kesiapan {n}/100',
       disputeBody: 'Draf jawaban sengketa (simulasi, hanya fakta): Order {order} untuk {product} ({total}) dibayar via PayPal Sandbox dan di-capture sebagai {status}. Seller: {seller} (skor risiko {score} saat checkout). Bukti terlampir di entri Proof Vault {id}.',
       disputeMissing: 'Masih kurang: {list}', disputeNone: 'Tidak ada bukti yang kurang.',
-      sdkNotLoaded: 'PayPal SDK belum dimuat — dimuat dari paypal.com; periksa koneksi dan muat ulang halaman jika tombol PayPal tidak muncul.'
+      sdkNotLoaded: 'PayPal SDK belum dimuat, dimuat dari paypal.com; periksa koneksi dan muat ulang halaman jika tombol PayPal tidak muncul.'
     }
   };
   var lastVaultId = null;
@@ -539,10 +539,10 @@
 
   function phishBubble(ph) {
     var zone = ph.score >= 80 ? 'safe' : ph.score >= 50 ? 'caution' : 'risky';
-    var body = '<p><strong>' + t('phTitle') + '</strong> — <span class="score score-' + zone + '">' + ph.score + '/100 · ' + ph.label + '</span></p>';
+    var body = '<p><strong>' + t('phTitle') + '</strong>, <span class="score score-' + zone + '">' + ph.score + '/100 · ' + ph.label + '</span></p>';
     if (ph.signals && ph.signals.length) {
       body += '<ul>' + ph.signals.map(function (s) {
-        return '<li>' + (s.points > 0 ? '+' : '') + s.points + ' — ' + s.note + '</li>';
+        return '<li>' + (s.points > 0 ? '+' : '') + s.points + ', ' + s.note + '</li>';
       }).join('') + '</ul>';
     }
     if (ph.aiReview) body += '<p class="hint">' + ph.aiReview + '</p>';
@@ -582,7 +582,7 @@
         '<p><strong>' + fmt(t('hrcCurrent'), { n: d.currentDays }) + '</strong> · <strong>' + fmt(t('hrcEstimated'), { n: estDays() }) + '</strong></p>' +
         '<ul>' + d.steps.map(function (s) {
           return '<li><label><input type="checkbox" data-step="' + s.id + '"' + (state[s.id] ? ' checked' : '') + '> ' +
-            '<strong>' + s.title + '</strong> — ' + s.detail + ' <em>(' +
+            '<strong>' + s.title + '</strong>, ' + s.detail + ' <em>(' +
             (s.savesDays > 0 ? fmt(t('hrcSaves'), { n: s.savesDays }) : t('hrcPrevents')) + ')</em></label></li>';
         }).join('') + '</ul>' +
         '<p class="hint">' + d.note + '</p>';
@@ -646,7 +646,7 @@
     return { score: total, label: label, components: components, reasons: reasons.slice(0, 3), recommendation: recommendation, aiAvailable: false, aiNote: t('aiNoteStatic') };
   }
 
-  // Dispute Win Simulator (rule-based mirror of the server endpoint — the
+  // Dispute Win Simulator (rule-based mirror of the server endpoint, the
   // static demo has no server vault, so it simulates from the local entry).
   function simulateLocal(opts) {
     var type = ['not_received', 'not_as_described', 'unauthorized'].indexOf(opts.disputeType) >= 0 ? opts.disputeType : 'not_received';
@@ -708,12 +708,12 @@
   }
 
   function renderSimHtml(d) {
-    var html = '<p><strong>' + t('simTitle') + '</strong> — ' + fmt(t('simWinChance'), { n: d.winChance }) +
+    var html = '<p><strong>' + t('simTitle') + '</strong>, ' + fmt(t('simWinChance'), { n: d.winChance }) +
       ' · <span class="score score-' + (d.winChance >= 70 ? 'safe' : d.winChance >= 40 ? 'caution' : 'risky') + '">' + d.label + '</span></p>';
     if (d.note) html += '<p class="hint">' + d.note + '</p>';
     if (d.components && d.components.length) {
       html += '<ul>' + d.components.map(function (c) {
-        return '<li>' + (c.points > 0 ? '+' : '') + c.points + ' — ' + c.note + '</li>';
+        return '<li>' + (c.points > 0 ? '+' : '') + c.points + ', ' + c.note + '</li>';
       }).join('') + '</ul>';
     }
     if (d.missingProof && d.missingProof.length) {
@@ -767,10 +767,10 @@
       '<ul>' + deadlines.map(function (dl) {
         var when;
         if (dl.status === 'none') when = dl.note || t('dlNoReturn');
-        else if (dl.status === 'expired') when = t('dlExpired') + ' — ' + fmt(t('dlOverdue'), { days: -dl.daysLeft });
+        else if (dl.status === 'expired') when = t('dlExpired') + ', ' + fmt(t('dlOverdue'), { days: -dl.daysLeft });
         else if (dl.daysLeft === 0) when = t('dlToday');
         else when = fmt(t('dlLeft'), { days: dl.daysLeft });
-        return '<li><strong>' + dl.label + '</strong> — ' + when +
+        return '<li><strong>' + dl.label + '</strong>, ' + when +
           (dl.dueDate ? ' (' + dl.dueDate.slice(0, 10) + ')' : '') + '</li>';
       }).join('') + '</ul>';
   }
@@ -783,7 +783,7 @@
     var row = function (k, v) { return '<tr><th>' + esc(k) + '</th><td>' + esc(v) + '</td></tr>'; };
     var refund = entry.paypal && entry.paypal.refund;
     return '<!DOCTYPE html><html lang="' + lang + '"><head><meta charset="utf-8">' +
-      '<title>' + esc(t('evTitle')) + ' — ' + esc(entry.id) + '</title>' +
+      '<title>' + esc(t('evTitle')) + ', ' + esc(entry.id) + '</title>' +
       '<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:32px auto;padding:0 20px;color:#1a2233}' +
       'h1{font-size:22px}h2{font-size:16px;margin-top:28px;border-bottom:2px solid #1d4ed8;padding-bottom:4px}' +
       'table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top}' +
@@ -799,7 +799,7 @@
       row('Capture status', entry.paypal && entry.paypal.status || '') +
       row('Payer', entry.paypal && entry.paypal.payerEmail || '') +
       row('Total paid', '$' + (entry.totalCost && entry.totalCost.total != null ? entry.totalCost.total : entry.product && entry.product.priceUSD || '') + ' ' + (entry.totalCost && entry.totalCost.currency || 'USD')) +
-      (refund ? row('Refund', refund.id + ' — ' + (refund.status || '') + ' — $' + refund.amount) : '') +
+      (refund ? row('Refund', refund.id + ', ' + (refund.status || '') + ', $' + refund.amount) : '') +
       '</table>' +
       '<h2>Product / Seller</h2><table>' +
       row('Product', entry.product && entry.product.name || '') +
@@ -813,7 +813,7 @@
       row('Capture verified', entry.paypal && entry.paypal.updateTime || '') +
       (refund ? row('Refund ' + (refund.status || ''), refund.createTime || '') : '') +
       '</table>' +
-      '<p class="note">ShopPal v2 (PayPal AI Hackathon). Sandbox proof only — no real money moved. Print this page to PDF to attach it to a PayPal dispute.</p>' +
+      '<p class="note">ShopPal v2 (PayPal AI Hackathon). Sandbox proof only, no real money moved. Print this page to PDF to attach it to a PayPal dispute.</p>' +
       '</body></html>';
   }
 
@@ -1099,9 +1099,9 @@
 
   function greet() {
     addBubble('agent',
-      '<p>Hi, I’m ShopPal — your AI shopping agent. Tell me what you’re looking for, and I’ll check the seller, show you the real total (fees included), and keep your proof if you pay.</p>' +
+      '<p>Hi, I’m ShopPal, your AI shopping agent. Tell me what you’re looking for, and I’ll check the seller, show you the real total (fees included), and keep your proof if you pay.</p>' +
       '<p>Everything here runs on PayPal Sandbox, so no real money moves.</p>' +
-      '<p class="hint">The server version can also search real eBay listings (free eBay developer keys in .env) — this static demo searches the 10-product demo catalog.</p>' +
+      '<p class="hint">The server version can also search real eBay listings (free eBay developer keys in .env), this static demo searches the 10-product demo catalog.</p>' +
       '<div class="chips">' +
       '<button type="button" class="chip" data-q="headphones under $60">Headphones under $60</button>' +
       '<button type="button" class="chip" data-q="smartwatch">Smartwatch</button>' +
@@ -1142,7 +1142,7 @@
       return;
     }
     bar.classList.remove('hidden');
-    bar.innerHTML = '<p><strong>' + t('cmpTitle') + '</strong> — ' + fmt(t('cmpSelected'), { n: compareList.length }) + ' · ' + t('cmpPick') + '</p>' +
+    bar.innerHTML = '<p><strong>' + t('cmpTitle') + '</strong>, ' + fmt(t('cmpSelected'), { n: compareList.length }) + ' · ' + t('cmpPick') + '</p>' +
       '<p><button id="compare-go" type="button"' + (compareList.length === 2 ? '' : ' disabled') + '>' + t('cmpCompareBtn') + '</button> ' +
       '<button id="compare-clear" type="button">' + t('cmpClear') + '</button></p>';
     bar.querySelector('#compare-go').addEventListener('click', renderCompare);
@@ -1164,7 +1164,7 @@
       };
     });
     var shortHold = function (h) { return (h.chance || '').replace(' (estimate)', '').replace('under 5%', '<5%'); };
-    // One-line verdict: which is safer, which is cheaper — then two
+    // One-line verdict: which is safer, which is cheaper, then two
     // stacked cards, so nothing ever needs a horizontal scroll on a phone.
     var safer = rows[0].risk.score >= rows[1].risk.score ? rows[0] : rows[1];
     var cheaper = rows[0].product.priceUSD <= rows[1].product.priceUSD ? rows[0] : rows[1];
@@ -1248,16 +1248,16 @@
             return;
           }
           var clZone = (cl.label || 'Caution').toLowerCase();
-          var clBody = '<p><strong>' + t('clTitle') + '</strong> — ' + (cl.domain || '') +
+          var clBody = '<p><strong>' + t('clTitle') + '</strong>, ' + (cl.domain || '') +
             ' · <span class="score score-' + clZone + '">' + (cl.score !== undefined ? cl.score + '/100 · ' : '') + labelText(cl.label) + '</span></p>';
           if (cl.title) clBody += '<p><strong>' + escapeHtml(cl.title) + '</strong>' +
-            (cl.priceUSD ? ' — ' + money(cl.priceUSD) : ' · ' + t('clNoPrice')) + '</p>';
-          if (cl.image) clBody += '<p><img src="' + cl.image + '" alt="" style="max-width:220px;border-radius:8px"></p>';
+            (cl.priceUSD ? ', ' + money(cl.priceUSD) : ' · ' + t('clNoPrice')) + '</p>';
+          if (cl.image) clBody += '<p><img src="' + cl.image + '" alt="" style="width:220px;max-width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:8px"></p>';
           if (cl.reasons && cl.reasons.length) {
             clBody += '<ul>' + cl.reasons.map(function (r) { return '<li>' + r + '</li>'; }).join('') + '</ul>';
           }
           if (cl.totalCost) {
-            clBody += '<p><strong>' + t('honestTotal') + '</strong> — ' + money(cl.totalCost.total) + '</p>';
+            clBody += '<p><strong>' + t('honestTotal') + '</strong>, ' + money(cl.totalCost.total) + '</p>';
           }
           if (cl.note) clBody += '<p class="hint">' + cl.note + '</p>';
           addBubble('agent', clBody);
@@ -1273,7 +1273,7 @@
       var parsed = parseAsk(q, lastResults);
       var products = parsed.products;
       lastResults = products;
-      // "yang pertama" picks the first result shown — go straight to it.
+      // "yang pertama" picks the first result shown, go straight to it.
       if (parsed.selectFirst && products.length) {
         selectProduct(products[0]);
         return;
@@ -1290,7 +1290,7 @@
       if (u.best) understood.push(t('bestFirst'));
       addBubble('agent',
         '<p>' + t('understood') + ' ' + (understood.length ? understood.join(', ') : t('noCategory')) +
-        ' — ' + u.note + '</p>' +
+        ', ' + u.note + '</p>' +
         '<div class="cards" id="catalog"></div>');
       renderCatalogInto($('catalog'), products);
     }, 500);
@@ -1300,7 +1300,7 @@
     var seller = sellerOf(product);
     selected = { product: product, seller: seller, risk: calculateRiskScore(seller, product), cost: null };
     clearSteps();
-    userBubble(product.name + ' — ' + money(product.priceUSD));
+    userBubble(product.name + ', ' + money(product.priceUSD));
     var typing = showTyping();
     setTimeout(function () {
       hideTyping(typing);
@@ -1323,7 +1323,7 @@
         extras.checklist.map(function (c) { return '<li>' + c + '</li>'; }).join('') + '</ul>';
     }
     var bubble = addBubble('agent',
-      '<p><strong>' + selected.seller.name + '</strong> — ' + t('riskScore') + ' <span class="score score-' + zone + '">' + r.score + '/100 · ' + labelText(r.label) + '</span></p>' +
+      '<p><strong>' + selected.seller.name + '</strong>, ' + t('riskScore') + ' <span class="score score-' + zone + '">' + r.score + '/100 · ' + labelText(r.label) + '</span></p>' +
       '<ul>' + r.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' +
       '<p><strong>' + t('recommendation') + '</strong> ' + r.recommendation + '</p>' +
       extra +
@@ -1332,7 +1332,7 @@
       '<p><button id="pre-sim-btn" type="button">' + t('simBtn') + '</button></p>' +
       '<div id="pre-sim" class="card hidden"></div>',
       'risk');
-    // Pre-purchase dispute simulation (rule-based, local — no server).
+    // Pre-purchase dispute simulation (rule-based, local, no server).
     bubble.querySelector('#pre-sim-btn').addEventListener('click', function () {
       var box = $('pre-sim');
       if (!box) return;
@@ -1351,14 +1351,14 @@
     var h = calculateHoldRisk(selected.seller, selected.product);
     var zone = h.label === 'Low' ? 'safe' : h.label === 'Moderate' ? 'caution' : 'risky';
     var bubble = addBubble('agent',
-      '<p><strong>' + t('holdTitle') + '</strong> — hold risk <span class="score score-' + zone + '">' + holdLabelText(h.label) + ' · ' + h.chance + '</span></p>' +
+      '<p><strong>' + t('holdTitle') + '</strong>, hold risk <span class="score score-' + zone + '">' + holdLabelText(h.label) + ' · ' + h.chance + '</span></p>' +
       '<ul>' + h.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' +
       '<p>' + h.tip + '</p>' +
       '<p class="hint">' + t('holdHint') + '</p>' +
       '<p><button id="hrc-btn" type="button">' + t('hrcBtn') + '</button></p>' +
       '<div id="hrc-box" class="card hidden"></div>',
       'hold');
-    // Hold Release Checklist (rule-based, local — no server).
+    // Hold Release Checklist (rule-based, local, no server).
     bubble.querySelector('#hrc-btn').addEventListener('click', function () {
       var box = $('hrc-box');
       if (!box) return;
@@ -1490,7 +1490,7 @@
           intent: 'CAPTURE',
           purchase_units: [{
             reference_id: product.id,
-            description: product.name + ' — ShopPal v2 demo (PayPal Sandbox)',
+            description: product.name + ', ShopPal v2 demo (PayPal Sandbox)',
             amount: {
               currency_code: 'USD',
               value: total.toFixed(2),
@@ -1563,8 +1563,8 @@
     } else {
       lastVaultId = entries[0].id;
       body = entries.map(function (e) {
-        return '<p><strong>' + (e.product && e.product.name || e.id) + '</strong> — ' +
-          (e.paypal && e.paypal.status || 'unknown') + ' · Order ' + (e.paypal && e.paypal.orderId || '—') + '</p>';
+        return '<p><strong>' + (e.product && e.product.name || e.id) + '</strong>, ' +
+          (e.paypal && e.paypal.status || 'unknown') + ' · Order ' + (e.paypal && e.paypal.orderId || 'n/a') + '</p>';
       }).join('');
     }
     var patterns = findSubscriptions(entries);
@@ -1572,9 +1572,9 @@
     if (!patterns.length) {
       subs = '<p><strong>' + t('subsTitle') + '</strong></p><p>' + t('subsEmpty') + '</p>';
     } else {
-      subs = '<p><strong>' + t('subsTitle') + '</strong> — ' + t('subsFound') + '</p>' +
+      subs = '<p><strong>' + t('subsTitle') + '</strong>, ' + t('subsFound') + '</p>' +
         patterns.map(function (p) {
-          return '<p>' + fmt(t('subsLine'), { name: p.productName, n: p.purchases, total: money(p.totalSpent), date: p.lastPurchase ? p.lastPurchase.slice(0, 10) : '—' }) + '</p>';
+          return '<p>' + fmt(t('subsLine'), { name: p.productName, n: p.purchases, total: money(p.totalSpent), date: p.lastPurchase ? p.lastPurchase.slice(0, 10) : 'n/a' }) + '</p>';
         }).join('');
     }
     var budget = getBudget();
@@ -1695,8 +1695,8 @@
         all[i].paypal.refund = { id: d.refundId, status: d.status, amount: d.amount, currency: d.currency, createTime: new Date().toISOString() };
         try { localStorage.setItem(VAULT_KEY, JSON.stringify(all)); } catch (e) { /* storage unavailable */ }
       }
-      box.innerHTML = '<p><strong>' + t('refundTitle') + '</strong> — ' +
-        fmt(t('refundSuccess'), { id: d.refundId || '—', status: d.status || '—', amount: money(d.amount) }) + '</p>';
+      box.innerHTML = '<p><strong>' + t('refundTitle') + '</strong>, ' +
+        fmt(t('refundSuccess'), { id: d.refundId || 'n/a', status: d.status || 'n/a', amount: money(d.amount) }) + '</p>';
       showVault();
       scrollChat();
     });
@@ -1714,8 +1714,8 @@
         return;
       }
       box.innerHTML = '<p><strong>' + t('orderStatusTitle') + '</strong></p>' +
-        '<p>Order ' + (d.orderId || '—') + ' — ' + (d.orderStatus || '—') +
-        ' · Capture ' + (d.captureId || '—') + ' — ' + (d.captureStatus || '—') +
+        '<p>Order ' + (d.orderId || 'n/a') + ', ' + (d.orderStatus || 'n/a') +
+        ' · Capture ' + (d.captureId || 'n/a') + ', ' + (d.captureStatus || 'n/a') +
         ' · ' + money(d.amount) + '</p>';
       scrollChat();
     });
@@ -1743,7 +1743,7 @@
     if (!entry.seller || !entry.seller.tracking) missing.push('tracking proof');
     var readiness = missing.length === 0 ? 100 : 70;
     box.innerHTML =
-      '<p><strong>' + t('disputeTitle') + '</strong> — ' + fmt(t('disputeReadiness'), { n: readiness }) + '</p>' +
+      '<p><strong>' + t('disputeTitle') + '</strong>, ' + fmt(t('disputeReadiness'), { n: readiness }) + '</p>' +
       '<p>' + fmt(t('disputeBody'), {
         order: entry.paypal && entry.paypal.orderId || 'unknown',
         product: entry.product && entry.product.name || 'the product',
