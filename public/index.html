@@ -4,94 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ShopPal v2 — Shop safer, see the real cost, keep your proof</title>
-  <link rel="stylesheet" href="/styles.css">
+  <link rel="stylesheet" href="/styles.css?v=3">
 </head>
 <body>
-  <header>
-    <h1>ShopPal v2</h1>
-    <p class="tagline">Shop safer, see the real cost, keep your proof.</p>
-    <p class="sandbox-note">Sandbox only — no real money. PayPal Sandbox + AI shopping agent.</p>
-  </header>
-
-  <main>
-    <!-- Step 1: Ask / pick a product -->
-    <section id="step-1">
-      <h2>Step 1 — Ask or pick a product</h2>
-      <label for="ask">What are you looking for?</label>
-      <input id="ask" type="text" placeholder="e.g. headphones under $60 for a gift">
-      <button id="ask-btn" type="button">Ask ShopPal</button>
-      <p class="hint">Or pick a product from the demo catalog below. Each product shows its seller.</p>
-      <div id="catalog" class="grid"></div>
-    </section>
-
-    <!-- Step 2: Risk Score -->
-    <section id="step-2">
-      <h2>Step 2 — Seller Risk Score</h2>
-      <div id="risk" class="card">
-        <p>Select a product to see its seller risk score (0–100).</p>
+  <div class="app">
+    <header class="chat-header">
+      <div class="agent-id">
+        <svg class="avatar" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#1d4ed8"/><path d="M24 7l13 4.5V22c0 8.5-5.5 15-13 19-7.5-4-13-10.5-13-19V11.5L24 7z" fill="#fff"/><path d="M18 24.5l4.5 4.5L31 20" stroke="#1d4ed8" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div>
+          <div class="agent-name">ShopPal</div>
+          <div class="agent-status"><span class="dot"></span>AI shopping agent · Online</div>
+        </div>
       </div>
-      <div id="hold-risk" class="card">
-        <p>Hold Predictor appears here once a product is selected.</p>
-      </div>
-    </section>
+      <span class="sandbox-badge">Sandbox · no real money</span>
+    </header>
 
-    <!-- Step 3: Total Cost -->
-    <section id="step-3">
-      <h2>Step 3 — Honest Total Cost</h2>
-      <label><input id="opt-international" type="checkbox" checked> International purchase (+1.5%)</label>
-      <label><input id="opt-conversion" type="checkbox" checked> Currency conversion (~3.5% spread)</label>
-      <div id="cost" class="card">
-        <p>Select a product to see the full cost breakdown.</p>
-      </div>
-      <div id="trouble-costs" class="card">
-        <p>The cost of things going wrong (chargeback, dispute, refund) appears here once a product is selected.</p>
-      </div>
-    </section>
+    <main id="chat" class="chat"></main>
 
-    <!-- Step 4: PayPal checkout -->
-    <section id="step-4">
-      <h2>Step 4 — Approve &amp; pay with PayPal Sandbox</h2>
-      <p>The agent never pays without your explicit approval.</p>
-      <label><input id="approve" type="checkbox"> I have reviewed the risk score and total cost, and I approve this payment.</label>
-      <div id="paypal-button-container"></div>
-      <button id="checkout-btn" type="button" disabled>Pay with PayPal Sandbox</button>
-      <p id="checkout-status"></p>
-      <p class="hint">PayPal checkout is live in this build: creating an order uses Orders API v2, and the capture is verified before proof is saved. The PayPal client ID is loaded from <code>/api/config</code> — never hardcoded.</p>
-    </section>
-
-    <!-- Step 5: Success -->
-    <section id="step-5">
-      <h2>Step 5 — Success</h2>
-      <div id="success" class="card">
-        <p>No successful checkout yet. Complete step 4 to see the order ID and status here.</p>
-      </div>
-    </section>
-
-    <!-- Step 6: Proof Vault -->
-    <section id="step-6">
-      <h2>Step 6 — Proof Vault</h2>
-      <button id="vault-refresh" type="button">Refresh Vault</button>
-      <div id="vault" class="card">
-        <p>No Proof Vault entries yet.</p>
-      </div>
-      <div id="subscriptions" class="card">
-        <p>Subscription Watcher appears here once the vault has entries.</p>
-      </div>
-    </section>
-
-    <!-- Step 7: Simulate dispute -->
-    <section id="step-7">
-      <h2>Step 7 — Simulate a dispute</h2>
-      <p>AI drafts a factual response using only the saved proof. This is a simulation, not a real dispute.</p>
-      <button id="dispute-btn" type="button" disabled>Simulate Dispute</button>
-      <div id="dispute-draft" class="card hidden"></div>
-    </section>
-  </main>
-
-  <footer>
-    <p>ShopPal v2 — PayPal AI Hackathon. Scores are a decision aid, not a PayPal guarantee. Sandbox only.</p>
-  </footer>
-
-  <script src="/app.js"></script>
+    <footer class="composer">
+      <input id="ask" type="text" placeholder="Ask ShopPal — e.g. headphones under $60" autocomplete="off">
+      <button id="ask-btn" type="button" aria-label="Send">➤</button>
+    </footer>
+    <p class="fineprint">ShopPal v2 — PayPal AI Hackathon. Scores are a decision aid, not a PayPal guarantee. Product photos are AI-generated illustrations of generic demo products, not real listings.</p>
+  </div>
+  <script src="/app.js?v=4"></script>
 </body>
 </html>
