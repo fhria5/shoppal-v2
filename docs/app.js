@@ -128,14 +128,14 @@
       subsEmpty: 'No recurring purchases detected yet. Buy the same product twice and it shows up here with the total you have spent on it.',
       subsFound: 'recurring purchases found',
       subsLine: '{name}, bought {n}×, total spent {total}, last purchase {date}',
-      refreshVault: 'Refresh Vault', disputeBtn: 'Simulate Dispute',
+      refreshVault: 'Refresh Vault', disputeBtn: 'Draft a dispute',
       disputeNotFound: 'Proof Vault entry not found. Save a successful checkout first.',
       refundBtn: 'Refund (Sandbox)', refundConfirm: 'Confirm refund?', refundTitle: 'Refund',
       refundSuccess: 'Refund {id}, {status}, {amount}.', refundFailed: 'Refund failed: {msg}',
       refundAlready: 'Already refunded.', orderStatusBtn: 'Check live status',
       orderStatusTitle: 'Live order status (PayPal)',
       orderStatusFailed: 'Could not check the order status: {msg}',
-      simBtn: 'Simulate a dispute', simTitle: 'Dispute simulation',
+      simBtn: 'Dispute win chance', simTitle: 'Dispute simulation',
       simWinChance: 'Win chance: {n}%', simMissing: 'Missing proof: {list}',
       simFailed: 'Could not simulate the dispute: {msg}',
       simPreNote: 'Pre-purchase simulation, what your case would look like if you buy now.',
@@ -295,14 +295,14 @@
       subsEmpty: 'Belum ada pembelian berulang. Beli produk yang sama dua kali dan akan muncul di sini beserta total yang sudah kamu belanjakan.',
       subsFound: 'pembelian berulang ditemukan',
       subsLine: '{name}, dibeli {n}×, total belanja {total}, pembelian terakhir {date}',
-      refreshVault: 'Muat Ulang Vault', disputeBtn: 'Simulasikan Sengketa',
+      refreshVault: 'Muat Ulang Vault', disputeBtn: 'Buat draf sengketa',
       disputeNotFound: 'Entri Proof Vault tidak ditemukan. Simpan checkout yang berhasil dulu.',
       refundBtn: 'Refund (Sandbox)', refundConfirm: 'Konfirmasi refund?', refundTitle: 'Refund',
       refundSuccess: 'Refund {id}, {status}, {amount}.', refundFailed: 'Refund gagal: {msg}',
       refundAlready: 'Sudah di-refund.', orderStatusBtn: 'Cek status live',
       orderStatusTitle: 'Status order live (PayPal)',
       orderStatusFailed: 'Tidak bisa cek status order: {msg}',
-      simBtn: 'Simulasikan sengketa', simTitle: 'Simulasi sengketa',
+      simBtn: 'Peluang menang sengketa', simTitle: 'Simulasi sengketa',
       simWinChance: 'Peluang menang: {n}%', simMissing: 'Bukti yang kurang: {list}',
       simFailed: 'Tidak bisa mensimulasikan sengketa: {msg}',
       simPreNote: 'Simulasi sebelum beli, gambaran kasusmu kalau beli sekarang.',
@@ -1101,8 +1101,6 @@
   function greet() {
     addBubble('agent',
       '<p>Hi, I’m ShopPal, your AI shopping agent. Tell me what you’re looking for, and I’ll check the seller, show you the real total (fees included), and keep your proof if you pay.</p>' +
-      '<p>Everything here runs on PayPal Sandbox, so no real money moves.</p>' +
-      '<p class="hint">The server version can also search real eBay listings (free eBay developer keys in .env), this static demo searches the 10-product demo catalog.</p>' +
       '<div class="chips">' +
       '<button type="button" class="chip" data-q="headphones under $60">Headphones under $60</button>' +
       '<button type="button" class="chip" data-q="smartwatch">Smartwatch</button>' +
@@ -1110,7 +1108,6 @@
       '<button type="button" class="chip" id="phish-chip">' + t('phChip') + '</button>' +
       '<button type="button" class="chip" id="compare-toggle">' + t('cmpToggle') + '</button>' +
       '</div>' +
-      '<p class="hint">Or pick any product below.</p>' +
       '<p class="hint">' + t('linkHint') + '</p>' +
       '<div id="compare-bar" class="card hidden"></div>' +
       '<div class="cards" id="catalog"></div>');
@@ -1595,13 +1592,13 @@
       '<p><strong>Proof Vault</strong></p>' + body +
       '<div class="card">' + subs + '</div>' +
       budHtml +
-      '<p><button id="vault-refresh" type="button">' + t('refreshVault') + '</button> ' +
-      '<button id="dispute-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button> ' +
-      '<button id="sim-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('simBtn') + '</button> ' +
-      '<button id="evidence-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('evBtn') + '</button> ' +
-      '<button id="deadlines-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('dlBtn') + '</button> ' +
-      '<button id="refund-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('refundBtn') + '</button> ' +
-      '<button id="order-status-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('orderStatusBtn') + '</button></p>' +
+      '<div class="vault-actions"><button id="vault-refresh" type="button" class="btn-secondary">' + t('refreshVault') + '</button> ' +
+      '<button id="dispute-btn" type="button" class="btn-secondary"' + (entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button> ' +
+      '<button id="sim-btn" type="button" class="btn-secondary"' + (entries.length ? '' : ' disabled') + '>' + t('simBtn') + '</button> ' +
+      '<button id="evidence-btn" type="button" class="btn-secondary"' + (entries.length ? '' : ' disabled') + '>' + t('evBtn') + '</button> ' +
+      '<button id="deadlines-btn" type="button" class="btn-secondary"' + (entries.length ? '' : ' disabled') + '>' + t('dlBtn') + '</button> ' +
+      '<button id="refund-btn" type="button" class="btn-secondary"' + (entries.length ? '' : ' disabled') + '>' + t('refundBtn') + '</button> ' +
+      '<button id="order-status-btn" type="button" class="btn-secondary"' + (entries.length ? '' : ' disabled') + '>' + t('orderStatusBtn') + '</button></div>' +
       '<div id="dispute-draft" class="card hidden"></div>' +
       '<div id="vault-tools" class="card hidden"></div>' +
       '<div id="paypal-actions" class="card hidden"></div>',
