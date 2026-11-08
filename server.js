@@ -36,13 +36,13 @@ const productsById = new Map(catalog.products.map((p) => [p.id, p]));
 
 // ---------------------------------------------------------------------------
 // AI: one server function for explanations.
-// Rule-based reasons are always produced. A Gemini call is a Day 2 task:
-// TODO (Day 2): if process.env.GEMINI_API_KEY is set, call the Gemini API
-//   to rewrite the 3 rule-based reasons into plain language. The model must
-//   never change the numeric score. If the call fails or the key is absent,
-//   return the rule-based reasons with aiAvailable: false.
+// Rule-based reasons are always produced first (deterministic, auditable).
+// If GEMINI_API_KEY is set, Gemini rewrites those reasons into plain
+// language only — the model never changes the numeric score. If the key is
+// absent or the call fails/times out, the rule-based reasons are returned
+// with aiAvailable: false.
 // ---------------------------------------------------------------------------
-function explainScore(components, label) {
+async function explainScore(components, label) {
   // Rule-based explanation — deterministic, auditable, works offline.
   const reasons = [];
   if (components.profile < 60) {
@@ -68,12 +68,62 @@ function explainScore(components, label) {
       : label === 'Caution'
         ? 'Proceed with caution. Use PayPal Goods & Services — never Friends & Family.'
         : 'Risky. Consider an alternative seller before paying.';
-  return {
+  const fallback = {
     reasons: reasons.slice(0, 3),
     recommendation,
     aiAvailable: false,
     aiNote: 'AI explanation unavailable — showing rule-based reasons.',
   };
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return fallback;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' +
+        encodeURIComponent(apiKey),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text:
+                    'Rewrite these 3 seller-risk reasons as short plain-language bullet lines for a shopper. ' +
+                    'Do not change any numbers, do not add new facts, do not invent scores. ' +
+                    'Return exactly 3 lines, one reason per line, no numbering, no extra text.\n' +
+                    reasons.slice(0, 3).join('\n'),
+                },
+              ],
+            },
+          ],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 200 },
+        }),
+        signal: controller.signal,
+      }
+    );
+    clearTimeout(timer);
+    if (!res.ok) return fallback;
+    const data = await res.json();
+    const text =
+      data?.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+    const lines = text
+      .split('\n')
+      .map((l) => l.replace(/^[-*•\d.)\s]+/, '').trim())
+      .filter(Boolean)
+      .slice(0, 3);
+    if (lines.length !== 3) return fallback;
+    return {
+      reasons: lines,
+      recommendation,
+      aiAvailable: true,
+      aiNote: 'Explanation rewritten by Gemini; the numeric score is rule-based and unchanged.',
+    };
+  } catch (err) {
+    return fallback;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -179,7 +229,7 @@ app.get('/api/catalog', (req, res) => {
   res.json(catalog);
 });
 
-app.post('/api/risk-score', (req, res) => {
+app.post('/api/risk-score', async (req, res) => {
   const { sellerId, productId } = req.body || {};
   const seller = sellersById.get(sellerId);
   const product = productsById.get(productId);
@@ -194,7 +244,7 @@ app.post('/api/risk-score', (req, res) => {
       .json({ error: 'Product does not belong to this seller.' });
   }
   const { score, label, components } = calculateRiskScore(seller, product);
-  const explanation = explainScore(components, label);
+  const explanation = await explainScore(components, label);
   res.json({
     sellerId: seller.id,
     sellerName: seller.name,
@@ -224,44 +274,217 @@ app.post('/api/total-cost', (req, res) => {
   }
 });
 
-// --- PayPal stubs (Day 1) -------------------------------------------------
-// These return 501 with a clear TODO. They read env vars to fail fast when
-// credentials are missing, but never log or return secret values.
-function paypalNotImplemented(res, action) {
-  const configured = Boolean(
-    process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET
-  );
-  return res.status(501).json({
-    error: 'not_implemented',
-    action,
-    paypalConfigured: configured,
-    message:
-      'TODO (Day 1): implement this with the PayPal Sandbox REST API ' +
-      `(${PAYPAL_API_BASE}). ` +
-      (configured
-        ? 'PayPal sandbox credentials are present in the environment.'
-        : 'Set PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in your local .env first.'),
+// --- PayPal (Day 1, live Sandbox) ------------------------------------------
+// Server-side only. Secrets never leave this file: no logging of the secret,
+// no token value in any API response. Access tokens are cached in memory
+// until shortly before expiry.
+// ---------------------------------------------------------------------------
+let cachedToken = null;
+let cachedTokenExpiresAt = 0;
+
+async function getPayPalAccessToken() {
+  const now = Date.now();
+  if (cachedToken && now < cachedTokenExpiresAt) return cachedToken;
+  const clientId = process.env.PAYPAL_CLIENT_ID;
+  const secret = process.env.PAYPAL_CLIENT_SECRET;
+  if (!clientId || !secret) {
+    const err = new Error('PayPal sandbox credentials are not configured in .env.');
+    err.status = 503;
+    throw err;
+  }
+  const basic = Buffer.from(`${clientId}:${secret}`).toString('base64');
+  const res = await fetch(`${PAYPAL_API_BASE}/v1/oauth2/token`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${basic}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials',
   });
+  if (!res.ok) {
+    const err = new Error(`PayPal token request failed (HTTP ${res.status}).`);
+    err.status = 502;
+    throw err;
+  }
+  const data = await res.json();
+  cachedToken = data.access_token;
+  // Refresh a minute before the real expiry.
+  cachedTokenExpiresAt = now + (data.expires_in - 60) * 1000;
+  return cachedToken;
 }
 
-app.post('/api/paypal/token', (req, res) => {
-  // TODO (Day 1): POST /v1/oauth2/token with Basic auth (client ID + secret),
-  // grant_type=client_credentials. Server-side only.
-  return paypalNotImplemented(res, 'paypal-token');
+async function paypalFetch(path, method, body) {
+  const token = await getPayPalAccessToken();
+  const res = await fetch(`${PAYPAL_API_BASE}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      Prefer: 'return=representation',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(
+      data.message || data.error_description || `PayPal request failed (HTTP ${res.status}).`
+    );
+    err.status = res.status === 401 || res.status === 403 ? 502 : res.status;
+    err.paypalName = data.name || null;
+    throw err;
+  }
+  return data;
+}
+
+function saveVaultEntry(entry) {
+  const vaultDir = path.join(__dirname, 'data', 'vault');
+  fs.mkdirSync(vaultDir, { recursive: true });
+  const file = path.join(vaultDir, `${entry.id}.json`);
+  fs.writeFileSync(file, JSON.stringify(entry, null, 2) + '\n');
+  return entry;
+}
+
+app.post('/api/paypal/token', async (req, res) => {
+  // Health check for the PayPal connection. The token value itself is
+  // never returned to the browser.
+  try {
+    await getPayPalAccessToken();
+    res.json({ ok: true, configured: true, mode: PAYPAL_MODE });
+  } catch (err) {
+    res.status(err.status || 502).json({ ok: false, error: err.message });
+  }
 });
 
-app.post('/api/paypal/create-order', (req, res) => {
-  // TODO (Day 1): POST /v2/checkout/orders with intent CAPTURE and the
-  // approved total from /api/total-cost. Amount must match the total the
-  // user approved — never create an order for a different amount.
-  return paypalNotImplemented(res, 'create-order');
+app.post('/api/paypal/create-order', async (req, res) => {
+  try {
+    const { productId, totalUSD, international, currencyConversion } = req.body || {};
+    const product = productsById.get(productId);
+    if (!product) return res.status(400).json({ error: 'Unknown productId.' });
+    // The order amount must equal the total the user approved in step 3.
+    const expected = calculateTotalCost(
+      product.priceUSD,
+      international !== false,
+      currencyConversion !== false
+    );
+    const approved = Number(totalUSD);
+    if (!Number.isFinite(approved) || Math.abs(approved - expected.total) > 0.01) {
+      return res.status(400).json({
+        error: `Total mismatch: approved $${approved} does not match the calculated total $${expected.total}.`,
+      });
+    }
+    const order = await paypalFetch('/v2/checkout/orders', 'POST', {
+      intent: 'CAPTURE',
+      purchase_units: [
+        {
+          reference_id: product.id,
+          description: `${product.name} — ShopPal v2 demo (PayPal Sandbox)`,
+          amount: {
+            currency_code: 'USD',
+            value: expected.total.toFixed(2),
+            breakdown: {
+              item_total: { currency_code: 'USD', value: product.priceUSD.toFixed(2) },
+              handling: {
+                currency_code: 'USD',
+                value: (expected.paypalFee + expected.internationalFee + expected.conversionSpread).toFixed(2),
+              },
+            },
+          },
+          items: [
+            {
+              name: product.name,
+              unit_amount: { currency_code: 'USD', value: product.priceUSD.toFixed(2) },
+              quantity: '1',
+              category: 'PHYSICAL_GOODS',
+            },
+          ],
+        },
+      ],
+      application_context: {
+        brand_name: 'ShopPal v2',
+        landing_page: 'LOGIN',
+        user_action: 'PAY_NOW',
+        return_url: `http://localhost:${PORT}/?approved=1`,
+        cancel_url: `http://localhost:${PORT}/?cancelled=1`,
+      },
+    });
+    const approveUrl =
+      (order.links || []).find((l) => l.rel === 'approve')?.href || null;
+    res.status(201).json({
+      orderId: order.id,
+      status: order.status,
+      approveUrl,
+      totalUSD: expected.total,
+      productId: product.id,
+    });
+  } catch (err) {
+    res.status(err.status || 502).json({ error: err.message, paypalName: err.paypalName || null });
+  }
 });
 
-app.post('/api/paypal/capture-order', (req, res) => {
-  // TODO (Day 1): POST /v2/checkout/orders/{orderId}/capture, then verify
-  // with GET /v2/payments/captures/{captureId} before saving a Proof Vault
-  // entry. Only a COMPLETED capture may be saved as successful.
-  return paypalNotImplemented(res, 'capture-order');
+app.post('/api/paypal/capture-order', async (req, res) => {
+  try {
+    const { orderId } = req.body || {};
+    if (!orderId) return res.status(400).json({ error: 'orderId is required.' });
+    const captured = await paypalFetch(`/v2/checkout/orders/${encodeURIComponent(orderId)}/capture`, 'POST', {});
+    // Verify with the Orders API, then with the Payments API, before
+    // trusting the result. Only a COMPLETED capture is saved as proof.
+    const verifiedOrder = await paypalFetch(
+      `/v2/checkout/orders/${encodeURIComponent(orderId)}`,
+      'GET'
+    );
+    const unit = (verifiedOrder.purchase_units || [])[0] || {};
+    const capture = ((unit.payments || {}).captures || [])[0] || null;
+    if (!capture || !capture.id) {
+      return res.status(502).json({
+        error: 'Capture was not found on the verified order.',
+        orderStatus: verifiedOrder.status || null,
+      });
+    }
+    const verifiedCapture = await paypalFetch(
+      `/v2/payments/captures/${encodeURIComponent(capture.id)}`,
+      'GET'
+    );
+    if (verifiedCapture.status !== 'COMPLETED') {
+      return res.status(502).json({
+        error: `Capture is not COMPLETED (verified status: ${verifiedCapture.status}). Nothing was saved to the Proof Vault.`,
+        orderId,
+        captureId: capture.id,
+        status: verifiedCapture.status,
+      });
+    }
+    const productId = unit.reference_id || null;
+    const product = productsById.get(productId) || null;
+    const seller = product ? sellersById.get(product.sellerId) : null;
+    const risk = product && seller ? calculateRiskScore(seller, product) : null;
+    const amount = verifiedCapture.amount || {};
+    const entry = {
+      id: orderId,
+      createdAt: new Date().toISOString(),
+      product: product
+        ? { id: product.id, name: product.name, priceUSD: product.priceUSD, category: product.category }
+        : { id: productId },
+      seller: seller
+        ? { id: seller.id, name: seller.name, tracking: seller.hasTracking, returnPolicy: seller.hasReturnPolicy }
+        : null,
+      riskScore: risk ? { score: risk.score, label: risk.label } : null,
+      totalCost: {
+        total: Number(amount.value),
+        currency: amount.currency_code || 'USD',
+      },
+      paypal: {
+        orderId,
+        captureId: verifiedCapture.id,
+        status: verifiedCapture.status,
+        payerEmail: captured?.payer?.email_address || null,
+        createTime: verifiedCapture.create_time || null,
+        updateTime: verifiedCapture.update_time || null,
+      },
+    };
+    saveVaultEntry(entry);
+    res.json({ orderId, captureId: verifiedCapture.id, status: 'COMPLETED', vaultId: entry.id, entry });
+  } catch (err) {
+    res.status(err.status || 502).json({ error: err.message, paypalName: err.paypalName || null });
+  }
 });
 
 // --- Proof Vault -----------------------------------------------------------
