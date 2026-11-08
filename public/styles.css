@@ -52,6 +52,7 @@ h2 { margin-top: 0; }
 .product-card {
   text-align: left;
   background: #fff;
+  color: #1a2233;
   border: 1px solid #1d4ed8;
   border-radius: 8px;
   padding: 0.75rem;
