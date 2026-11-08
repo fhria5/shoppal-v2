@@ -250,6 +250,8 @@ async function get(path) {
   check('spl link p01 3 ways share', r.status === 200 && r.data.people === 3 && Math.abs(r.data.share - 59.99 / 3) < 0.01, r.data);
   check('spl link has 2 approveUrls', r.status === 200 && Array.isArray(r.data.links) && r.data.links.length === 2 && r.data.links.every((l) => l.approveUrl && l.approveUrl.includes('paypal.com')), r.data.links);
   check('spl link order is CREATED', r.status === 200 && r.data.links.every((l) => l.status === 'CREATED'), r.data.links);
+  check('spl link initiatorShare absorbs cents', r.status === 200 && r.data.initiatorShare === '19.99' && r.data.exactTotalVerified === '59.99', r.data);
+  check('spl link cents add up', r.status === 200 && Math.round((r.data.links.length * r.data.share + Number(r.data.initiatorShare)) * 100) === Math.round(r.data.total * 100), r.data);
   r = await post('/api/split-payment-link', { productId: 'p01', friends: '', lang: 'en' });
   check('spl link no friends 400', r.status === 400, r.data);
   r = await post('/api/split-payment-link', { productId: 'p99', friends: 'Budi', lang: 'en' });
