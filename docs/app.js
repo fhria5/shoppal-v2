@@ -1295,8 +1295,9 @@
   function isBuyGoal(q) {
     var s = ' ' + q.toLowerCase() + ' ';
     var buy = /(beli|belikan|bayar|bayarkan|pesan|checkout|buy|purchase|pay|order)/.test(s);
-    var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d)/.test(s);
-    return buy && target;
+    var watch = /(pantau|memantau|watch|awasi|snipe|cek pantauan|cek harga|check (my )?(price )?watch)/.test(s);
+    var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d|pantauan|watch)/.test(s);
+    return (buy || watch) && target;
   }
 
   function renderAgentResult(ag, q) {
