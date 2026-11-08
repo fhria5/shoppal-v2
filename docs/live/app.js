@@ -163,6 +163,13 @@
       fxPaypalTotal: 'PayPal total', fxMidRate: 'Mid-market rate', fxCheaper: 'Cheapest: pay in {cur}.',
       fxUnavailable: 'Live rate unavailable, using a stored rate.',
       exTitle: 'Spending dashboard', exTotal: 'Total spent', exThisMonth: 'this month', exEmpty: 'No spending recorded yet.',
+      pwTitle: 'Price Watch', pwIntro: 'Tell the agent a target price. It watches the price and buys the moment it drops to your target. Demo feed: the catalog price is simulated, labelled as such.',
+      pwTarget: 'Buy if the price drops to (USD)', pwWatch: 'Watch this price', pwWatching: 'Watching',
+      pwCurrent: 'Current price', pwTargetPrice: 'Target', pwCheck: 'Check price now',
+      pwTriggered: 'Price hit! Buy now at {price}.', pwBuyNow: 'Buy now', pwNoWatches: 'No price watches yet.',
+      pwSimNote: 'Simulated price feed for the demo catalog, not a live market price.',
+      sbTitle: 'Split the bill', sbIntro: 'Buy a gift together and split it. The agent works out each share and writes the message to send. Collecting the money happens in the PayPal app (request money); the Invoicing and Payouts APIs are not enabled for this sandbox app.',
+      sbFriends: 'Friends (name, one per line)', sbSplit: 'Split it', sbShare: "Each person's share", sbMessage: 'Message to send', sbNoFriends: 'Add at least one friend to split with.',
       hrcTitle: 'Hold release checklist', hrcBtn: 'How to release this hold faster',
       hrcIntro: 'PayPal holds new or risky sellers’ money for up to 21 days. Each step below can release it sooner, tick what is already done and see the estimated release.',
       hrcEstimated: 'Estimated release: {n} days', hrcCurrent: 'Current hold: {n} days',
@@ -283,6 +290,13 @@
       fxPaypalTotal: 'Total PayPal', fxMidRate: 'Kurs mid-market', fxCheaper: 'Paling hemat: bayar pakai {cur}.',
       fxUnavailable: 'Kurs live tidak tersedia, memakai kurs tersimpan.',
       exTitle: 'Dashboard pengeluaran', exTotal: 'Total belanja', exThisMonth: 'bulan ini', exEmpty: 'Belum ada pengeluaran tercatat.',
+      pwTitle: 'Price Watch', pwIntro: 'Beri tahu agen harga targetmu. Ia memantau harga dan membeli begitu harga turun ke targetmu. Feed demo: harga katalog disimulasikan, diberi label.',
+      pwTarget: 'Beli kalau harga turun ke (USD)', pwWatch: 'Pantau harga ini', pwWatching: 'Memantau',
+      pwCurrent: 'Harga saat ini', pwTargetPrice: 'Target', pwCheck: 'Cek harga sekarang',
+      pwTriggered: 'Harga kena! Beli sekarang di {price}.', pwBuyNow: 'Beli sekarang', pwNoWatches: 'Belum ada price watch.',
+      pwSimNote: 'Feed harga simulasi untuk katalog demo, bukan harga pasar live.',
+      sbTitle: 'Patungan', sbIntro: 'Beli kado bareng dan patungan. Agen menghitung bagian tiap orang dan menulis pesannya. Penagihan uangnya lewat aplikasi PayPal (request money); API Invoicing dan Payouts tidak diaktifkan untuk app sandbox ini.',
+      sbFriends: 'Teman (nama, satu per baris)', sbSplit: 'Bagi rata', sbShare: 'Bagian tiap orang', sbMessage: 'Pesan untuk dikirim', sbNoFriends: 'Tambahkan minimal satu teman untuk patungan.',
       hrcTitle: 'Checklist cairkan hold', hrcBtn: 'Cara cairkan hold ini lebih cepat',
       hrcIntro: 'PayPal menahan uang seller baru atau berisiko sampai 21 hari. Tiap langkah di bawah bisa mencairkannya lebih cepat, centang yang sudah dilakukan dan lihat perkiraan cairnya.',
       hrcEstimated: 'Perkiraan cair: {n} hari', hrcCurrent: 'Hold saat ini: {n} hari',
@@ -758,9 +772,22 @@
       ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking +
       (r.aiAvailable ? '' : ' · ' + (r.aiNote || 'AI explanation unavailable.')) + '</p>' +
       (isDemoProduct ? '<p><button id="pre-sim-btn" type="button">' + t('simBtn') + '</button></p>' +
-      '<div id="pre-sim" class="card hidden"></div>' : ''),
+      '<div id="pre-sim" class="card hidden"></div>' +
+      '<p><input id="pw-target" type="number" min="1" step="0.01" placeholder="' + t('pwTarget') + '" style="width:130px"> ' +
+      '<button id="pw-watch-btn" type="button" class="btn-secondary">' + t('pwWatch') + '</button> <span id="pw-status"></span></p>' +
+      '<p class="hint">' + t('pwSimNote') + '</p>' : ''),
       'risk');
     if (isDemoProduct) {
+      bubble.querySelector('#pw-watch-btn').addEventListener('click', async function () {
+        var target = Number(bubble.querySelector('#pw-target').value);
+        var st = $('pw-status');
+        if (!target || target <= 0) { if (st) st.textContent = t('pwTarget'); return; }
+        try {
+          var res = await fetch(API_BASE + '/api/price-watch', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ productId: selected.product.id, targetPrice: target, lang: lang }) });
+          var d = await res.json();
+          if (st) st.textContent = res.ok ? (t('pwWatching') + ': ' + money(d.currentPrice) + ' → ' + money(d.targetPrice)) : (d.error || res.status);
+        } catch (e) { if (st) st.textContent = String(e && e.message || e); }
+      });
       bubble.querySelector('#pre-sim-btn').addEventListener('click', async function () {
         var box = $('pre-sim');
         if (!box) return;
@@ -1111,6 +1138,8 @@
       grHtml +
       dwHtml +
       '<div class="card" id="ex-card"><p><strong>' + t('exTitle') + '</strong></p><p id="ex-body">…</p></div>' +
+      '<div class="card" id="pw-card"><p><strong>' + t('pwTitle') + '</strong></p><p class="hint">' + t('pwIntro') + '</p><p id="pw-body">…</p></div>' +
+      '<div class="card" id="sb-card"><p><strong>' + t('sbTitle') + '</strong></p><p class="hint">' + t('sbIntro') + '</p><p id="sb-body"></p></div>' +
       '<div class="vault-actions"><button id="vault-refresh" type="button" class="btn-secondary">' + t('refreshVault') + '</button> ' +
       '<button id="dispute-btn" type="button" class="btn-secondary"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button> ' +
       '<button id="sim-btn" type="button" class="btn-secondary"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('simBtn') + '</button> ' +
@@ -1198,6 +1227,58 @@
       } catch (e) { box.innerHTML = '<p class="hint">' + t('dwNoOrders') + '</p>'; }
     };
     renderDw();
+    // Price Watch list (simulated feed, labelled).
+    var renderPw = async function () {
+      var box = $('pw-body');
+      if (!box) return;
+      try {
+        var pres = await fetch(API_BASE + '/api/price-watches');
+        var pdata = await pres.json();
+        if (!pdata.watches || !pdata.watches.length) { box.innerHTML = '<p>' + t('pwNoWatches') + '</p>'; return; }
+        box.innerHTML = pdata.watches.slice(0, 3).map(function (w) {
+          var line = '<p><strong>' + w.productName + '</strong> · ' + t('pwCurrent') + ': ' + money(w.currentPrice) + ' · ' + t('pwTargetPrice') + ': ' + money(w.targetPrice) + ' · ' + (w.status === 'triggered' ? fmt(t('pwTriggered'), { price: money(w.currentPrice) }) : t('pwWatching')) + '</p>';
+          if (w.status === 'triggered') line += '<p><button type="button" class="pw-buy" data-product="' + w.productId + '">' + t('pwBuyNow') + '</button></p>';
+          else line += '<p><button type="button" class="btn-secondary pw-check" data-watch="' + w.id + '">' + t('pwCheck') + '</button></p>';
+          return line;
+        }).join('') + '<p class="hint">' + t('pwSimNote') + '</p>';
+        box.querySelectorAll('.pw-check').forEach(function (b) {
+          b.addEventListener('click', async function () {
+            b.disabled = true;
+            await fetch(API_BASE + '/api/price-watch/check', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ watchId: b.getAttribute('data-watch') }) });
+            renderPw();
+          });
+        });
+        box.querySelectorAll('.pw-buy').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var p = catalog.products.find(function (x) { return x.id === b.getAttribute('data-product'); });
+            if (p) selectProduct(p);
+          });
+        });
+      } catch (e) { box.innerHTML = '<p>' + t('pwNoWatches') + '</p>'; }
+    };
+    renderPw();
+    // Split Bill (shares + message; collection happens in the PayPal app).
+    (function renderSb() {
+      var box = $('sb-body');
+      if (!box) return;
+      box.innerHTML = '<p><textarea id="sb-friends" rows="3" style="width:100%" placeholder="' + t('sbFriends') + '"></textarea></p>' +
+        '<p><button id="sb-go" type="button">' + t('sbSplit') + '</button></p><div id="sb-out"></div>';
+      box.querySelector('#sb-go').addEventListener('click', async function () {
+        var out = $('sb-out');
+        var friends = box.querySelector('#sb-friends').value;
+        if (!friends.trim()) { out.innerHTML = '<p>' + t('sbNoFriends') + '</p>'; return; }
+        out.textContent = '…';
+        var body = { friends: friends, lang: lang };
+        if (lastVaultId) body.vaultId = lastVaultId;
+        else if (selected && selected.product) body.productId = selected.product.id;
+        try {
+          var res = await fetch(API_BASE + '/api/split-bill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+          var d = await res.json();
+          if (!res.ok) { out.innerHTML = '<p>' + (d.error || res.status) + '</p>'; return; }
+          out.innerHTML = '<p><strong>' + d.product + '</strong> · ' + t('sbShare') + ': ' + money(d.share) + ' (' + d.people + ')</p><pre style="white-space:pre-wrap">' + d.message + '</pre>';
+        } catch (e) { out.innerHTML = '<p>' + (e && e.message || e) + '</p>'; }
+      });
+    })();
     // Dispute simulation for the latest vault entry (post-purchase case).
     bubble.querySelector('#sim-btn').addEventListener('click', async function () {
       if (!lastVaultId) return;
