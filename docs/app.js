@@ -1099,7 +1099,8 @@
   }
 
   function greet() {
-    addBubble('agent',
+    var greeting = addBubble('agent',
+      '<button type="button" class="dismiss-btn" id="greet-dismiss" aria-label="Dismiss introduction">×</button>' +
       '<p>Hi, I’m ShopPal, your AI shopping agent. Tell me what you’re looking for, and I’ll check the seller, show you the real total (fees included), and keep your proof if you pay.</p>' +
       '<div class="chips">' +
       '<button type="button" class="chip" data-q="headphones under $60">Headphones under $60</button>' +
@@ -1108,9 +1109,13 @@
       '<button type="button" class="chip" id="phish-chip">' + t('phChip') + '</button>' +
       '<button type="button" class="chip" id="compare-toggle">' + t('cmpToggle') + '</button>' +
       '</div>' +
-      '<p class="hint">' + t('linkHint') + '</p>' +
+      '<p class="hint">' + t('linkHint') + '</p>',
+      'greeting');
+    greeting.querySelector('#greet-dismiss').addEventListener('click', function () { greeting.remove(); });
+    addBubble('agent',
       '<div id="compare-bar" class="card hidden"></div>' +
-      '<div class="cards" id="catalog"></div>');
+      '<div class="cards" id="catalog"></div>',
+      'catalog');
     renderCatalogInto($('catalog'), CATALOG.products);
     var chips = chatEl.querySelectorAll('.chip');
     for (var i = 0; i < chips.length; i++) {
@@ -1287,11 +1292,11 @@
       if (u.needsTracking) understood.push(t('withTracking'));
       if (u.cheapest) understood.push(t('cheapestFirst'));
       if (u.best) understood.push(t('bestFirst'));
-      addBubble('agent',
+      var resultsBubble = addBubble('agent',
         '<p>' + t('understood') + ' ' + (understood.length ? understood.join(', ') : t('noCategory')) +
         ', ' + u.note + '</p>' +
-        '<div class="cards" id="catalog"></div>');
-      renderCatalogInto($('catalog'), products);
+        '<div class="cards"></div>');
+      renderCatalogInto(resultsBubble.querySelector('.cards'), products);
     }, 500);
   }
 
