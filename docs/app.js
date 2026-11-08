@@ -27,7 +27,8 @@
       { id: 'p07', name: 'Nova Mechanical Keyboard', priceUSD: 69.00, referencePriceUSD: 79.00, category: 'Keyboard', sellerId: 'seller-caution' },
       { id: 'p08', name: 'Echo Bluetooth Speaker', priceUSD: 39.99, referencePriceUSD: 39.99, category: 'Speaker', sellerId: 'seller-safe' },
       { id: 'p09', name: 'Echo Bluetooth Speaker', priceUSD: 19.99, referencePriceUSD: 39.99, category: 'Speaker', sellerId: 'seller-risky' },
-      { id: 'p10', name: 'Volt 65W GaN Charger', priceUSD: 24.99, referencePriceUSD: 24.99, category: 'Charger', sellerId: 'seller-caution' }
+      { id: 'p10', name: 'Volt 65W GaN Charger', priceUSD: 24.99, referencePriceUSD: 24.99, category: 'Charger', sellerId: 'seller-caution' },
+      { id: 'p11', name: 'Echo Mini Bluetooth Speaker', priceUSD: 14.99, referencePriceUSD: 19.99, category: 'Speaker', sellerId: 'seller-safe' }
     ],
     sellers: [
       { id: 'seller-safe', name: 'TechHub Official', riskProfile: 'Safe', accountAgeYears: 4.2, profileComplete: true, totalTransactions: 12400, disputeRate: 0.4, hasTracking: true, hasReturnPolicy: true },
@@ -127,7 +128,7 @@
       calloutWhy: 'This order is above the $20.00 auto-approve limit, so the agent stopped here for your approval.',
       toastCopyLink: 'Payment link for {name} copied', toastCopyJson: 'Dispute JSON copied', toastApproved: 'Order approved', toastRejected: 'Order rejected — left unpaid',
       openPayPal: 'Open PayPal Sandbox', copyLink: 'Copy link', copied: '✓ Copied!', copyJson: 'Copy JSON',
-      loadingAgent: 'Agent is working…',
+      loadingAgent: 'Agent is working…', trackingAdded: 'Tracking added',
       agentFailed: 'The agent could not finish that. Please try again.',
       agentPayLink: 'Approve this order in PayPal Sandbox (opens in a new tab)',
       agentPayHint: 'Use a PayPal sandbox buyer account to approve. No real money is involved.',
@@ -327,7 +328,7 @@
       calloutWhy: 'Pesanan ini di atas batas setujui otomatis $20.00, jadi agen berhenti di sini menunggu persetujuanmu.',
       toastCopyLink: 'Link pembayaran {name} berhasil disalin', toastCopyJson: 'JSON sengketa disalin', toastApproved: 'Order disetujui', toastRejected: 'Order ditolak — dibiarkan belum dibayar',
       openPayPal: 'Buka PayPal Sandbox', copyLink: 'Salin link', copied: '✓ Tersalin!', copyJson: 'Salin JSON',
-      loadingAgent: 'Agen sedang bekerja…',
+      loadingAgent: 'Agen sedang bekerja…', trackingAdded: 'Resi ditambahkan',
       agentFailed: 'Agen tidak bisa menyelesaikan itu. Coba lagi.',
       agentPayLink: 'Setujui order ini di PayPal Sandbox (terbuka di tab baru)',
       agentPayHint: 'Pakai akun buyer sandbox PayPal untuk menyetujui. Tidak ada uang asli yang terlibat.',
@@ -1429,8 +1430,9 @@
     var buy = /(beli|belikan|bayar|bayarkan|pesan|checkout|buy|purchase|pay|order)/.test(s);
     var watch = /(pantau|memantau|watch|awasi|snipe|cek pantauan|cek harga|check (my )?(price )?watch)/.test(s);
     var split = /(patungan|split|bagi rata|bagi-bagi)/.test(s);
-    var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d|pantauan|watch)/.test(s);
-    return (buy || watch || split) && target;
+    var track = /(lacak|track|dispute|sengketa)/.test(s);
+    var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d|pantauan|watch|pesanan|order|lacak|track|dispute|sengketa)/.test(s);
+    return (buy || watch || split || track) && target;
   }
 
   function renderAgentResult(ag, q) {
@@ -1504,7 +1506,7 @@
         (sp.initiatorShare ? '<div class="row"><span>' + t('splInitiator') + '</span><span class="num">$' + sp.initiatorShare + '</span></div>' : '') +
         '</div>' +
         sp.links.map(function (l) {
-          return '<div class="split-link-row"><span>' + escapeHtml(l.friend) + ' · <span class="num">' + money(l.amountUSD) + '</span> ' +
+          return '<div class="split-link-row"><span>' + escapeHtml(l.friend) + ' · <span class="num badge-amount">' + money(l.amountUSD) + '</span> ' +
             (l.status ? '<span class="score score-emerald">' + escapeHtml(l.status) + '</span>' : '') + '</span>' +
             '<span class="split-link-actions">' +
             (l.approveUrl ? '<a class="btn-primary" href="' + l.approveUrl + '" target="_blank" rel="noopener" style="display:inline-block;padding:0.55rem 0.8rem;border-radius:8px;text-decoration:none;min-height:44px;line-height:1.4">' + t('openPayPal') + ' ↗</a>' : '') +
@@ -1520,6 +1522,25 @@
           setTimeout(function () { b.textContent = orig; }, 1800);
         });
       });
+    }
+    if (ag.dispute && ag.dispute.disputePayload) {
+      var dp = ag.dispute.disputePayload;
+      var trLine = ag.tracking && ag.tracking.trackingNumber
+        ? '<p>' + t('trackingAdded') + ' · <span class="num">' + escapeHtml(ag.tracking.trackingNumber) + '</span> (' + escapeHtml(ag.tracking.carrier || '') + ' · ' + escapeHtml(ag.tracking.status || '') + ')</p>'
+        : '';
+      var dpBubble = addBubble('agent',
+        trLine +
+        '<p><strong>' + t('simTitle') + '</strong>, ' + fmt(t('simWinChance'), { n: ag.dispute.winChance }) +
+        ' · <span class="score score-' + (ag.dispute.winChance >= 70 ? 'safe' : ag.dispute.winChance >= 40 ? 'caution' : 'risky') + '">' + escapeHtml(ag.dispute.label || '') + '</span></p>' +
+        '<div class="dispute-summary">' +
+        '<span class="score score-risky">' + escapeHtml(dp.status || 'OPEN') + '</span>' +
+        '<span class="score score-caution">' + escapeHtml(dp.dispute_life_cycle_stage || '') + '</span>' +
+        '<span class="score order-id">' + escapeHtml(dp.dispute_id || '') + '</span>' +
+        '</div>' +
+        '<p><strong>' + t('simPayloadTitle') + '</strong></p>' +
+        '<pre class="codeblock"><code>' + escapeHtml(JSON.stringify(dp, null, 2)) + '</code></pre>' +
+        '<p><button type="button" class="btn-secondary sim-copy-json">' + t('copyJson') + '</button></p>');
+      wireSimCopy(dpBubble, ag.dispute);
     }
     scrollChat();
   }
@@ -2170,7 +2191,7 @@
                 (d2.initiatorShare ? '<div class="row"><span>' + t('splInitiator') + '</span><span class="num">$' + d2.initiatorShare + '</span></div>' : '') +
                 '</div>' +
                 d2.links.map(function (l) {
-                  return '<div class="split-link-row"><span>' + escapeHtml(l.friend) + ' · <span class="num">' + money(l.amountUSD) + '</span> ' +
+                  return '<div class="split-link-row"><span>' + escapeHtml(l.friend) + ' · <span class="num badge-amount">' + money(l.amountUSD) + '</span> ' +
                     (l.status ? '<span class="score score-emerald">' + escapeHtml(l.status) + '</span>' : '') + '</span>' +
                     '<span class="split-link-actions">' +
                     (l.approveUrl ? '<a class="btn-primary" href="' + l.approveUrl + '" target="_blank" rel="noopener" style="display:inline-block;padding:0.55rem 0.8rem;border-radius:8px;text-decoration:none;min-height:44px;line-height:1.4">' + t('openPayPal') + ' ↗</a>' : '') +
@@ -2348,10 +2369,43 @@
     $('ask').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') sendAsk();
     });
+    // Quick Demo chips: one tap fills the prompt and sends it, so a demo
+    // scenario runs without typing.
+    document.querySelectorAll('.quick-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var prompt = chip.getAttribute('data-prompt') || '';
+        if (!prompt) return;
+        $('ask').value = prompt;
+        sendAsk();
+      });
+    });
     greet();
     showVault();
+    loadHealth();
     if (!window.paypal) {
       addBubble('agent', '<p class="hint">' + t('sdkNotLoaded') + '</p>');
     }
   });
+
+  // Health badge: fetch /api/health from the live server once on load and
+  // show the server, PayPal Sandbox and guardrail status in the header.
+  async function loadHealth() {
+    var badge = $('health-badge');
+    var sideStatus = $('side-health');
+    var sideGuard = $('side-guardrail');
+    try {
+      const res = await fetch(WORKER_API + '/api/health');
+      const h = await res.json();
+      if (!res.ok || !h.ok) throw new Error('health check failed');
+      var pp = (h.paypalSandbox && h.paypalSandbox.status === 'live') ? 'PayPal Sandbox: Live' : 'PayPal Sandbox: Not configured';
+      var gl = 'Guardrail Limit: $' + Number(h.guardrail && h.guardrail.autoApproveLimit !== undefined ? h.guardrail.autoApproveLimit : 20).toFixed(2);
+      var mcp = 'MCP Tools: ' + (h.mcpTools || 8) + ' Ready';
+      if (badge) badge.textContent = pp + ' · ' + gl + ' · ' + mcp;
+      if (sideStatus) sideStatus.textContent = pp + ' · ' + mcp;
+      if (sideGuard) sideGuard.textContent = '$' + Number(h.guardrail && h.guardrail.autoApproveLimit !== undefined ? h.guardrail.autoApproveLimit : 20).toFixed(2);
+    } catch (e) {
+      if (badge) badge.textContent = 'PayPal Sandbox: Unreachable';
+      if (sideStatus) sideStatus.textContent = 'PayPal Sandbox: Unreachable';
+    }
+  }
 })();
