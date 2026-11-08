@@ -67,7 +67,30 @@ See `.env.example`. Never commit a real `.env` file.
 | `VYCE_API_KEY` | Vyce API key for AI explanations. Server only — never log it, never commit it, never put it in the static demo. Optional: the rule-based Risk Score and Total Cost work without it. |
 | `VYCE_API_BASE` | Vyce API base URL (default `https://vyceai.com/v1`). |
 | `VYCE_MODEL` | Vyce model for explanations (default `deepseek-v4.1`). |
+| `EBAY_APP_ID` | eBay Developers App ID for real marketplace search. Free at developer.ebay.com. Optional: without it, marketplace search answers "not configured" and the demo uses the catalog. |
+| `EBAY_CERT_ID` | eBay Developers Cert ID (the App ID's secret). Server only — never log it, never commit it. |
+| `EBAY_API_BASE` | eBay API base URL (default `https://api.ebay.com`). |
+| `EBAY_MARKETPLACE` | eBay marketplace site (default `EBAY_US`). |
 | `PORT` | Port for the local server (default `3000`). |
+
+## Real marketplace search (eBay)
+
+The demo catalog is 10 fake products — good for the judged static demo, but
+a shopping agent should search real marketplaces. ShopPal does that through
+one adapter file per marketplace (`marketplace/<name>.js`), all
+returning the same normalized listing shape. eBay is first because its
+Browse API is open to any free developer account:
+
+1. Create a free account at [developer.ebay.com](https://developer.ebay.com/) and make an app (Sandbox or Production — Sandbox is enough to test).
+2. Copy the app's **App ID** and **Cert ID** into your local `.env` as `EBAY_APP_ID` and `EBAY_CERT_ID`.
+3. Restart the server and ask ShopPal anything — real eBay listings appear below the demo catalog, each with a real photo, the seller's feedback %, a ShopPal risk score built from marketplace signals (feedback, price vs this search's median, returns and shipping), and a link to the listing.
+4. Picking a real listing runs the same 7 steps. Checkout is a **PayPal Sandbox simulation**: it creates a sandbox order for the listing total and saves the proof — it does **not** buy the eBay item, and the UI says so.
+
+Other marketplaces need their own keys and adapters, one at a time: Amazon
+(Product Advertising API, needs affiliate approval), AliExpress (affiliate
+app), Shopee / Tokopedia (partner access). There is no single key that
+unlocks every marketplace, and scraping them is against their terms — so
+ShopPal only searches marketplaces through their official APIs.
 
 ## Create your own PayPal Sandbox buyer / seller accounts
 
