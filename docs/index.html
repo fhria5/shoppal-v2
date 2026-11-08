@@ -38,7 +38,7 @@
     ]
   }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=6">
+  <link rel="stylesheet" href="./styles.css?v=7">
   <!-- PayPal JS SDK (Sandbox). The Client ID is a public identifier, same as in the server version's /api/config. -->
   <script defer src="https://www.paypal.com/sdk/js?client-id=BAALyYZJX5wmJY824qhV5UfLMcGdKKcQXCq0gAM75j8MrwxrIuvbxcQ5BDhPvKLsBYWFrhNPGb-goDEm00&currency=USD&intent=capture"></script>
 </head>
@@ -73,8 +73,10 @@
         </div>
 
         <footer class="composer">
-          <input id="ask" type="text" placeholder="Ask ShopPal…" autocomplete="off" aria-label="Ask ShopPal">
-          <button id="ask-btn" type="button" aria-label="Send">➤</button>
+          <form class="composer-form" id="chat-form">
+            <input id="ask" class="chat-input" type="text" placeholder="Ask ShopPal…" autocomplete="off" aria-label="Ask ShopPal">
+            <button id="ask-btn" class="send-btn" type="button" aria-label="Send">➤</button>
+          </form>
         </footer>
         <p class="fineprint">ShopPal v2: PayPal AI Hackathon. Scores are a decision aid, not a PayPal guarantee. Product photos are AI-generated illustrations of generic demo products, not real listings.</p>
       </div>
@@ -98,6 +100,6 @@
     </div>
   </div>
   <div id="toast-root" class="toast-root" aria-live="polite" aria-label="Notifications"></div>
-  <script src="./app.js?v=9"></script>
+  <script src="./app.js?v=10"></script>
 </body>
 </html>
