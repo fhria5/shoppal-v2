@@ -4,7 +4,7 @@
 > Deadline: Friday, 13 November 2026, 04:00 WITA (12 November 2026, 12:00 PT)
 > Internal target: submit Thursday, 12 November 2026, 22:00 WITA.
 
-ShopPal v2 is an AI shopping agent built on the PayPal Developer Platform.
+ShopPal v2 is an AI shopping agent built on the PayPal Developer Platform. The demo is a messaging-style chat: you talk to ShopPal, it checks the seller, shows the real total, and keeps your proof. Product photos are AI-generated illustrations of generic demo products, and the header carries a shield-check logo.
 Most shopping agents only buy things. ShopPal v2 protects you while it buys:
 
 1. **AI Seller Risk Score (0–100)** — before you pay, every seller is scored
