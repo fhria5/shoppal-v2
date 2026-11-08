@@ -29,6 +29,10 @@ const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
 const sellersById = new Map(catalog.sellers.map((s) => [s.id, s]));
 const productsById = new Map(catalog.products.map((p) => [p.id, p]));
 
+// Real marketplaces, one adapter each. eBay is first (free Browse API);
+// see marketplace/ebay.js for how the next one plugs in.
+const ebay = require('./marketplace/ebay');
+
 // AI explanations. The rule-based reasons come first (deterministic,
 // auditable). If VYCE_API_KEY is set, the Vyce API (default model
 // deepseek-v4.1) rewrites them in plain language only. No key, or a
@@ -167,6 +171,179 @@ function calculateRiskScore(seller, product) {
   );
   const label = total >= 80 ? 'Safe' : total >= 50 ? 'Caution' : 'Risky';
   return { score: total, label, components };
+}
+
+// Risk Score for a real marketplace listing. Same weights and zones as
+// the demo catalog, but built from the signals a marketplace actually
+// shares: seller feedback % instead of a dispute rate, price vs the
+// median of this search, returns/shipping flags instead of a seller
+// profile. Signals the marketplace does not share score neutral (50)
+// and are labelled as unknown, never invented.
+function scoreMarketplaceListing(listing, allListings) {
+  const fb = listing.sellerFeedbackPercentage;
+  const history =
+    fb === null || fb === undefined
+      ? 50
+      : fb >= 99.5 ? 100 : fb >= 99 ? 85 : fb >= 98 ? 70 : fb >= 95 ? 45 : 15;
+  const prices = (allListings || [])
+    .map((l) => l.priceUSD)
+    .filter((n) => Number.isFinite(n))
+    .sort((a, b) => a - b);
+  const median = prices.length ? prices[Math.floor(prices.length / 2)] : listing.priceUSD;
+  const deviation = median && median > 0 ? Math.abs(listing.priceUSD / median - 1) : 0;
+  const price =
+    deviation <= 0.2 ? 100 : deviation >= 0.5 ? 0 : Math.round(100 - ((deviation - 0.2) / 0.3) * 100);
+  const tracking =
+    listing.returnsAccepted && listing.hasShipping
+      ? 100
+      : listing.returnsAccepted || listing.hasShipping
+        ? 50
+        : 0;
+  const components = { profile: 50, history, price, tracking };
+  const total = Math.round(
+    components.profile * 0.25 +
+      components.history * 0.35 +
+      components.price * 0.2 +
+      components.tracking * 0.2
+  );
+  const label = total >= 80 ? 'Safe' : total >= 50 ? 'Caution' : 'Risky';
+  const reasons = [];
+  reasons.push(
+    fb === null || fb === undefined
+      ? 'This marketplace does not share this seller’s feedback percentage.'
+      : fb >= 99
+        ? 'This seller has ' + fb + '% positive feedback on eBay.'
+        : 'This seller has ' + fb + '% positive feedback on eBay — below the 99%+ that careful buyers look for.'
+  );
+  reasons.push(
+    price < 60
+      ? 'This price is far below the median of this search — a common scam pattern.'
+      : 'This price is close to the median of this search.'
+  );
+  reasons.push(
+    listing.returnsAccepted
+      ? 'The listing accepts returns.'
+      : 'The listing does not say it accepts returns.'
+  );
+  const saferThan = (allListings || []).filter(
+    (l) => l !== listing && scoreMarketplaceListingShallow(l, allListings) < total
+  ).length;
+  const warning =
+    price < 60 && (fb === null || fb < 98)
+      ? 'Too-good-to-be-true pattern: a price far below the median from a seller without strong feedback. This is the most common scam shape.'
+      : null;
+  const checklist =
+    label === 'Safe'
+      ? [
+          'Pay with PayPal Goods & Services (not Friends & Family).',
+          'Save the tracking number when the seller ships.',
+          'Keep the Proof Vault entry — it is saved automatically.',
+        ]
+      : label === 'Caution'
+        ? [
+            'Pay only with PayPal Goods & Services.',
+            'Ask the seller for tracking before the money clears.',
+            'If the seller asks you to pay outside the marketplace, stop — that voids Buyer Protection.',
+          ]
+        : [
+            'Do not pay this seller if you can avoid it.',
+            'If you still proceed, use Goods & Services only — never Friends & Family.',
+            'Screenshot the listing before paying; you will need it for a dispute.',
+          ];
+  return {
+    score: total,
+    label,
+    components,
+    reasons: reasons.slice(0, 3),
+    recommendation:
+      label === 'Safe'
+        ? 'Safe to proceed with PayPal Goods & Services.'
+        : label === 'Caution'
+          ? 'Proceed with caution. Use PayPal Goods & Services — never Friends & Family.'
+          : 'Risky. Consider another listing before paying.',
+    comparison: 'Safer than ' + saferThan + ' of ' + (allListings || []).length + ' listings in this search.',
+    warning,
+    checklist,
+    aiAvailable: false,
+    aiNote: 'Marketplace scores use marketplace signals; account age is not shared by eBay, so it scores neutral.',
+  };
+}
+// Lightweight score used only to rank listings against each other
+// (avoids infinite recursion in the comparison above).
+function scoreMarketplaceListingShallow(listing, allListings) {
+  const fb = listing.sellerFeedbackPercentage;
+  const history =
+    fb === null || fb === undefined
+      ? 50
+      : fb >= 99.5 ? 100 : fb >= 99 ? 85 : fb >= 98 ? 70 : fb >= 95 ? 45 : 15;
+  const prices = (allListings || [])
+    .map((l) => l.priceUSD)
+    .filter((n) => Number.isFinite(n))
+    .sort((a, b) => a - b);
+  const median = prices.length ? prices[Math.floor(prices.length / 2)] : listing.priceUSD;
+  const deviation = median && median > 0 ? Math.abs(listing.priceUSD / median - 1) : 0;
+  const price =
+    deviation <= 0.2 ? 100 : deviation >= 0.5 ? 0 : Math.round(100 - ((deviation - 0.2) / 0.3) * 100);
+  const tracking =
+    listing.returnsAccepted && listing.hasShipping
+      ? 100
+      : listing.returnsAccepted || listing.hasShipping
+        ? 50
+        : 0;
+  return Math.round(50 * 0.25 + history * 0.35 + price * 0.2 + tracking * 0.2);
+}
+
+// Hold estimate for a marketplace listing, from the same public signals:
+// weak feedback and a price far below the median are the patterns PayPal
+// holds are most often tied to. Labelled an estimate, as always.
+function holdRiskForMarketplaceListing(listing, allListings) {
+  const fb = listing.sellerFeedbackPercentage;
+  let points = 0;
+  const reasons = [];
+  if (fb === null || fb === undefined) {
+    points += 10;
+    reasons.push('No feedback percentage shared for this seller.');
+  } else if (fb < 98) {
+    points += 40;
+    reasons.push('Seller feedback is ' + fb + '% — below 98%.');
+  } else if (fb < 99) {
+    points += 25;
+    reasons.push('Seller feedback is ' + fb + '% — below 99%.');
+  } else if (fb < 99.5) {
+    points += 10;
+    reasons.push('Seller feedback is ' + fb + '%.');
+  }
+  const prices = (allListings || [])
+    .map((l) => l.priceUSD)
+    .filter((n) => Number.isFinite(n))
+    .sort((a, b) => a - b);
+  const median = prices.length ? prices[Math.floor(prices.length / 2)] : listing.priceUSD;
+  if (median && median > 0) {
+    const below = 1 - listing.priceUSD / median;
+    if (below >= 0.5) {
+      points += 15;
+      reasons.push('Price is 50% or more below the median of this search.');
+    } else if (below >= 0.2) {
+      points += 5;
+      reasons.push('Price is notably below the median of this search.');
+    }
+  }
+  if (!listing.returnsAccepted) {
+    points += 5;
+    reasons.push('No returns accepted, so a dispute is harder to win.');
+  }
+  const score = Math.min(points, 100);
+  const label = score < 25 ? 'Low' : score < 60 ? 'Moderate' : 'High';
+  return {
+    score,
+    label,
+    chance: (label === 'Low' ? 'under 5%' : label === 'Moderate' ? '5–20%' : 'over 20%') + ' (estimate)',
+    reasons: reasons.length ? reasons : ['No hold-risk signals in this listing.'],
+    tip:
+      label === 'Low'
+        ? 'Funds usually clear on the normal schedule for this pattern.'
+        : 'Ask the seller to upload tracking promptly, and keep the order total close to the seller’s usual range.',
+  };
 }
 
 // Total Cost. Public rates: PayPal Checkout 3.49% + $0.49, international
@@ -403,6 +580,45 @@ app.get('/api/ask', (req, res) => {
   });
 });
 
+// Real marketplace search (eBay Browse API). Returns real listings with a
+// ShopPal risk score attached. Without eBay keys it says so plainly and
+// returns no listings — the UI then shows the demo catalog only.
+app.get('/api/marketplace/search', async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'q is required.' });
+  if (!ebay.isConfigured()) {
+    return res.json({
+      configured: false,
+      source: null,
+      listings: [],
+      note: 'Real marketplace search needs free eBay developer keys. Add EBAY_APP_ID and EBAY_CERT_ID to .env (developer.ebay.com) — no keys, no real listings.',
+    });
+  }
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 8, 1), 20);
+    let listings = await ebay.searchEbay(q, { limit });
+    if (!listings) listings = [];
+    const maxPrice = Number(req.query.maxPrice);
+    if (Number.isFinite(maxPrice)) listings = listings.filter((l) => l.priceUSD <= maxPrice);
+    if (req.query.cheapest === 'true' || req.query.cheapest === '1') {
+      listings.sort((a, b) => a.priceUSD - b.priceUSD);
+    }
+    const scored = listings.map((l) => ({
+      ...l,
+      risk: scoreMarketplaceListing(l, listings),
+      holdRisk: holdRiskForMarketplaceListing(l, listings),
+    }));
+    res.json({
+      configured: true,
+      source: 'eBay',
+      listings: scored,
+      note: 'Real eBay listings (Browse API). Prices in USD; risk scores use marketplace signals — feedback %, price vs this search’s median, returns and shipping.',
+    });
+  } catch (err) {
+    res.status(502).json({ configured: true, source: 'eBay', listings: [], error: err.message });
+  }
+});
+
 app.get('/api/subscriptions', (req, res) => {
   const entries = [...vaultEntries.values()].sort((a, b) =>
     (b.createdAt || '').localeCompare(a.createdAt || '')
@@ -482,6 +698,9 @@ function vaultDir() {
 // written to disk best-effort. On Vercel the disk copy is per-instance
 // /tmp, so a judge's checkout -> vault flow reads the in-memory copy.
 const vaultEntries = new Map();
+// Marketplace orders (orderId -> listing details) so capture can build a
+// Proof Vault entry for a real listing, not just a demo catalog product.
+const marketplaceOrders = new Map();
 try {
   const dir = vaultDir();
   if (fs.existsSync(dir)) {
@@ -517,8 +736,43 @@ app.post('/api/paypal/token', async (req, res) => {
 app.post('/api/paypal/create-order', async (req, res) => {
   try {
     const { productId, totalUSD, international, currencyConversion } = req.body || {};
-    const product = productsById.get(productId);
-    if (!product) return res.status(400).json({ error: 'Unknown productId.' });
+    // Marketplace checkout (e.g. a real eBay listing): the item comes from
+    // the search result, not the demo catalog. The PayPal order below is a
+    // SANDBOX SIMULATION of paying that listing's total — it does not buy
+    // the item on the marketplace. The buyer is told this in the UI.
+    const mp = (req.body || {}).marketplace || null;
+    let product;
+    let marketplaceDetails = null;
+    if (mp) {
+      if (mp.marketplace !== 'eBay') {
+        return res.status(400).json({ error: 'Unknown marketplace: ' + mp.marketplace });
+      }
+      const price = Number(mp.priceUSD);
+      if (!mp.title || !mp.itemId || !Number.isFinite(price) || price <= 0 || price > 10000) {
+        return res.status(400).json({ error: 'Invalid marketplace item.' });
+      }
+      product = {
+        id: 'ebay:' + String(mp.itemId).slice(0, 60),
+        name: String(mp.title).slice(0, 120),
+        priceUSD: Math.round(price * 100) / 100,
+        category: 'Marketplace · eBay',
+      };
+      marketplaceDetails = {
+        marketplace: 'eBay',
+        itemId: String(mp.itemId),
+        title: product.name,
+        priceUSD: product.priceUSD,
+        itemUrl: mp.itemUrl || null,
+        image: mp.image || null,
+        sellerName: mp.sellerName || 'Unknown seller',
+        riskScore: mp.riskScore && Number.isFinite(mp.riskScore.score)
+          ? { score: mp.riskScore.score, label: mp.riskScore.label }
+          : null,
+      };
+    } else {
+      product = productsById.get(productId);
+      if (!product) return res.status(400).json({ error: 'Unknown productId.' });
+    }
     // The order amount has to match the total the user approved in step 3.
     const expected = calculateTotalCost(
       product.priceUSD,
@@ -536,7 +790,9 @@ app.post('/api/paypal/create-order', async (req, res) => {
       purchase_units: [
         {
           reference_id: product.id,
-          description: `${product.name} — ShopPal v2 demo (PayPal Sandbox)`,
+          description: marketplaceDetails
+            ? `${product.name} — ShopPal v2 marketplace simulation (PayPal Sandbox, does not buy the eBay item)`
+            : `${product.name} — ShopPal v2 demo (PayPal Sandbox)`,
           amount: {
             currency_code: 'USD',
             value: expected.total.toFixed(2),
@@ -569,12 +825,14 @@ app.post('/api/paypal/create-order', async (req, res) => {
     });
     const approveUrl =
       (order.links || []).find((l) => l.rel === 'approve')?.href || null;
+    if (marketplaceDetails) marketplaceOrders.set(order.id, marketplaceDetails);
     res.status(201).json({
       orderId: order.id,
       status: order.status,
       approveUrl,
       totalUSD: expected.total,
       productId: product.id,
+      marketplace: marketplaceDetails ? marketplaceDetails.marketplace : null,
     });
   } catch (err) {
     res.status(err.status || 502).json({ error: err.message, paypalName: err.paypalName || null });
@@ -617,16 +875,32 @@ app.post('/api/paypal/capture-order', async (req, res) => {
     const seller = product ? sellersById.get(product.sellerId) : null;
     const risk = product && seller ? calculateRiskScore(seller, product) : null;
     const amount = verifiedCapture.amount || {};
+    const mp = marketplaceOrders.get(orderId) || null;
     const entry = {
       id: orderId,
       createdAt: new Date().toISOString(),
-      product: product
-        ? { id: product.id, name: product.name, priceUSD: product.priceUSD, category: product.category }
-        : { id: productId },
-      seller: seller
-        ? { id: seller.id, name: seller.name, tracking: seller.hasTracking, returnPolicy: seller.hasReturnPolicy }
+      product: mp
+        ? { id: productId, name: mp.title, priceUSD: mp.priceUSD, category: 'Marketplace · eBay' }
+        : product
+          ? { id: product.id, name: product.name, priceUSD: product.priceUSD, category: product.category }
+          : { id: productId },
+      seller: mp
+        ? { name: mp.sellerName }
+        : seller
+          ? { id: seller.id, name: seller.name, tracking: seller.hasTracking, returnPolicy: seller.hasReturnPolicy }
+          : null,
+      riskScore: mp
+        ? mp.riskScore
+        : risk
+          ? { score: risk.score, label: risk.label }
+          : null,
+      marketplace: mp
+        ? { name: mp.marketplace, itemId: mp.itemId, itemUrl: mp.itemUrl, image: mp.image }
         : null,
-      riskScore: risk ? { score: risk.score, label: risk.label } : null,
+      simulation: mp ? true : false,
+      simulationNote: mp
+        ? 'Sandbox simulation — this PayPal order did not buy the eBay item. It proves the total and saves the proof.'
+        : null,
       totalCost: {
         total: Number(amount.value),
         currency: amount.currency_code || 'USD',
