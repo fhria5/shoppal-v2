@@ -60,6 +60,13 @@
     var dict = STR[lang] || STR.en;
     return dict[key] !== undefined ? dict[key] : STR.en[key];
   }
+  // HTML escaping (was missing in the static demo; the agent, check-link
+  // and dispute renderers already called it, so those paths threw).
+  function escapeHtml(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
   function labelText(label) { return t('label' + label); }
   function holdLabelText(label) { return t('hold' + label); }
   var STR = {
@@ -116,7 +123,11 @@
       checkoutHint: 'Pay with the gold PayPal button above. Approve with a PayPal Sandbox Personal (buyer) account, no real money is involved. The order total is exactly the total shown above.',
       sdkFailed: 'PayPal SDK failed to load. Check your connection and reload.',
       tickFirst: 'Please tick the approval checkbox first.', creatingOrder: 'Creating PayPal order…',
-      agentSteps: 'What the agent did', agentApprove: 'Approve and pay with PayPal', agentPendingApproval: 'Pending Human Approval (Guardrail Triggered)',
+      agentSteps: 'What the agent did', agentApprove: 'Approve and pay with PayPal', agentPendingApproval: 'Pending Human Approval (Guardrail Triggered)', agentReject: 'Reject',
+      calloutWhy: 'This order is above the $20.00 auto-approve limit, so the agent stopped here for your approval.',
+      toastCopyLink: 'Payment link for {name} copied', toastCopyJson: 'Dispute JSON copied', toastApproved: 'Order approved', toastRejected: 'Order rejected — left unpaid',
+      openPayPal: 'Open PayPal Sandbox', copyLink: 'Copy link', copied: '✓ Copied!', copyJson: 'Copy JSON',
+      loadingAgent: 'Agent is working…',
       agentFailed: 'The agent could not finish that. Please try again.',
       agentPayLink: 'Approve this order in PayPal Sandbox (opens in a new tab)',
       agentPayHint: 'Use a PayPal sandbox buyer account to approve. No real money is involved.',
@@ -234,7 +245,7 @@
       pwSimNote: 'Simulated price feed for the demo catalog, not a live market price.',
       sbTitle: 'Split the bill', sbIntro: 'Buy a gift together and split it. The agent works out each share and writes the message to send. Collecting the money happens in the PayPal app (request money); the Invoicing and Payouts APIs are not enabled for this sandbox app.',
       sbFriends: 'Friends (name, one per line)', sbSplit: 'Split it', sbShare: "Each person's share", sbMessage: 'Message to send', sbNoFriends: 'Add at least one friend to split with.',
-      splNote: 'Each friend gets their own PayPal Sandbox payment link for their share. You pay your own share through the normal checkout.', splLinks: 'Payment links', splMakeLinks: 'Make payment links', splPayLink: 'Pay link',
+      splNote: 'Each friend gets their own PayPal Sandbox payment link for their share. You pay your own share through the normal checkout.', splLinks: 'Payment links', splMakeLinks: 'Make payment links', splPayLink: 'Pay link', splTotal: 'Total', splInitiator: 'Your share',
       hrcTitle: 'Hold release checklist', hrcBtn: 'How to release this hold faster',
       hrcIntro: 'PayPal holds new or risky sellers’ money for up to 21 days. Each step below can release it sooner, tick what is already done and see the estimated release.',
       hrcEstimated: 'Estimated release: {n} days', hrcCurrent: 'Current hold: {n} days',
@@ -312,7 +323,11 @@
       checkoutHint: 'Bayar dengan tombol PayPal emas di atas. Setujui dengan akun Personal (buyer) PayPal Sandbox, tidak ada uang asli yang terlibat. Total order sama persis dengan total di atas.',
       sdkFailed: 'PayPal SDK gagal dimuat. Periksa koneksi dan muat ulang.',
       tickFirst: 'Centang kotak persetujuan dulu.', creatingOrder: 'Membuat order PayPal…',
-      agentSteps: 'Yang agen lakukan', agentApprove: 'Setujui dan bayar dengan PayPal', agentPendingApproval: 'Pending Human Approval (Guardrail Triggered)',
+      agentSteps: 'Yang agen lakukan', agentApprove: 'Setujui dan bayar dengan PayPal', agentPendingApproval: 'Pending Human Approval (Guardrail Triggered)', agentReject: 'Tolak',
+      calloutWhy: 'Pesanan ini di atas batas setujui otomatis $20.00, jadi agen berhenti di sini menunggu persetujuanmu.',
+      toastCopyLink: 'Link pembayaran {name} berhasil disalin', toastCopyJson: 'JSON sengketa disalin', toastApproved: 'Order disetujui', toastRejected: 'Order ditolak — dibiarkan belum dibayar',
+      openPayPal: 'Buka PayPal Sandbox', copyLink: 'Salin link', copied: '✓ Tersalin!', copyJson: 'Salin JSON',
+      loadingAgent: 'Agen sedang bekerja…',
       agentFailed: 'Agen tidak bisa menyelesaikan itu. Coba lagi.',
       agentPayLink: 'Setujui order ini di PayPal Sandbox (terbuka di tab baru)',
       agentPayHint: 'Pakai akun buyer sandbox PayPal untuk menyetujui. Tidak ada uang asli yang terlibat.',
@@ -430,7 +445,7 @@
       pwSimNote: 'Feed harga simulasi untuk katalog demo, bukan harga pasar live.',
       sbTitle: 'Patungan', sbIntro: 'Beli kado bareng dan patungan. Agen menghitung bagian tiap orang dan menulis pesannya. Penagihan uangnya lewat aplikasi PayPal (request money); API Invoicing dan Payouts tidak diaktifkan untuk app sandbox ini.',
       sbFriends: 'Teman (nama, satu per baris)', sbSplit: 'Bagi rata', sbShare: 'Bagian tiap orang', sbMessage: 'Pesan untuk dikirim', sbNoFriends: 'Tambahkan minimal satu teman untuk patungan.',
-      splNote: 'Tiap teman dapat link bayar PayPal Sandbox sendiri untuk bagiannya. Bagianmu sendiri dibayar lewat checkout biasa.', splLinks: 'Link bayar', splMakeLinks: 'Buat link bayar', splPayLink: 'Link bayar',
+      splNote: 'Tiap teman dapat link bayar PayPal Sandbox sendiri untuk bagiannya. Bagianmu sendiri dibayar lewat checkout biasa.', splLinks: 'Link bayar', splMakeLinks: 'Buat link bayar', splPayLink: 'Link bayar', splTotal: 'Total', splInitiator: 'Bagianmu',
       hrcTitle: 'Checklist cairkan hold', hrcBtn: 'Cara cairkan hold ini lebih cepat',
       hrcIntro: 'PayPal menahan uang seller baru atau berisiko sampai 21 hari. Tiap langkah di bawah bisa mencairkannya lebih cepat, centang yang sudah dilakukan dan lihat perkiraan cairnya.',
       hrcEstimated: 'Perkiraan cair: {n} hari', hrcCurrent: 'Hold saat ini: {n} hari',
@@ -785,6 +800,39 @@
       : chance >= 70 ? t('simRecStrong')
       : chance >= 40 ? t('simRecModerate')
       : t('simRecWeak');
+    // Local mirror of the server's disputePayload (same PayPal Disputes API
+    // shape, clearly a simulation — no real ticket is opened).
+    var reasonMap = {
+      not_received: 'MERCHANDISE_OR_SERVICE_NOT_RECEIVED',
+      not_as_described: 'MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED',
+      unauthorized: 'UNAUTHORIZED_TRANSACTION',
+    };
+    var amountUSD = isVault
+      ? (entry.total || (entry.paypal && entry.paypal.amount && entry.paypal.amount.value) || 0)
+      : (product ? calculateTotalCost(product.priceUSD, true, true, lang).total : 0);
+    var captureId = isVault ? (entry.paypal && entry.paypal.captureId || null) : null;
+    var orderId = isVault ? entry.id : ('SIM-' + (product ? product.id.toUpperCase() : 'P'));
+    var nowISO = new Date().toISOString();
+    var disputePayload = {
+      dispute_id: 'PP-D-' + (product ? product.id.toUpperCase() : (entry ? entry.id.slice(-6).toUpperCase() : 'SIM')) + '-' + Date.now().toString(36).toUpperCase(),
+      create_time: nowISO,
+      update_time: nowISO,
+      reason: reasonMap[type] || reasonMap.not_received,
+      status: 'OPEN',
+      dispute_amount: { currency_code: 'USD', value: Number(amountUSD).toFixed(2) },
+      dispute_life_cycle_stage: 'INQUIRY',
+      disputed_transactions: [{
+        buyer_transaction_id: captureId,
+        seller_transaction_id: captureId,
+        create_time: purchaseISO,
+        transaction_status: isVault ? 'COMPLETED' : 'NOT_COMPLETED',
+        gross_amount: { currency_code: 'USD', value: Number(amountUSD).toFixed(2) },
+        invoice_number: orderId,
+      }],
+      seller: { name: seller ? seller.name : '' },
+      messages: [],
+      outcome: null,
+    };
     return {
       simulated: true, prePurchase: !isVault,
       vaultId: entry ? entry.id : null,
@@ -793,12 +841,21 @@
       components: components, missingProof: missingProof,
       recommendation: recommendation, filingDaysLeft: filingDaysLeft,
       note: !isVault ? t('simPreNote') : null,
+      disputePayload: disputePayload,
     };
   }
 
   function renderSimHtml(d) {
     var html = '<p><strong>' + t('simTitle') + '</strong>, ' + fmt(t('simWinChance'), { n: d.winChance }) +
       ' · <span class="score score-' + (d.winChance >= 70 ? 'safe' : d.winChance >= 40 ? 'caution' : 'risky') + '">' + d.label + '</span></p>';
+    if (d.disputePayload) {
+      var dp = d.disputePayload;
+      html += '<div class="dispute-summary">' +
+        '<span class="score score-risky">' + escapeHtml(dp.status || 'OPEN') + '</span>' +
+        '<span class="score score-caution">' + escapeHtml(dp.dispute_life_cycle_stage || '') + '</span>' +
+        '<span class="score order-id">' + escapeHtml(dp.dispute_id || '') + '</span>' +
+        '</div>';
+    }
     if (d.note) html += '<p class="hint">' + d.note + '</p>';
     if (d.components && d.components.length) {
       html += '<ul>' + d.components.map(function (c) {
@@ -809,8 +866,25 @@
       html += '<p>' + fmt(t('simMissing'), { list: d.missingProof.join(', ') }) + '</p>';
     }
     if (d.recommendation) html += '<p><strong>' + t('recommendation') + '</strong> ' + d.recommendation + '</p>';
-    if (d.disputePayload) html += '<p><strong>' + t('simPayloadTitle') + '</strong></p><pre style="white-space:pre-wrap;font-size:12px">' + escapeHtml(JSON.stringify(d.disputePayload, null, 2)) + '</pre>';
+    if (d.disputePayload) {
+      html += '<p><strong>' + t('simPayloadTitle') + '</strong></p>' +
+        '<pre class="codeblock"><code>' + escapeHtml(JSON.stringify(d.disputePayload, null, 2)) + '</code></pre>' +
+        '<p><button type="button" class="btn-secondary sim-copy-json">' + t('copyJson') + '</button></p>';
+    }
     return html;
+  }
+
+  // Wire the "Copy JSON" button inside a freshly rendered sim result.
+  function wireSimCopy(box, d) {
+    if (!box || !d || !d.disputePayload) return;
+    var btn = box.querySelector('.sim-copy-json');
+    if (!btn) return;
+    btn.addEventListener('click', async function () {
+      var orig = btn.textContent;
+      await copyText(JSON.stringify(d.disputePayload, null, 2), t('toastCopyJson'));
+      btn.textContent = t('copied');
+      setTimeout(function () { btn.textContent = orig; }, 1800);
+    });
   }
 
   // Deadline Tracker (rule-based mirror of the server endpoint).
@@ -1147,13 +1221,68 @@
     var div = document.createElement('div');
     div.className = 'msg agent typing';
     div.setAttribute('aria-hidden', 'true');
-    div.innerHTML = '<span></span><span></span><span></span>';
+    div.innerHTML = '<span></span><span></span><span></span><span class="loading-line">' + t('loadingAgent') + '</span>';
     chatEl.appendChild(div);
     scrollChat();
     return div;
   }
   function hideTyping(el) {
     if (el && el.remove) el.remove();
+    // Re-enable the composer once the last typing indicator is gone.
+    if (chatEl && !chatEl.querySelector('.typing')) {
+      var btn = $('ask-btn');
+      var input = $('ask');
+      if (btn) btn.disabled = false;
+      if (input) input.disabled = false;
+    }
+  }
+
+  // Toast notifications: instant feedback for copy, approval and other
+  // actions. The toast root has aria-live="polite" in the HTML.
+  function showToast(msg, kind) {
+    var root = $('toast-root');
+    if (!root) return;
+    var el = document.createElement('div');
+    el.className = 'toast' + (kind === 'success' ? ' success' : '');
+    el.setAttribute('role', 'status');
+    el.textContent = msg;
+    root.appendChild(el);
+    setTimeout(function () { if (el.remove) el.remove(); }, 3600);
+  }
+
+  // Copy to clipboard with a fallback for older browsers, then toast.
+  async function copyText(text, okMsg) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        ta.remove();
+      }
+      showToast(okMsg, 'success');
+      return true;
+    } catch (e) {
+      showToast(okMsg);
+      return false;
+    }
+  }
+
+  // Disable a button while an async action runs (prevents double-submit)
+  // and show a spinner inside it. Restores the original label after.
+  function setBusy(btn, busy, busyLabel) {
+    if (!btn) return;
+    if (busy) {
+      if (btn.dataset.origLabel === undefined) btn.dataset.origLabel = btn.textContent;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner" aria-hidden="true"></span>' + escapeHtml(busyLabel || btn.dataset.origLabel || '');
+    } else {
+      btn.disabled = false;
+      btn.textContent = btn.dataset.origLabel || btn.textContent;
+    }
   }
 
   function productCardHtml(p) {
@@ -1321,14 +1450,24 @@
         '<p class="hint">' + t('agentPayHint') + '</p>');
       window.open(ag.order.approveUrl, '_blank', 'noopener');
     } else if (ag.needsApproval && ag.pendingOrder) {
-      var pend = document.createElement('p');
-      pend.innerHTML = '<span class="score score-caution">' + t('agentPendingApproval') + '</span>';
-      bubble.appendChild(pend);
-      var btn = document.createElement('button');
-      btn.className = 'btn-primary';
-      btn.textContent = t('agentApprove');
-      btn.addEventListener('click', function () {
-        btn.disabled = true;
+      var callout = document.createElement('div');
+      callout.className = 'callout';
+      callout.setAttribute('role', 'alert');
+      callout.setAttribute('aria-live', 'polite');
+      callout.innerHTML =
+        '<div class="callout-head"><span class="shield" aria-hidden="true">🛡️</span><span>' + t('agentPendingApproval') + '</span></div>' +
+        '<p>' + t('calloutWhy') + '</p>' +
+        '<p class="hint num">' + escapeHtml(ag.pendingOrder.name || '') + ' · ' + money(ag.pendingOrder.totalUSD) + '</p>' +
+        '<div class="callout-actions">' +
+        '<button type="button" class="btn-primary" data-act="approve">' + t('agentApprove') + '</button>' +
+        '<button type="button" class="btn-secondary" data-act="reject">' + t('agentReject') + '</button>' +
+        '</div>';
+      bubble.appendChild(callout);
+      var approveBtn = callout.querySelector('[data-act="approve"]');
+      var rejectBtn = callout.querySelector('[data-act="reject"]');
+      approveBtn.addEventListener('click', function () {
+        setBusy(approveBtn, true, t('loadingAgent'));
+        if (rejectBtn) rejectBtn.disabled = true;
         var typing2 = showTyping();
         fetch(WORKER_API + '/api/agent', {
           method: 'POST',
@@ -1337,17 +1476,50 @@
         }).then(function (r2) { return r2.json().then(function (ag2) { return { ok: r2.ok, ag2: ag2 }; }); })
           .then(function (out) {
             hideTyping(typing2);
-            if (out.ok) renderAgentResult(out.ag2, q);
+            setBusy(approveBtn, false);
+            if (out.ok) { showToast(t('toastApproved'), 'success'); renderAgentResult(out.ag2, q); }
             else addBubble('agent', '<p>' + escapeHtml(out.ag2.error || 'error') + '</p>');
             scrollChat();
           })
           .catch(function () {
             hideTyping(typing2);
+            setBusy(approveBtn, false);
+            if (rejectBtn) rejectBtn.disabled = false;
             addBubble('agent', '<p>' + t('agentFailed') + '</p>');
             scrollChat();
           });
       });
-      bubble.appendChild(btn);
+      rejectBtn.addEventListener('click', function () {
+        if (callout.remove) callout.remove();
+        showToast(t('toastRejected'));
+        scrollChat();
+      });
+    }
+    if (ag.splitPayment && ag.splitPayment.links && ag.splitPayment.links.length) {
+      var sp = ag.splitPayment;
+      var spHtml = '<div class="card split-card"><p><strong>' + t('splLinks') + '</strong></p>' +
+        '<div class="split-breakdown">' +
+        '<div class="row"><span>' + t('splTotal') + '</span><span class="num">' + money(sp.total) + '</span></div>' +
+        '<div class="row"><span>' + t('sbShare') + '</span><span class="num">' + money(sp.share) + '</span></div>' +
+        (sp.initiatorShare ? '<div class="row"><span>' + t('splInitiator') + '</span><span class="num">$' + sp.initiatorShare + '</span></div>' : '') +
+        '</div>' +
+        sp.links.map(function (l) {
+          return '<div class="split-link-row"><span>' + escapeHtml(l.friend) + ' · <span class="num">' + money(l.amountUSD) + '</span> ' +
+            (l.status ? '<span class="score score-emerald">' + escapeHtml(l.status) + '</span>' : '') + '</span>' +
+            '<span class="split-link-actions">' +
+            (l.approveUrl ? '<a class="btn-primary" href="' + l.approveUrl + '" target="_blank" rel="noopener" style="display:inline-block;padding:0.55rem 0.8rem;border-radius:8px;text-decoration:none;min-height:44px;line-height:1.4">' + t('openPayPal') + ' ↗</a>' : '') +
+            (l.approveUrl ? '<button type="button" class="btn-secondary" data-copy="' + escapeHtml(l.approveUrl) + '" data-friend="' + escapeHtml(l.friend) + '">' + t('copyLink') + '</button>' : '') +
+            '</span></div>';
+        }).join('') + '</div>';
+      var spBubble = addBubble('agent', spHtml);
+      spBubble.querySelectorAll('[data-copy]').forEach(function (b) {
+        b.addEventListener('click', async function () {
+          var orig = b.textContent;
+          await copyText(b.getAttribute('data-copy'), fmt(t('toastCopyLink'), { name: b.getAttribute('data-friend') }));
+          b.textContent = t('copied');
+          setTimeout(function () { b.textContent = orig; }, 1800);
+        });
+      });
     }
     scrollChat();
   }
@@ -1355,6 +1527,12 @@
   function sendAsk() {
     var q = $('ask').value.trim();
     if (!q) return;
+    // Disable the composer while the agent works (prevents double-submit);
+    // hideTyping re-enables it once the last typing indicator is gone.
+    var btn = $('ask-btn');
+    var input = $('ask');
+    btn.disabled = true;
+    input.disabled = true;
     $('ask').value = '';
     lang = detectLang(q);
     userBubble(q);
@@ -1535,6 +1713,7 @@
         return;
       }
       box.innerHTML = renderSimHtml(d);
+      wireSimCopy(box, d);
       scrollChat();
     });
   }
@@ -1977,14 +2156,38 @@
           out.querySelector('#spl-go').addEventListener('click', async function () {
             var splOut = $('spl-out');
             splOut.textContent = '…';
+            var splBtn = out.querySelector('#spl-go');
+            setBusy(splBtn, true, t('loadingAgent'));
             try {
               var r2 = await fetch(WORKER_API + '/api/split-payment-link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
               var d2 = await r2.json();
+              setBusy(splBtn, false);
               if (!r2.ok) { splOut.innerHTML = '<p>' + (d2.error || r2.status) + '</p>'; return; }
-              splOut.innerHTML = '<p><strong>' + t('splLinks') + '</strong></p><ul>' + d2.links.map(function (l) {
-                return '<li>' + escapeHtml(l.friend) + ' · ' + money(l.amountUSD) + (l.approveUrl ? ' · <a href="' + l.approveUrl + '" target="_blank" rel="noopener">' + t('splPayLink') + '</a> (' + escapeHtml(l.orderId) + ')' : ' · ' + escapeHtml(l.error || '')) + '</li>';
-              }).join('') + '</ul><p class="hint">' + t('splNote') + '</p>';
-            } catch (e) { splOut.innerHTML = '<p>' + (e && e.message || e) + '</p>'; }
+              var splHtml = '<div class="card split-card"><p><strong>' + t('splLinks') + '</strong></p>' +
+                '<div class="split-breakdown">' +
+                '<div class="row"><span>' + t('splTotal') + '</span><span class="num">' + money(d2.total) + '</span></div>' +
+                '<div class="row"><span>' + t('sbShare') + '</span><span class="num">' + money(d2.share) + '</span></div>' +
+                (d2.initiatorShare ? '<div class="row"><span>' + t('splInitiator') + '</span><span class="num">$' + d2.initiatorShare + '</span></div>' : '') +
+                '</div>' +
+                d2.links.map(function (l) {
+                  return '<div class="split-link-row"><span>' + escapeHtml(l.friend) + ' · <span class="num">' + money(l.amountUSD) + '</span> ' +
+                    (l.status ? '<span class="score score-emerald">' + escapeHtml(l.status) + '</span>' : '') + '</span>' +
+                    '<span class="split-link-actions">' +
+                    (l.approveUrl ? '<a class="btn-primary" href="' + l.approveUrl + '" target="_blank" rel="noopener" style="display:inline-block;padding:0.55rem 0.8rem;border-radius:8px;text-decoration:none;min-height:44px;line-height:1.4">' + t('openPayPal') + ' ↗</a>' : '') +
+                    (l.approveUrl ? '<button type="button" class="btn-secondary" data-copy="' + escapeHtml(l.approveUrl) + '" data-friend="' + escapeHtml(l.friend) + '">' + t('copyLink') + '</button>' : '') +
+                    '</span></div>';
+                }).join('') +
+                '<p class="hint">' + t('splNote') + '</p></div>';
+              splOut.innerHTML = splHtml;
+              splOut.querySelectorAll('[data-copy]').forEach(function (b) {
+                b.addEventListener('click', async function () {
+                  var orig = b.textContent;
+                  await copyText(b.getAttribute('data-copy'), fmt(t('toastCopyLink'), { name: b.getAttribute('data-friend') }));
+                  b.textContent = t('copied');
+                  setTimeout(function () { b.textContent = orig; }, 1800);
+                });
+              });
+            } catch (e) { setBusy(splBtn, false); splOut.innerHTML = '<p>' + (e && e.message || e) + '</p>'; }
           });
         } catch (e) { out.innerHTML = '<p>' + (e && e.message || e) + '</p>'; }
       });
@@ -2002,6 +2205,7 @@
         return;
       }
       box.innerHTML = renderSimHtml(d);
+      wireSimCopy(box, d);
       scrollChat();
     });
     // Evidence Pack: download a printable proof page built locally.
