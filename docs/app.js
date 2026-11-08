@@ -147,6 +147,9 @@
     var q = String(query || '').toLowerCase();
     var budgetMatch = q.match(/(?:under|below|less than|max|up to|budget)\s*\$?\s*(\d+(?:\.\d{1,2})?)|\$\s*(\d+(?:\.\d{1,2})?)/);
     var maxPrice = budgetMatch ? Number(budgetMatch[1] || budgetMatch[2]) : null;
+    // "Murah" (Indonesian for "cheap") flips the ranking to cheapest first:
+    // a buyer who asks for cheap wants the lowest price, not the safest seller.
+    var cheapest = /\b(murah|termurah|hemat|cheapest|cheap|affordable|lowest price)\b/.test(q);
     var category = null;
     for (var cat in ASK_SYNONYMS) {
       if (ASK_SYNONYMS[cat].some(function (w) { return q.includes(w); })) { category = cat; break; }
@@ -157,10 +160,14 @@
       matches = matches.filter(function (p) { return p.category === want; });
     }
     if (maxPrice !== null) matches = matches.filter(function (p) { return p.priceUSD <= maxPrice; });
-    matches.sort(function (a, b) {
-      return calculateRiskScore(sellerOf(b), b).score - calculateRiskScore(sellerOf(a), a).score;
-    });
-    return { category: category, maxPrice: maxPrice, matches: matches };
+    if (cheapest) {
+      matches.sort(function (a, b) { return a.priceUSD - b.priceUSD; });
+    } else {
+      matches.sort(function (a, b) {
+        return calculateRiskScore(sellerOf(b), b).score - calculateRiskScore(sellerOf(a), a).score;
+      });
+    }
+    return { category: category, maxPrice: maxPrice, cheapest: cheapest, matches: matches };
   }
 
   // Subscription Watcher: same product bought twice or more.
@@ -224,7 +231,11 @@
     return addBubble('user', '<p>' + text + '</p>');
   }
   function clearSteps() {
-    var old = chatEl.querySelectorAll('[data-step]');
+    // Only the checkout flow is cleared (risk/hold/cost/checkout). The
+    // Proof Vault and past success messages stay in the chat history, so a
+    // new question never leaves a stale PayPal button behind, but never
+    // wipes proof the buyer already earned.
+    var old = chatEl.querySelectorAll('[data-step="risk"], [data-step="hold"], [data-step="cost"], [data-step="checkout"]');
     for (var i = 0; i < old.length; i++) old[i].remove();
   }
   function showTyping() {
@@ -284,6 +295,7 @@
     if (!q) return;
     $('ask').value = '';
     userBubble(q);
+    clearSteps();
     var typing = showTyping();
     setTimeout(function () {
       hideTyping(typing);
@@ -294,7 +306,7 @@
       if (parsed.maxPrice !== null) understood.push('under $' + parsed.maxPrice);
       addBubble('agent',
         '<p>Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
-        ' — ' + (parsed.matches.length ? 'matches sorted safest first.' : 'No exact match in the demo catalog — showing all 10 demo products.') + '</p>' +
+        ' — ' + (parsed.matches.length ? (parsed.cheapest ? 'matches sorted cheapest first.' : 'matches sorted safest first.') : 'No exact match in the demo catalog — showing all 10 demo products.') + '</p>' +
         '<div class="cards" id="catalog"></div>');
       renderCatalogInto($('catalog'), products);
     }, 500);
