@@ -785,10 +785,10 @@
     return '<!DOCTYPE html><html lang="' + lang + '"><head><meta charset="utf-8">' +
       '<title>' + esc(t('evTitle')) + ', ' + esc(entry.id) + '</title>' +
       '<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:32px auto;padding:0 20px;color:#1a2233}' +
-      'h1{font-size:22px}h2{font-size:16px;margin-top:28px;border-bottom:2px solid #1C2541;padding-bottom:4px}' +
+      'h1{font-size:22px}h2{font-size:16px;margin-top:28px;border-bottom:2px solid #111111;padding-bottom:4px}' +
       'table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top}' +
       'th{width:200px;color:#475569}.note{font-size:13px;color:#64748b;margin-top:28px}' +
-      'button{background:#1C2541;color:#fff;border:0;padding:10px 18px;border-radius:8px;font-size:15px;cursor:pointer}' +
+      'button{background:#111111;color:#fff;border:0;padding:10px 18px;border-radius:8px;font-size:15px;cursor:pointer}' +
       '@media print{button{display:none}}</style></head><body>' +
       '<h1>' + esc(t('evTitle')) + '</h1>' +
       '<p>ShopPal v2 · ' + esc(entry.id) + ' · ' + esc(entry.createdAt || '') + '</p>' +
