@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ShopPal v2 — Shop safer, see the real cost, keep your proof</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app">
+    <header class="chat-header">
+      <div class="agent-id">
+        <svg class="avatar" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#1d4ed8"/><path d="M24 7l13 4.5V22c0 8.5-5.5 15-13 19-7.5-4-13-10.5-13-19V11.5L24 7z" fill="#fff"/><path d="M18 24.5l4.5 4.5L31 20" stroke="#1d4ed8" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div>
+          <div class="agent-name">ShopPal</div>
+          <div class="agent-status"><span class="dot"></span>AI shopping agent · Online</div>
+        </div>
+      </div>
+      <span class="sandbox-badge">Live server · Sandbox · no real money</span>
+    </header>
+
+    <main id="chat" class="chat"></main>
+
+    <footer class="composer">
+      <input id="ask" type="text" placeholder="Ask ShopPal…" autocomplete="off">
+      <button id="ask-btn" type="button" aria-label="Send">➤</button>
+    </footer>
+    <p class="fineprint">ShopPal v2 — PayPal AI Hackathon. Scores are a decision aid, not a PayPal guarantee. Product photos are AI-generated illustrations of generic demo products, not real listings. Live-server demo: real PayPal Sandbox checkout via a Cloudflare Worker.</p>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
