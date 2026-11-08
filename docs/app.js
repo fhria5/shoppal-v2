@@ -116,7 +116,7 @@
       checkoutHint: 'Pay with the gold PayPal button above. Approve with a PayPal Sandbox Personal (buyer) account, no real money is involved. The order total is exactly the total shown above.',
       sdkFailed: 'PayPal SDK failed to load. Check your connection and reload.',
       tickFirst: 'Please tick the approval checkbox first.', creatingOrder: 'Creating PayPal order…',
-      agentSteps: 'What the agent did', agentApprove: 'Approve and pay with PayPal',
+      agentSteps: 'What the agent did', agentApprove: 'Approve and pay with PayPal', agentPendingApproval: 'Pending Human Approval (Guardrail Triggered)',
       agentFailed: 'The agent could not finish that. Please try again.',
       agentPayLink: 'Approve this order in PayPal Sandbox (opens in a new tab)',
       agentPayHint: 'Use a PayPal sandbox buyer account to approve. No real money is involved.',
@@ -139,7 +139,7 @@
       refundAlready: 'Already refunded.', orderStatusBtn: 'Check live status',
       orderStatusTitle: 'Live order status (PayPal)',
       orderStatusFailed: 'Could not check the order status: {msg}',
-      simBtn: 'Dispute win chance', simTitle: 'Dispute simulation',
+      simBtn: 'Dispute win chance', simTitle: 'Dispute simulation', simPayloadTitle: 'Dispute payload (PayPal Disputes API format, simulated)',
       simWinChance: 'Win chance: {n}%', simMissing: 'Missing proof: {list}',
       simFailed: 'Could not simulate the dispute: {msg}',
       simPreNote: 'Pre-purchase simulation, what your case would look like if you buy now.',
@@ -234,6 +234,7 @@
       pwSimNote: 'Simulated price feed for the demo catalog, not a live market price.',
       sbTitle: 'Split the bill', sbIntro: 'Buy a gift together and split it. The agent works out each share and writes the message to send. Collecting the money happens in the PayPal app (request money); the Invoicing and Payouts APIs are not enabled for this sandbox app.',
       sbFriends: 'Friends (name, one per line)', sbSplit: 'Split it', sbShare: "Each person's share", sbMessage: 'Message to send', sbNoFriends: 'Add at least one friend to split with.',
+      splNote: 'Each friend gets their own PayPal Sandbox payment link for their share. You pay your own share through the normal checkout.', splLinks: 'Payment links', splMakeLinks: 'Make payment links', splPayLink: 'Pay link',
       hrcTitle: 'Hold release checklist', hrcBtn: 'How to release this hold faster',
       hrcIntro: 'PayPal holds new or risky sellers’ money for up to 21 days. Each step below can release it sooner, tick what is already done and see the estimated release.',
       hrcEstimated: 'Estimated release: {n} days', hrcCurrent: 'Current hold: {n} days',
@@ -311,7 +312,7 @@
       checkoutHint: 'Bayar dengan tombol PayPal emas di atas. Setujui dengan akun Personal (buyer) PayPal Sandbox, tidak ada uang asli yang terlibat. Total order sama persis dengan total di atas.',
       sdkFailed: 'PayPal SDK gagal dimuat. Periksa koneksi dan muat ulang.',
       tickFirst: 'Centang kotak persetujuan dulu.', creatingOrder: 'Membuat order PayPal…',
-      agentSteps: 'Yang agen lakukan', agentApprove: 'Setujui dan bayar dengan PayPal',
+      agentSteps: 'Yang agen lakukan', agentApprove: 'Setujui dan bayar dengan PayPal', agentPendingApproval: 'Pending Human Approval (Guardrail Triggered)',
       agentFailed: 'Agen tidak bisa menyelesaikan itu. Coba lagi.',
       agentPayLink: 'Setujui order ini di PayPal Sandbox (terbuka di tab baru)',
       agentPayHint: 'Pakai akun buyer sandbox PayPal untuk menyetujui. Tidak ada uang asli yang terlibat.',
@@ -334,7 +335,7 @@
       refundAlready: 'Sudah di-refund.', orderStatusBtn: 'Cek status live',
       orderStatusTitle: 'Status order live (PayPal)',
       orderStatusFailed: 'Tidak bisa cek status order: {msg}',
-      simBtn: 'Peluang menang sengketa', simTitle: 'Simulasi sengketa',
+      simBtn: 'Peluang menang sengketa', simTitle: 'Simulasi sengketa', simPayloadTitle: 'Payload sengketa (format PayPal Disputes API, simulasi)',
       simWinChance: 'Peluang menang: {n}%', simMissing: 'Bukti yang kurang: {list}',
       simFailed: 'Tidak bisa mensimulasikan sengketa: {msg}',
       simPreNote: 'Simulasi sebelum beli, gambaran kasusmu kalau beli sekarang.',
@@ -429,6 +430,7 @@
       pwSimNote: 'Feed harga simulasi untuk katalog demo, bukan harga pasar live.',
       sbTitle: 'Patungan', sbIntro: 'Beli kado bareng dan patungan. Agen menghitung bagian tiap orang dan menulis pesannya. Penagihan uangnya lewat aplikasi PayPal (request money); API Invoicing dan Payouts tidak diaktifkan untuk app sandbox ini.',
       sbFriends: 'Teman (nama, satu per baris)', sbSplit: 'Bagi rata', sbShare: 'Bagian tiap orang', sbMessage: 'Pesan untuk dikirim', sbNoFriends: 'Tambahkan minimal satu teman untuk patungan.',
+      splNote: 'Tiap teman dapat link bayar PayPal Sandbox sendiri untuk bagiannya. Bagianmu sendiri dibayar lewat checkout biasa.', splLinks: 'Link bayar', splMakeLinks: 'Buat link bayar', splPayLink: 'Link bayar',
       hrcTitle: 'Checklist cairkan hold', hrcBtn: 'Cara cairkan hold ini lebih cepat',
       hrcIntro: 'PayPal menahan uang seller baru atau berisiko sampai 21 hari. Tiap langkah di bawah bisa mencairkannya lebih cepat, centang yang sudah dilakukan dan lihat perkiraan cairnya.',
       hrcEstimated: 'Perkiraan cair: {n} hari', hrcCurrent: 'Hold saat ini: {n} hari',
@@ -807,6 +809,7 @@
       html += '<p>' + fmt(t('simMissing'), { list: d.missingProof.join(', ') }) + '</p>';
     }
     if (d.recommendation) html += '<p><strong>' + t('recommendation') + '</strong> ' + d.recommendation + '</p>';
+    if (d.disputePayload) html += '<p><strong>' + t('simPayloadTitle') + '</strong></p><pre style="white-space:pre-wrap;font-size:12px">' + escapeHtml(JSON.stringify(d.disputePayload, null, 2)) + '</pre>';
     return html;
   }
 
@@ -1296,8 +1299,9 @@
     var s = ' ' + q.toLowerCase() + ' ';
     var buy = /(beli|belikan|bayar|bayarkan|pesan|checkout|buy|purchase|pay|order)/.test(s);
     var watch = /(pantau|memantau|watch|awasi|snipe|cek pantauan|cek harga|check (my )?(price )?watch)/.test(s);
+    var split = /(patungan|split|bagi rata|bagi-bagi)/.test(s);
     var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d|pantauan|watch)/.test(s);
-    return (buy || watch) && target;
+    return (buy || watch || split) && target;
   }
 
   function renderAgentResult(ag, q) {
@@ -1317,6 +1321,9 @@
         '<p class="hint">' + t('agentPayHint') + '</p>');
       window.open(ag.order.approveUrl, '_blank', 'noopener');
     } else if (ag.needsApproval && ag.pendingOrder) {
+      var pend = document.createElement('p');
+      pend.innerHTML = '<span class="score score-caution">' + t('agentPendingApproval') + '</span>';
+      bubble.appendChild(pend);
       var btn = document.createElement('button');
       btn.className = 'btn-primary';
       btn.textContent = t('agentApprove');
@@ -1965,7 +1972,20 @@
           var res = await fetch(WORKER_API + '/api/split-bill', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
           var d = await res.json();
           if (!res.ok) { out.innerHTML = '<p>' + (d.error || res.status) + '</p>'; return; }
-          out.innerHTML = '<p><strong>' + d.product + '</strong> · ' + t('sbShare') + ': ' + money(d.share) + ' (' + d.people + ')</p><pre style="white-space:pre-wrap">' + d.message + '</pre>';
+          out.innerHTML = '<p><strong>' + d.product + '</strong> · ' + t('sbShare') + ': ' + money(d.share) + ' (' + d.people + ')</p><pre style="white-space:pre-wrap">' + d.message + '</pre>' +
+            '<p><button id="spl-go" type="button">' + t('splMakeLinks') + '</button></p><div id="spl-out"></div>';
+          out.querySelector('#spl-go').addEventListener('click', async function () {
+            var splOut = $('spl-out');
+            splOut.textContent = '…';
+            try {
+              var r2 = await fetch(WORKER_API + '/api/split-payment-link', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+              var d2 = await r2.json();
+              if (!r2.ok) { splOut.innerHTML = '<p>' + (d2.error || r2.status) + '</p>'; return; }
+              splOut.innerHTML = '<p><strong>' + t('splLinks') + '</strong></p><ul>' + d2.links.map(function (l) {
+                return '<li>' + escapeHtml(l.friend) + ' · ' + money(l.amountUSD) + (l.approveUrl ? ' · <a href="' + l.approveUrl + '" target="_blank" rel="noopener">' + t('splPayLink') + '</a> (' + escapeHtml(l.orderId) + ')' : ' · ' + escapeHtml(l.error || '')) + '</li>';
+              }).join('') + '</ul><p class="hint">' + t('splNote') + '</p>';
+            } catch (e) { splOut.innerHTML = '<p>' + (e && e.message || e) + '</p>'; }
+          });
         } catch (e) { out.innerHTML = '<p>' + (e && e.message || e) + '</p>'; }
       });
     })();
