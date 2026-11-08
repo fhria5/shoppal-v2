@@ -111,6 +111,15 @@ invents the number. AI has three bounded jobs only:
 If the AI is unavailable, the rule-based score and cost breakdown are still
 shown, labelled "AI explanation unavailable".
 
+The other modules are rule-based and labelled as estimates, not AI
+judgements: the **Hold Predictor** scores hold risk from dispute rate,
+account age, transaction count, price deviation and tracking; the
+**Subscription Watcher** flags a product bought twice or more from the
+Proof Vault; the **trouble-costs strip** lists public PayPal figures the
+cost table doesn't show (chargeback $20, dispute $15/$30, refund keeps
+the fee, instant transfer 1.5%, micropayments 4.99% + $0.09 under $12)
+plus Buyer Protection coverage.
+
 ### Risk Score formula (0–100, higher = safer)
 
 | Component | Weight | Rule (summary) |
@@ -146,9 +155,12 @@ type. What matters is that no fee appears after checkout starts.
 | `GET /api/config` | Returns the PayPal client ID (public) and mode. Never returns secrets. |
 | `GET /api/catalog` | Demo catalog (sellers + products). |
 | `POST /api/risk-score` | `{ sellerId, productId }` → score, label, components, 3 reasons, recommendation. |
-| `POST /api/total-cost` | `{ priceUSD, international, currencyConversion }` → fee breakdown and total. |
-| `POST /api/paypal/create-order` | **Stub (501, Day 1)** — Orders API v2 create. |
-| `POST /api/paypal/capture-order` | **Stub (501, Day 1)** — Orders API v2 capture. |
+| `POST /api/hold-risk` | `{ sellerId, productId }` → hold-risk score, label (Low/Moderate/High), estimated chance, reasons, tip. |
+| `GET /api/ask?q=` | Plain-language search (category + budget) → products sorted safest first. |
+| `GET /api/subscriptions` | Recurring purchases found in the Proof Vault (same product bought 2+ times). |
+| `POST /api/total-cost` | `{ priceUSD, international, currencyConversion }` → fee breakdown, total, and trouble-costs (chargeback/dispute/refund/instant transfer/micropayments) + Buyer Protection note. |
+| `POST /api/paypal/create-order` | Orders API v2 create (Sandbox). Rejects a total that doesn't match the approved total. |
+| `POST /api/paypal/capture-order` | Orders API v2 capture, verified via Orders + Payments API. Only COMPLETED saves a Proof Vault entry. |
 | `GET /api/vault` | List saved Proof Vault entries. |
 | `POST /api/dispute/draft` | Simulated dispute draft from a Proof Vault entry (labelled as a simulation). |
 
