@@ -173,6 +173,14 @@ td:last-child { text-align: right; white-space: nowrap; }
 .feature-metric-sub { font-size: 1rem; font-weight: 700; color: #3A506B; }
 tr.total-row td { border-top: 2px solid #1C2541; font-size: 1.15rem; padding-top: 0.5rem; }
 
+/* Vault actions: 7 buttons in a 2-column grid, secondary (outline) style,
+   so the vault bubble does not fill the screen with a stack of navy buttons. */
+.vault-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-top: 0.5rem; }
+.vault-actions button { padding: 0.6rem 0.7rem; font-size: 0.9rem; }
+.btn-secondary { background: #fff; color: #1C2541; border: 1px solid #1C2541; }
+.btn-secondary:hover { background: #f6f8fc; }
+.btn-secondary:disabled { background: #fff; color: #9aa5b1; border-color: #cbd5e1; cursor: not-allowed; }
+
 /* Compare: two stacked cards instead of a wide table, so nothing ever
    needs a horizontal scroll on a phone. */
 .compare-list { display: flex; flex-direction: column; gap: 0.6rem; }
