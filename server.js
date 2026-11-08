@@ -410,42 +410,206 @@ function calculateHoldRisk(seller, product) {
   };
 }
 
-// Ask parser. Pulls a category and a max budget out of plain language
-// ("headphones under $60") and ranks matches by risk score, safest first.
+// Ask parser, v2. Two stages so the AI path and the rule path share one
+// filter/sort: parseAskRegex reads the words, applyIntent does the work.
+// Understands English and Indonesian: budgets ("under $60", "di bawah 60"),
+// ranges ("antara $30 dan $60"), rankings ("termurah" = cheapest first,
+// "terbaik" = best first, "paling aman" = safest first), sellers
+// ("dari TechHub"), features ("ada garansi", "ada tracking"), and
+// follow-ups that refer to the last results ("yang termurah",
+// "yang pertama" picks the first one shown).
 const ASK_SYNONYMS = {
   headphones: ['headphone', 'earbud', 'earphone', 'headset', 'audio'],
-  smartwatch: ['smartwatch', 'watch'],
+  smartwatch: ['smartwatch', 'watch', 'jam tangan', 'arloji'],
   keyboard: ['keyboard'],
   speaker: ['speaker', 'bluetooth'],
   charger: ['charger', 'cable', 'power', 'gan', 'adapter'],
 };
-function parseAsk(query) {
+const ASK_SELLERS = {
+  'techhub': 'TechHub Official',
+  'official': 'TechHub Official',
+  'gadgetzone': 'GadgetZone ID',
+  'dealhunter': 'DealHunter88',
+};
+function parseAskRegex(query) {
   const q = String(query || '').toLowerCase();
-  const budgetMatch = q.match(/(?:under|below|less than|max|up to|budget)\s*\$?\s*(\d+(?:\.\d{1,2})?)|\$\s*(\d+(?:\.\d{1,2})?)/);
-  const maxPrice = budgetMatch ? Number(budgetMatch[1] || budgetMatch[2]) : null;
-  // "Murah" (Indonesian for "cheap") flips the ranking to cheapest first:
-  // a buyer who asks for cheap wants the lowest price, not the safest seller.
-  const cheapest = /\b(murah|termurah|hemat|cheapest|cheap|affordable|lowest price)\b/.test(q);
+  const rangeMatch = q.match(/(?:antara|between)\s*\$?\s*(\d+(?:\.\d{1,2})?)\s*(?:dan|and|sampai|-|–|to)\s*\$?\s*(\d+(?:\.\d{1,2})?)/);
+  const budgetMatch = q.match(/(?:under|below|less than|max|up to|budget|di bawah|dibawah|bawah|kurang dari|maksimal|maks|dana)\s*\$?\s*(\d+(?:\.\d{1,2})?)|\$\s*(\d+(?:\.\d{1,2})?)/);
+  const maxPrice = rangeMatch
+    ? Number(rangeMatch[2])
+    : budgetMatch
+      ? Number(budgetMatch[1] || budgetMatch[2])
+      : null;
+  const minPrice = rangeMatch ? Number(rangeMatch[1]) : null;
+  const cheapest = /\b(murah|termurah|hemat|cheapest|cheap|affordable|lowest price|paling murah)\b/.test(q);
+  const best = /\b(terbaik|paling bagus|rekomendasi|recommended|best|paling baik)\b/.test(q);
+  const safest = /\b(teraman|paling aman|safest|paling terpercaya)\b/.test(q);
+  const selectFirst = /\b(yang pertama|pertama|yang itu|itu aja|pilih yang pertama)\b/.test(q) && !cheapest && !best;
   let category = null;
   for (const [cat, words] of Object.entries(ASK_SYNONYMS)) {
     if (words.some((w) => q.includes(w))) { category = cat; break; }
   }
-  let matches = [...catalog.products];
-  if (category) {
-    const want = category.charAt(0).toUpperCase() + category.slice(1);
+  let seller = null;
+  for (const [word, name] of Object.entries(ASK_SELLERS)) {
+    if (q.includes(word)) { seller = name; break; }
+  }
+  const needsReturn = /\b(garansi|return|retur|refund|pengembalian|bisa dikembalikan)\b/.test(q);
+  const needsTracking = /\b(tracking|lacak|resi|track)\b/.test(q);
+  return { category, maxPrice, minPrice, cheapest, best, safest, seller, needsReturn, needsTracking, selectFirst };
+}
+function riskScoreOf(product) {
+  return calculateRiskScore(sellersById.get(product.sellerId), product).score;
+}
+function applyIntent(intent, contextProducts) {
+  const hasSearch = intent.category || intent.maxPrice !== null || intent.minPrice !== null || intent.seller || intent.needsReturn || intent.needsTracking;
+  let matches = hasSearch
+    ? [...catalog.products]
+    : (contextProducts && contextProducts.length ? [...contextProducts] : [...catalog.products]);
+  if (intent.category) {
+    const want = intent.category.charAt(0).toUpperCase() + intent.category.slice(1);
     matches = matches.filter((p) => p.category === want);
   }
-  if (maxPrice !== null) matches = matches.filter((p) => p.priceUSD <= maxPrice);
-  if (cheapest) {
+  if (intent.seller) matches = matches.filter((p) => sellersById.get(p.sellerId).name === intent.seller);
+  if (intent.needsReturn) matches = matches.filter((p) => sellersById.get(p.sellerId).hasReturnPolicy);
+  if (intent.needsTracking) matches = matches.filter((p) => sellersById.get(p.sellerId).hasTracking);
+  if (intent.maxPrice !== null) matches = matches.filter((p) => p.priceUSD <= intent.maxPrice);
+  if (intent.minPrice !== null) matches = matches.filter((p) => p.priceUSD >= intent.minPrice);
+  let selectFirst = false;
+  if (intent.selectFirst && matches.length) {
+    matches = [matches[0]];
+    selectFirst = true;
+  } else if (intent.cheapest) {
     matches.sort((a, b) => a.priceUSD - b.priceUSD);
+  } else if (intent.best) {
+    matches.sort((a, b) => riskScoreOf(b) - riskScoreOf(a) || a.priceUSD - b.priceUSD);
   } else {
-    matches.sort((a, b) => {
-      const sa = calculateRiskScore(sellersById.get(a.sellerId), a).score;
-      const sb = calculateRiskScore(sellersById.get(b.sellerId), b).score;
-      return sb - sa;
-    });
+    matches.sort((a, b) => riskScoreOf(b) - riskScoreOf(a));
   }
-  return { category, maxPrice, cheapest, matches };
+  const note = !matches.length
+    ? 'No exact match in the demo catalog — showing all 10 demo products.'
+    : intent.cheapest
+      ? 'Matches sorted cheapest first.'
+      : intent.best
+        ? 'Best match first (safest, then cheapest).'
+        : 'Matches sorted safest first.';
+  return {
+    understood: {
+      category: intent.category,
+      maxPrice: intent.maxPrice,
+      minPrice: intent.minPrice,
+      cheapest: intent.cheapest,
+      best: intent.best,
+      seller: intent.seller,
+      needsReturn: intent.needsReturn,
+      needsTracking: intent.needsTracking,
+      note,
+    },
+    products: matches.length ? matches : catalog.products,
+    selectFirst,
+  };
+}
+function parseAsk(query, contextProducts) {
+  return applyIntent(parseAskRegex(query), contextProducts);
+}
+
+// Vyce intent parsing. When VYCE_API_KEY is set, the AI reads the query
+// (English or Indonesian) and returns structured intent as strict JSON.
+// Anything invalid, slow, or missing falls back to the regex parser above,
+// so the Ask feature never depends on the AI being up.
+async function parseAskWithVyce(query) {
+  const apiKey = process.env.VYCE_API_KEY;
+  if (!apiKey) return null;
+  const baseUrl = (process.env.VYCE_API_BASE || 'https://vyceai.com/v1').replace(/\/$/, '');
+  const model = process.env.VYCE_MODEL || 'deepseek-v4.1';
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch(baseUrl + '/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + apiKey,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You extract shopping intent from a short message (English or Indonesian). ' +
+              'Reply with strict JSON only, no other text: ' +
+              '{"category": "Headphones"|"Smartwatch"|"Keyboard"|"Speaker"|"Charger"|null, ' +
+              '"maxPrice": number|null, "minPrice": number|null, "cheapest": boolean, "best": boolean, ' +
+              '"seller": "TechHub Official"|"GadgetZone ID"|"DealHunter88"|null, ' +
+              '"needsReturn": boolean, "needsTracking": boolean, "selectFirst": boolean}. ' +
+              '"murah"/"termurah" means cheapest=true. "paling aman" means safest. ' +
+              '"terbaik"/"rekomendasi" means best=true. "yang pertama" means selectFirst=true — the buyer wants the first result shown before.',
+          },
+          { role: 'user', content: query },
+        ],
+        temperature: 0,
+        max_tokens: 200,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = (data?.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim();
+    const intent = JSON.parse(text);
+    const cats = ['Headphones', 'Smartwatch', 'Keyboard', 'Speaker', 'Charger'];
+    const sellers = ['TechHub Official', 'GadgetZone ID', 'DealHunter88'];
+    if (intent.category !== null && !cats.includes(intent.category)) return null;
+    if (intent.seller !== null && !sellers.includes(intent.seller)) return null;
+    if (intent.maxPrice !== null && !Number.isFinite(intent.maxPrice)) return null;
+    if (intent.minPrice !== null && !Number.isFinite(intent.minPrice)) return null;
+    return {
+      category: intent.category ? intent.category.toLowerCase() : null,
+      maxPrice: intent.maxPrice,
+      minPrice: intent.minPrice,
+      cheapest: !!intent.cheapest,
+      best: !!intent.best,
+      safest: false,
+      seller: intent.seller,
+      needsReturn: !!intent.needsReturn,
+      needsTracking: !!intent.needsTracking,
+      selectFirst: !!intent.selectFirst,
+    };
+  } catch (err) {
+    return null;
+  }
+}
+
+// Risk extras: what the score means next to the other listings, the
+// scam pattern to watch for, and a short checklist before paying.
+function riskExtras(seller, product, score, label, components) {
+  const saferThan = catalog.products.filter(
+    (p) => calculateRiskScore(sellersById.get(p.sellerId), p).score < score
+  ).length;
+  const comparison = 'Safer than ' + saferThan + ' of ' + catalog.products.length + ' demo listings.';
+  const warning =
+    components.price < 60 && (seller.disputeRate >= 2 || label === 'Risky')
+      ? 'Too-good-to-be-true pattern: a price far below the median from a seller with a high dispute rate. This is the most common scam shape in the demo.'
+      : null;
+  const checklist =
+    label === 'Safe'
+      ? [
+          'Pay with PayPal Goods & Services (not Friends & Family).',
+          'Save the tracking number when the seller ships.',
+          'Keep the Proof Vault entry — it is saved automatically.',
+        ]
+      : label === 'Caution'
+        ? [
+            'Pay only with PayPal Goods & Services.',
+            'Ask the seller for tracking before the money clears.',
+            'If the seller asks you to pay outside PayPal, stop — that voids Buyer Protection.',
+          ]
+        : [
+            'Do not pay this seller if you can avoid it.',
+            'If you still proceed, use Goods & Services only — never Friends & Family.',
+            'Screenshot the listing and the chat before paying; you will need them for a dispute.',
+          ];
+  return { comparison, warning, checklist };
 }
 
 // Subscription Watcher. Groups saved Proof Vault entries by product;
@@ -516,6 +680,7 @@ app.post('/api/risk-score', async (req, res) => {
   }
   const { score, label, components } = calculateRiskScore(seller, product);
   const explanation = await explainScore(components, label);
+  const extras = riskExtras(seller, product, score, label, components);
   res.json({
     sellerId: seller.id,
     sellerName: seller.name,
@@ -528,6 +693,9 @@ app.post('/api/risk-score', async (req, res) => {
     recommendation: explanation.recommendation,
     aiAvailable: explanation.aiAvailable,
     aiNote: explanation.aiNote,
+    comparison: extras.comparison,
+    warning: extras.warning,
+    checklist: extras.checklist,
   });
 });
 
@@ -564,19 +732,23 @@ app.post('/api/hold-risk', (req, res) => {
   });
 });
 
-app.get('/api/ask', (req, res) => {
-  const { category, maxPrice, cheapest, matches } = parseAsk(req.query.q || '');
+app.get('/api/ask', async (req, res) => {
+  const q = req.query.q || '';
+  // Follow-up context: the product IDs the chat last showed, so "yang
+  // termurah" / "yang pertama" can refer to them.
+  const ctxIds = String(req.query.context || '').split(',').filter(Boolean);
+  const ctxProducts = ctxIds
+    .map((id) => productsById.get(id))
+    .filter(Boolean);
+  // AI first when the Vyce key is set; regex fallback otherwise.
+  const aiIntent = await parseAskWithVyce(q);
+  const intent = aiIntent || parseAskRegex(q);
+  const result = applyIntent(intent, ctxProducts);
   res.json({
-    query: req.query.q || '',
-    understood: {
-      category,
-      maxPrice,
-      cheapest,
-      note: matches.length
-        ? (cheapest ? 'Matches sorted cheapest first.' : 'Matches sorted safest first.')
-        : 'No exact match in the demo catalog — showing all 10 demo products.',
-    },
-    products: matches.length ? matches : catalog.products,
+    query: q,
+    understood: { ...result.understood, aiParsed: Boolean(aiIntent) },
+    products: result.products,
+    selectFirst: result.selectFirst,
   });
 });
 
