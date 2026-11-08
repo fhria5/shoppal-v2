@@ -168,14 +168,22 @@
         body: JSON.stringify({
           productId: selected.product.id,
           totalUSD: selected.cost ? selected.cost.total : selected.product.priceUSD,
+          international: $('opt-international').checked,
+          currencyConversion: $('opt-conversion').checked,
         }),
       });
       const data = await res.json();
-      $('checkout-status').textContent =
-        'Checkout stub (' + res.status + '): ' + (data.message || data.error || 'not implemented yet — Day 1.');
+      if (!res.ok) {
+        $('checkout-status').textContent = 'Could not create the PayPal order: ' + (data.error || res.status);
+        return;
+      }
+      $('checkout-status').innerHTML =
+        'Order created: <strong>' + data.orderId + '</strong> — total ' + money(data.totalUSD) + '. ' +
+        'Approve it in PayPal Sandbox, then you will be sent back here to capture it.';
       $('success').innerHTML =
-        '<p>Checkout is not wired up yet in this Day 0 scaffold. ' +
-        'Day 1 will create the order via Orders API v2, capture it, and save the Proof Vault entry.</p>';
+        '<p><a href="' + data.approveUrl + '" target="_blank" rel="noopener">Approve this order in PayPal Sandbox (opens in a new tab)</a></p>' +
+        '<p class="hint">Use a PayPal sandbox buyer account to approve. No real money is involved.</p>';
+      if (data.approveUrl) window.open(data.approveUrl, '_blank', 'noopener');
     });
     $('vault-refresh').addEventListener('click', refreshVault);
     $('dispute-btn').addEventListener('click', async () => {
@@ -206,5 +214,31 @@
     await loadConfig();
     await loadCatalog();
     await refreshVault();
+    // PayPal return: ?approved=1&token=<orderId>&PayerID=<id> — capture it.
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('cancelled') === '1') {
+      $('checkout-status').textContent = 'Checkout was cancelled in PayPal. No payment was made.';
+    } else if (params.get('approved') === '1' && params.get('token')) {
+      const orderId = params.get('token');
+      $('checkout-status').textContent = 'PayPal approved order ' + orderId + ' — capturing…';
+      const res = await fetch('/api/paypal/capture-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        $('checkout-status').textContent = 'Capture failed: ' + (data.error || res.status);
+        return;
+      }
+      $('checkout-status').textContent = 'Payment captured: ' + data.captureId;
+      $('success').innerHTML =
+        '<p><strong>Success — paid ' + money(selected && selected.cost ? selected.cost.total : 0) +
+        ' via PayPal Sandbox.</strong> Order ' + data.orderId +
+        ' · Capture ' + data.captureId + ' · status ' + data.status + '</p>' +
+        '<p>Proof was saved to the Proof Vault automatically.</p>';
+      await refreshVault();
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   });
 })();
