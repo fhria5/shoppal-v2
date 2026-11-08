@@ -37,6 +37,9 @@
   };
 
   var VAULT_KEY = 'shoppal-vault-v1';
+  // Refund and live order status run on the deployed Worker (the static
+  // demo has no server of its own). CORS on the Worker is open.
+  var WORKER_API = 'https://shoppal-v2.fahriannor07.workers.dev';
   var selected = null; // { product, seller, risk, cost }
   var lastResults = null; // products the last Ask reply showed — follow-ups ("yang termurah") refer to these
 
@@ -127,6 +130,11 @@
       subsLine: '{name} — bought {n}×, total spent {total}, last purchase {date}',
       refreshVault: 'Refresh Vault', disputeBtn: 'Simulate Dispute',
       disputeNotFound: 'Proof Vault entry not found. Save a successful checkout first.',
+      refundBtn: 'Refund (Sandbox)', refundConfirm: 'Confirm refund?', refundTitle: 'Refund',
+      refundSuccess: 'Refund {id} — {status}, {amount}.', refundFailed: 'Refund failed: {msg}',
+      refundAlready: 'Already refunded.', orderStatusBtn: 'Check live status',
+      orderStatusTitle: 'Live order status (PayPal)',
+      orderStatusFailed: 'Could not check the order status: {msg}',
       disputeTitle: 'Simulated dispute draft', disputeReadiness: 'readiness {n}/100',
       disputeBody: 'Dispute response draft (simulated, factual only): Order {order} for {product} ({total}) was paid via PayPal Sandbox and captured as {status}. Seller: {seller} (risk score {score} at checkout). Proof is attached in the Proof Vault entry {id}.',
       disputeMissing: 'Still missing: {list}', disputeNone: 'No proof missing.',
@@ -199,6 +207,11 @@
       subsLine: '{name} — dibeli {n}×, total belanja {total}, pembelian terakhir {date}',
       refreshVault: 'Muat Ulang Vault', disputeBtn: 'Simulasikan Sengketa',
       disputeNotFound: 'Entri Proof Vault tidak ditemukan. Simpan checkout yang berhasil dulu.',
+      refundBtn: 'Refund (Sandbox)', refundConfirm: 'Konfirmasi refund?', refundTitle: 'Refund',
+      refundSuccess: 'Refund {id} — {status}, {amount}.', refundFailed: 'Refund gagal: {msg}',
+      refundAlready: 'Sudah di-refund.', orderStatusBtn: 'Cek status live',
+      orderStatusTitle: 'Status order live (PayPal)',
+      orderStatusFailed: 'Tidak bisa cek status order: {msg}',
       disputeTitle: 'Draf sengketa simulasi', disputeReadiness: 'kesiapan {n}/100',
       disputeBody: 'Draf jawaban sengketa (simulasi, hanya fakta): Order {order} untuk {product} ({total}) dibayar via PayPal Sandbox dan di-capture sebagai {status}. Seller: {seller} (skor risiko {score} saat checkout). Bukti terlampir di entri Proof Vault {id}.',
       disputeMissing: 'Masih kurang: {list}', disputeNone: 'Tidak ada bukti yang kurang.',
@@ -793,11 +806,74 @@
       '<p><strong>Proof Vault</strong></p>' + body +
       '<div class="card">' + subs + '</div>' +
       '<p><button id="vault-refresh" type="button">' + t('refreshVault') + '</button> ' +
-      '<button id="dispute-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button></p>' +
-      '<div id="dispute-draft" class="card hidden"></div>',
+      '<button id="dispute-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button> ' +
+      '<button id="refund-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('refundBtn') + '</button> ' +
+      '<button id="order-status-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('orderStatusBtn') + '</button></p>' +
+      '<div id="dispute-draft" class="card hidden"></div>' +
+      '<div id="paypal-actions" class="card hidden"></div>',
       'vault');
     bubble.querySelector('#vault-refresh').addEventListener('click', function () { showVault(); });
     bubble.querySelector('#dispute-btn').addEventListener('click', function () { showDisputeDraft(); });
+    // Refund the latest vault entry (full amount, PayPal Sandbox) via the
+    // deployed Worker. Two clicks: the first arms the button.
+    var refundBtn = bubble.querySelector('#refund-btn');
+    refundBtn.addEventListener('click', async function () {
+      if (!lastVaultId) return;
+      if (refundBtn.getAttribute('data-armed') !== '1') {
+        refundBtn.setAttribute('data-armed', '1');
+        refundBtn.textContent = t('refundConfirm');
+        return;
+      }
+      refundBtn.setAttribute('data-armed', '0');
+      refundBtn.textContent = t('refundBtn');
+      var entry = loadVault().find(function (e) { return e.id === lastVaultId; });
+      var box = $('paypal-actions');
+      if (!box) return;
+      box.classList.remove('hidden');
+      if (!entry || !entry.paypal || !entry.paypal.captureId) { box.textContent = t('refundFailed').replace('{msg}', t('disputeNotFound')); return; }
+      box.textContent = t('refundTitle') + '…';
+      var res = await fetch(WORKER_API + '/api/paypal/refund', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ captureId: entry.paypal.captureId, lang: lang }),
+      });
+      var d = await res.json();
+      if (!res.ok) {
+        box.textContent = fmt(t('refundFailed'), { msg: d.error || res.status });
+        return;
+      }
+      // Record the refund on the local copy so the vault shows it.
+      var all = loadVault();
+      var i = all.findIndex(function (e) { return e.id === lastVaultId; });
+      if (i >= 0) {
+        all[i].paypal = all[i].paypal || {};
+        all[i].paypal.refund = { id: d.refundId, status: d.status, amount: d.amount, currency: d.currency, createTime: new Date().toISOString() };
+        try { localStorage.setItem(VAULT_KEY, JSON.stringify(all)); } catch (e) { /* storage unavailable */ }
+      }
+      box.innerHTML = '<p><strong>' + t('refundTitle') + '</strong> — ' +
+        fmt(t('refundSuccess'), { id: d.refundId || '—', status: d.status || '—', amount: money(d.amount) }) + '</p>';
+      showVault();
+      scrollChat();
+    });
+    // Live order status, re-verified with PayPal via the Worker.
+    bubble.querySelector('#order-status-btn').addEventListener('click', async function () {
+      if (!lastVaultId) return;
+      var box = $('paypal-actions');
+      if (!box) return;
+      box.classList.remove('hidden');
+      box.textContent = t('orderStatusTitle') + '…';
+      var res = await fetch(WORKER_API + '/api/paypal/order?orderId=' + encodeURIComponent(lastVaultId));
+      var d = await res.json();
+      if (!res.ok) {
+        box.textContent = fmt(t('orderStatusFailed'), { msg: d.error || res.status });
+        return;
+      }
+      box.innerHTML = '<p><strong>' + t('orderStatusTitle') + '</strong></p>' +
+        '<p>Order ' + (d.orderId || '—') + ' — ' + (d.orderStatus || '—') +
+        ' · Capture ' + (d.captureId || '—') + ' — ' + (d.captureStatus || '—') +
+        ' · ' + money(d.amount) + '</p>';
+      scrollChat();
+    });
   }
 
   function showDisputeDraft() {
