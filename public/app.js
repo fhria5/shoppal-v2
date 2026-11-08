@@ -52,7 +52,11 @@
     return addBubble('user', '<p>' + text + '</p>');
   }
   function clearSteps() {
-    var old = chatEl.querySelectorAll('[data-step]');
+    // Only the checkout flow is cleared (risk/hold/cost/checkout). The
+    // Proof Vault and past success messages stay in the chat history, so a
+    // new question never leaves a stale PayPal button behind, but never
+    // wipes proof the buyer already earned.
+    var old = chatEl.querySelectorAll('[data-step="risk"], [data-step="hold"], [data-step="cost"], [data-step="checkout"]');
     for (var i = 0; i < old.length; i++) old[i].remove();
   }
   function showTyping() {
@@ -112,6 +116,7 @@
     if (!q || !catalog) return;
     $('ask').value = '';
     userBubble(q);
+    clearSteps();
     var typing = showTyping();
     var res = await fetch('/api/ask?q=' + encodeURIComponent(q));
     var data = await res.json();
