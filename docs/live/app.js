@@ -86,6 +86,9 @@
       orderCreated: 'Order created: <strong>{id}</strong>, total {total}. Approve it in PayPal Sandbox, then you will be sent back here to capture it.',
       approveLink: 'Approve this order in PayPal Sandbox (opens in a new tab)',
       approveHint: 'Use a PayPal sandbox buyer account to approve. No real money is involved.',
+      agentSteps: 'What the agent did',
+      agentApprove: 'Approve and pay with PayPal',
+      agentFailed: 'The agent could not finish that. Please try again.',
       vaultEmpty: 'No Proof Vault entries yet. Complete a successful checkout to save proof automatically.',
       subsTitle: 'Subscription Watcher',
       subsEmpty: 'No recurring purchases detected yet. Buy the same product twice and it shows up here with the total you have spent on it.',
@@ -213,6 +216,9 @@
       orderCreated: 'Order dibuat: <strong>{id}</strong>, total {total}. Setujui di PayPal Sandbox, lalu kamu akan dikembalikan ke sini untuk capture.',
       approveLink: 'Setujui order ini di PayPal Sandbox (terbuka di tab baru)',
       approveHint: 'Pakai akun buyer sandbox PayPal untuk menyetujui. Tidak ada uang asli yang terlibat.',
+      agentSteps: 'Yang agen lakukan',
+      agentApprove: 'Setujui dan bayar dengan PayPal',
+      agentFailed: 'Agen tidak bisa menyelesaikan itu. Coba lagi.',
       vaultEmpty: 'Belum ada entri Proof Vault. Selesaikan checkout yang berhasil untuk menyimpan bukti otomatis.',
       subsTitle: 'Pemantau Langganan',
       subsEmpty: 'Belum ada pembelian berulang. Beli produk yang sama dua kali dan akan muncul di sini beserta total yang sudah kamu belanjakan.',
@@ -590,6 +596,61 @@
     scrollChat();
   }
 
+  // Pay Agent: a buying goal (buy/pay verb + product or budget) goes to the
+  // agent endpoint, which runs the whole flow (search, score, total,
+  // guardrails, PayPal order) and only asks the user to approve. Everything
+  // else keeps the existing Ask flow below.
+  function isBuyGoal(q) {
+    var s = ' ' + q.toLowerCase() + ' ';
+    var buy = /(beli|belikan|bayar|bayarkan|pesan|checkout|buy|purchase|pay|order)/.test(s);
+    var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d)/.test(s);
+    return buy && target;
+  }
+
+  function renderAgentResult(ag, q) {
+    var html = '';
+    if (ag.steps && ag.steps.length) {
+      html += '<p><strong>' + t('agentSteps') + '</strong></p><ul>' +
+        ag.steps.map(function (st) {
+          return '<li>' + escapeHtml(st.action) + ': ' + escapeHtml(st.summary || '') + '</li>';
+        }).join('') + '</ul>';
+    }
+    if (ag.reply) html += '<p>' + escapeHtml(ag.reply) + '</p>';
+    var bubble = addBubble('agent', html);
+    if (ag.order && ag.order.approveUrl) {
+      addBubble('agent',
+        '<p>' + fmt(t('orderCreated'), { id: ag.order.orderId, total: money(ag.order.totalUSD) }) + '</p>' +
+        '<p><a href="' + ag.order.approveUrl + '" target="_blank" rel="noopener">' + t('approveLink') + '</a></p>' +
+        '<p class="hint">' + t('approveHint') + '</p>');
+      window.open(ag.order.approveUrl, '_blank', 'noopener');
+    } else if (ag.needsApproval && ag.pendingOrder) {
+      var btn = document.createElement('button');
+      btn.className = 'btn-primary';
+      btn.textContent = t('agentApprove');
+      btn.addEventListener('click', async function () {
+        btn.disabled = true;
+        var typing2 = showTyping();
+        try {
+          var r2 = await fetch(API_BASE + '/api/agent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: q, lang: lang, guardrails: getGuardrails(), approved: true, approvedOrder: ag.pendingOrder }),
+          });
+          var ag2 = await r2.json();
+          hideTyping(typing2);
+          if (r2.ok) renderAgentResult(ag2, q);
+          else addBubble('agent', '<p>' + escapeHtml(ag2.error || String(r2.status)) + '</p>');
+        } catch (e) {
+          hideTyping(typing2);
+          addBubble('agent', '<p>' + t('agentFailed') + '</p>');
+        }
+        scrollChat();
+      });
+      bubble.appendChild(btn);
+    }
+    scrollChat();
+  }
+
   async function sendAsk() {
     var q = $('ask').value.trim();
     if (!q || !catalog) return;
@@ -652,6 +713,27 @@
       }
       if (cl.note) clBody += '<p class="hint">' + cl.note + '</p>';
       addBubble('agent', clBody);
+      return;
+    }
+    // Pay Agent: buying goals go to the agent, everything else to Ask.
+    if (isBuyGoal(q)) {
+      try {
+        var agRes = await fetch(API_BASE + '/api/agent', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: q, lang: lang, guardrails: getGuardrails() }),
+        });
+        var ag = await agRes.json();
+        hideTyping(typing);
+        if (!agRes.ok) {
+          addBubble('agent', '<p>' + escapeHtml(ag.error || String(agRes.status)) + '</p>');
+          return;
+        }
+        renderAgentResult(ag, q);
+      } catch (e) {
+        hideTyping(typing);
+        addBubble('agent', '<p>' + t('agentFailed') + '</p>');
+      }
       return;
     }
     var askParams = new URLSearchParams({ q, lang });
