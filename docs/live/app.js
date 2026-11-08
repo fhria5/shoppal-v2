@@ -146,6 +146,23 @@
       budLeft: '{left} left this month.', budOver: 'Over budget by {over} this month.',
       budWarn: 'This purchase would take you over your monthly budget ({spent} of {budget} spent).',
       budNoBudget: 'No monthly budget set.',
+      grTitle: 'Smart Guardrails', grIntro: 'The agent auto-pays only under your limit. Above it, it asks you first, so a hallucination can never buy something expensive.',
+      grLimit: 'Auto-approve up to (USD)', grSave: 'Save guardrails', grSaved: 'Guardrails saved.',
+      grCatCap: 'Monthly cap for {cat} (USD, empty = no cap)',
+      grNeedApproval: 'Needs your approval', grAboveLimit: 'This purchase ({total}) is above your auto-approve limit ({limit}).',
+      grCatOver: 'This would take {cat} over its monthly cap ({spent} of {cap} spent).',
+      grApprove: 'Approve and pay', grReject: 'Reject this purchase',
+      grApproved: 'Approved, capturing payment...', grRejected: 'Purchase rejected. The PayPal order was not captured and will expire.',
+      grAutoOk: 'Under your auto-approve limit, capturing...',
+      dwTitle: 'Delivery Watch', dwIntro: 'The agent watches every delivery. If a parcel stalls for 7 days or misses its estimate, it prepares a dispute draft before your 180-day filing window shrinks.',
+      dwAddTracking: 'Add tracking', dwCheck: 'Check delivery', dwNoTracker: 'No tracking yet for this order.',
+      dwStatus: 'Delivery: {status}', dwOverdue: 'Overdue {n} days: no delivery update. A dispute draft is ready below.',
+      dwOnTime: 'On track, {n} days since purchase.', dwDraftReady: 'Dispute draft prepared automatically.',
+      dwNoOrders: 'No orders to watch yet.',
+      fxTitle: 'Pay in local currency or USD?', fxNote: 'PayPal adds about 3-4% on currency conversion. Live mid-market rate below, PayPal total includes the markup.',
+      fxPaypalTotal: 'PayPal total', fxMidRate: 'Mid-market rate', fxCheaper: 'Cheapest: pay in {cur}.',
+      fxUnavailable: 'Live rate unavailable, using a stored rate.',
+      exTitle: 'Spending dashboard', exTotal: 'Total spent', exThisMonth: 'this month', exEmpty: 'No spending recorded yet.',
       hrcTitle: 'Hold release checklist', hrcBtn: 'How to release this hold faster',
       hrcIntro: 'PayPal holds new or risky sellers’ money for up to 21 days. Each step below can release it sooner, tick what is already done and see the estimated release.',
       hrcEstimated: 'Estimated release: {n} days', hrcCurrent: 'Current hold: {n} days',
@@ -249,6 +266,23 @@
       budLeft: 'Sisa {left} bulan ini.', budOver: 'Melebihi budget {over} bulan ini.',
       budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
       budNoBudget: 'Belum ada budget bulanan.',
+      grTitle: 'Smart Guardrails', grIntro: 'Agen hanya bayar otomatis di bawah batasmu. Di atas itu, ia bertanya dulu, jadi halusinasi tidak bisa membeli barang mahal.',
+      grLimit: 'Setujui otomatis sampai (USD)', grSave: 'Simpan guardrails', grSaved: 'Guardrails tersimpan.',
+      grCatCap: 'Batas bulanan untuk {cat} (USD, kosong = tanpa batas)',
+      grNeedApproval: 'Butuh persetujuanmu', grAboveLimit: 'Pembelian ini ({total}) di atas batas setujui otomatis ({limit}).',
+      grCatOver: 'Ini akan membuat {cat} melewati batas bulanannya ({spent} dari {cap} sudah terpakai).',
+      grApprove: 'Setujui dan bayar', grReject: 'Tolak pembelian ini',
+      grApproved: 'Disetujui, meng-capture pembayaran...', grRejected: 'Pembelian ditolak. Order PayPal tidak di-capture dan akan kedaluwarsa.',
+      grAutoOk: 'Di bawah batas setujui otomatis, meng-capture...',
+      dwTitle: 'Delivery Watch', dwIntro: 'Agen memantau tiap pengiriman. Kalau paket macet 7 hari atau melewati estimasi, ia menyiapkan draf sengketa sebelum jendela pengajuan 180 harimu menyusut.',
+      dwAddTracking: 'Tambah resi', dwCheck: 'Cek pengiriman', dwNoTracker: 'Belum ada resi untuk order ini.',
+      dwStatus: 'Pengiriman: {status}', dwOverdue: 'Terlambat {n} hari: tidak ada update pengiriman. Draf sengketa sudah siap di bawah.',
+      dwOnTime: 'Tepat waktu, {n} hari sejak pembelian.', dwDraftReady: 'Draf sengketa disiapkan otomatis.',
+      dwNoOrders: 'Belum ada order untuk dipantau.',
+      fxTitle: 'Bayar pakai mata uang lokal atau USD?', fxNote: 'PayPal menambah sekitar 3-4% untuk konversi mata uang. Kurs mid-market live di bawah, total PayPal sudah termasuk markup.',
+      fxPaypalTotal: 'Total PayPal', fxMidRate: 'Kurs mid-market', fxCheaper: 'Paling hemat: bayar pakai {cur}.',
+      fxUnavailable: 'Kurs live tidak tersedia, memakai kurs tersimpan.',
+      exTitle: 'Dashboard pengeluaran', exTotal: 'Total belanja', exThisMonth: 'bulan ini', exEmpty: 'Belum ada pengeluaran tercatat.',
       hrcTitle: 'Checklist cairkan hold', hrcBtn: 'Cara cairkan hold ini lebih cepat',
       hrcIntro: 'PayPal menahan uang seller baru atau berisiko sampai 21 hari. Tiap langkah di bawah bisa mencairkannya lebih cepat, centang yang sudah dilakukan dan lihat perkiraan cairnya.',
       hrcEstimated: 'Perkiraan cair: {n} hari', hrcCurrent: 'Hold saat ini: {n} hari',
@@ -825,6 +859,26 @@
     render();
   }
 
+  async function renderFx(totalUSD, boxId) {
+    var box = $(boxId);
+    if (!box || !totalUSD) return;
+    box.innerHTML = '<p><strong>' + t('fxTitle') + '</strong></p>' +
+      '<p><select id="fx-cur"><option value="IDR">IDR</option><option value="EUR">EUR</option><option value="GBP">GBP</option><option value="SGD">SGD</option></select></p>' +
+      '<p id="fx-out"></p><p class="hint">' + t('fxNote') + '</p>';
+    var run = async function () {
+      var cur = box.querySelector('#fx-cur').value;
+      var out = $('fx-out');
+      if (out) out.textContent = '…';
+      try {
+        var res = await fetch(API_BASE + '/api/fx-compare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amountUSD: totalUSD, currency: cur, lang: lang }) });
+        var d = await res.json();
+        if (!res.ok || !d.rate) { if (out) out.textContent = t('fxUnavailable'); return; }
+        if (out) out.innerHTML = t('fxMidRate') + ': ' + d.rate + ' · ' + t('fxPaypalTotal') + ': ' + d.paypalTotal.toLocaleString() + ' ' + d.currency + (d.live ? '' : ' (' + t('fxUnavailable') + ')');
+      } catch (e) { if (out) out.textContent = t('fxUnavailable'); }
+    };
+    box.querySelector('#fx-cur').addEventListener('change', run);
+    run();
+  }
   async function showCost() {
     var res = await fetch(API_BASE + '/api/total-cost', {
       method: 'POST',
@@ -855,6 +909,7 @@
       '<option value="SG">Singapore</option>' +
       '</select></label></p>' +
       '<div id="import-cost"></div>' +
+      '<div id="fx-box"></div>' +
       '<div class="card"><p><strong>' + t('troubleTitle') + '</strong></p>' +
       '<ul>' +
       '<li>' + fmt(t('chargeback'), { n: tc.chargebackUSD || 20 }) + '</li>' +
@@ -867,6 +922,7 @@
       '<p class="hint">' + (tc.note || 'Public PayPal merchant fee schedule (US, Oct 2026). Estimates, not a quote.') + '</p></div>',
       'cost');
     // Import cost for the selected destination country (duty + VAT/GST).
+    renderFx(c.total, 'fx-box');
     bubble.querySelector('#import-country').addEventListener('change', async function () {
       var box = $('import-cost');
       if (!box) return;
@@ -897,6 +953,32 @@
     });
   }
 
+  var GUARDRAILS_KEY = 'shoppal-guardrails';
+  var CATEGORIES = ['Headphones', 'Smartwatch', 'Keyboard', 'Speaker', 'Charger'];
+  function getGuardrails() {
+    try {
+      var g = JSON.parse(localStorage.getItem(GUARDRAILS_KEY) || 'null');
+      if (g && typeof g === 'object') return { autoApproveLimit: Number(g.autoApproveLimit) || 20, categoryCaps: (g.categoryCaps && typeof g.categoryCaps === 'object') ? g.categoryCaps : {} };
+    } catch (e) { /* fall through to defaults */ }
+    return { autoApproveLimit: 20, categoryCaps: {} };
+  }
+  function saveGuardrailsLocal(g) {
+    try { localStorage.setItem(GUARDRAILS_KEY, JSON.stringify(g)); } catch (e) { /* private mode */ }
+  }
+  async function checkGuardrailsRemote(totalUSD, category) {
+    var g = getGuardrails();
+    try {
+      var res = await fetch(API_BASE + '/api/guardrails/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ totalUSD: totalUSD, category: category, lang: lang, autoApproveLimit: g.autoApproveLimit, categoryCaps: g.categoryCaps }),
+      });
+      if (res.ok) return await res.json();
+    } catch (e) { /* fall through to local check */ }
+    var reasons = [];
+    if (totalUSD > g.autoApproveLimit) reasons.push(fmt(t('grAboveLimit'), { total: money(totalUSD), limit: money(g.autoApproveLimit) }));
+    return { needsApproval: reasons.length > 0, reasons: reasons };
+  }
   function showCheckout() {
     var simNote = selected.marketplace
       ? '<p>' + t('simNote') + '</p>'
@@ -1013,10 +1095,22 @@
         ? fmt(t('budSpent'), { spent: money(spent), budget: money(budget), pct: Math.round(spent / budget * 100) }) + ' ' +
           (spent > budget ? fmt(t('budOver'), { over: money(spent - budget) }) : fmt(t('budLeft'), { left: money(Math.round((budget - spent) * 100) / 100) }))
         : t('budNoBudget')) + '</p></div>';
+    var gr = getGuardrails();
+    var grHtml = '<div class="card"><p><strong>' + t('grTitle') + '</strong></p>' +
+      '<p class="hint">' + t('grIntro') + '</p>' +
+      '<p><input id="gr-limit" type="number" min="0" step="1" value="' + gr.autoApproveLimit + '" style="width:90px"> ' + t('grLimit') + '</p>' +
+      CATEGORIES.map(function (c) {
+        return '<p><input class="gr-cap" data-cat="' + c + '" type="number" min="0" step="1" value="' + (gr.categoryCaps[c] || '') + '" style="width:90px"> ' + fmt(t('grCatCap'), { cat: c }) + '</p>';
+      }).join('') +
+      '<p><button id="gr-save" type="button">' + t('grSave') + '</button> <span id="gr-status"></span></p></div>';
+    var dwHtml = '<div class="card" id="dw-card"><p><strong>' + t('dwTitle') + '</strong></p><p class="hint">' + t('dwIntro') + '</p><p id="dw-body">…</p></div>';
     var bubble = addBubble('agent',
       '<p><strong>Proof Vault</strong></p>' + body +
       '<div class="card">' + subs + '</div>' +
       budHtml +
+      grHtml +
+      dwHtml +
+      '<div class="card" id="ex-card"><p><strong>' + t('exTitle') + '</strong></p><p id="ex-body">…</p></div>' +
       '<div class="vault-actions"><button id="vault-refresh" type="button" class="btn-secondary">' + t('refreshVault') + '</button> ' +
       '<button id="dispute-btn" type="button" class="btn-secondary"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button> ' +
       '<button id="sim-btn" type="button" class="btn-secondary"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('simBtn') + '</button> ' +
@@ -1035,6 +1129,75 @@
       if (v > 0) setBudget(v);
       showVault();
     });
+    // Smart Guardrails (stored in this browser + on the server).
+    bubble.querySelector('#gr-save').addEventListener('click', async function () {
+      var limit = Number(bubble.querySelector('#gr-limit').value);
+      var caps = {};
+      bubble.querySelectorAll('.gr-cap').forEach(function (inp) {
+        var n = Number(inp.value);
+        if (n > 0) caps[inp.getAttribute('data-cat')] = n;
+      });
+      var g = { autoApproveLimit: (Number.isFinite(limit) && limit >= 0) ? limit : 20, categoryCaps: caps };
+      saveGuardrailsLocal(g);
+      try {
+        await fetch(API_BASE + '/api/guardrails', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(g),
+        });
+      } catch (e) { /* local copy still applies */ }
+      var st = $('gr-status');
+      if (st) st.textContent = t('grSaved');
+    });
+    // Delivery Watch (PayPal Tracking API + auto dispute draft).
+    var renderDw = async function () {
+      var box = $('dw-body');
+      if (!box) return;
+      try {
+        var dres = await fetch(API_BASE + '/api/delivery-watch?lang=' + lang);
+        var ddata = await dres.json();
+        if (!ddata.items || !ddata.items.length) { box.innerHTML = '<p>' + t('dwNoOrders') + '</p>'; return; }
+        box.innerHTML = ddata.items.slice(0, 3).map(function (it) {
+          var line = '<p><strong>' + it.product + '</strong> · ' + fmt(t('dwStatus'), { status: it.status }) + ', ' +
+            (it.overdue ? fmt(t('dwOverdue'), { n: it.days }) : fmt(t('dwOnTime'), { n: it.days })) + '</p>';
+          if (it.overdue && it.autoDraft) line += '<p>' + t('dwDraftReady') + ' ' + t('simWinChance') + ': ' + it.autoDraft.winChance + '%</p>';
+          if (!it.hasTracker) line += '<p><button type="button" class="btn-secondary dw-add" data-vault="' + it.vaultId + '">' + t('dwAddTracking') + '</button></p>';
+          else line += '<p><button type="button" class="btn-secondary dw-check" data-vault="' + it.vaultId + '">' + t('dwCheck') + '</button></p>';
+          return line;
+        }).join('');
+        box.querySelectorAll('.dw-add').forEach(function (b) {
+          b.addEventListener('click', async function () {
+            b.disabled = true;
+            await fetch(API_BASE + '/api/tracking/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ vaultId: b.getAttribute('data-vault'), lang: lang }) });
+            renderDw();
+    // Expense dashboard (Proof Vault totals by category).
+    (async function renderEx() {
+      var box = $('ex-body');
+      if (!box) return;
+      try {
+        var eres = await fetch(API_BASE + '/api/expenses');
+        var edata = await eres.json();
+        if (!edata.count) { box.innerHTML = '<p>' + t('exEmpty') + '</p>'; return; }
+        var max = Math.max.apply(null, edata.byCategory.map(function (r) { return r.total; }).concat([1]));
+        box.innerHTML = '<p><strong>' + t('exTotal') + ': ' + money(edata.total) + '</strong> (' + money(edata.monthTotal) + ' ' + t('exThisMonth') + ')</p>' +
+          edata.byCategory.map(function (r) {
+            var pct = Math.round(r.total / max * 100);
+            return '<p>' + r.category + ' · ' + money(r.total) + ' (' + r.count + ')</p><div style="background:#e5e5e5;border-radius:4px;height:8px"><div style="background:#111111;border-radius:4px;height:8px;width:' + pct + '%"></div></div>';
+          }).join('');
+      } catch (e) { box.innerHTML = '<p>' + t('exEmpty') + '</p>'; }
+    })();
+          });
+        });
+        box.querySelectorAll('.dw-check').forEach(function (b) {
+          b.addEventListener('click', async function () {
+            b.disabled = true;
+            await fetch(API_BASE + '/api/tracking/status?vaultId=' + encodeURIComponent(b.getAttribute('data-vault')) + '&lang=' + lang);
+            renderDw();
+          });
+        });
+      } catch (e) { box.innerHTML = '<p class="hint">' + t('dwNoOrders') + '</p>'; }
+    };
+    renderDw();
     // Dispute simulation for the latest vault entry (post-purchase case).
     bubble.querySelector('#sim-btn').addEventListener('click', async function () {
       if (!lastVaultId) return;
@@ -1189,25 +1352,57 @@
       addBubble('agent', '<p>' + t('checkoutCancelled') + '</p>');
     } else if (params.get('approved') === '1' && params.get('token')) {
       var orderId = params.get('token');
-      addBubble('agent', '<p>' + fmt(t('approvedCapturing'), { id: orderId }) + '</p>');
-      var res = await fetch(API_BASE + '/api/paypal/capture-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId }),
-      });
-      var data = await res.json();
-      if (!res.ok) {
-        addBubble('agent', '<p>' + fmt(t('captureFailed'), { msg: data.error || res.status }) + '</p>');
-        return;
+      var orderInfo = null;
+      try {
+        var ores = await fetch(API_BASE + '/api/paypal/order?orderId=' + encodeURIComponent(orderId));
+        if (ores.ok) orderInfo = await ores.json();
+      } catch (e) { /* guardrail check falls back to auto-capture */ }
+      var doCapture = async function () {
+        addBubble('agent', '<p>' + fmt(t('approvedCapturing'), { id: orderId }) + '</p>');
+        var res = await fetch(API_BASE + '/api/paypal/capture-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: orderId }),
+        });
+        var data = await res.json();
+        if (!res.ok) {
+          addBubble('agent', '<p>' + fmt(t('captureFailed'), { msg: data.error || res.status }) + '</p>');
+          return;
+        }
+        addBubble('agent',
+          '<p><strong>' + t('successTitle') + '</strong> Order ' + data.orderId +
+          ' · Capture ' + data.captureId + ' · status ' + data.status + '</p>' +
+          (data.alreadyCaptured ? '<p>' + t('alreadyCapturedNote') + '</p>' : '') +
+          '<p>' + t('successProof') + '</p>',
+          'success');
+        await showVault();
+        window.history.replaceState({}, '', window.location.pathname);
+      };
+      if (orderInfo && orderInfo.amount) {
+        var chk = await checkGuardrailsRemote(orderInfo.amount, orderInfo.category);
+        if (chk && chk.needsApproval) {
+          var ab = addBubble('agent',
+            '<p><strong>' + t('grNeedApproval') + '</strong></p>' +
+            '<p>' + money(orderInfo.amount) + ' · ' + (orderInfo.category || '') + '</p>' +
+            '<ul>' + chk.reasons.map(function (r) { return '<li>' + r + '</li>'; }).join('') + '</ul>' +
+            '<p><button id="gr-approve" type="button">' + t('grApprove') + '</button> ' +
+            '<button id="gr-reject" type="button" class="btn-secondary">' + t('grReject') + '</button></p>');
+          ab.querySelector('#gr-approve').addEventListener('click', function () {
+            ab.querySelector('#gr-approve').disabled = true;
+            ab.querySelector('#gr-reject').disabled = true;
+            addBubble('agent', '<p>' + t('grApproved') + '</p>');
+            doCapture();
+          });
+          ab.querySelector('#gr-reject').addEventListener('click', function () {
+            ab.querySelector('#gr-approve').disabled = true;
+            ab.querySelector('#gr-reject').disabled = true;
+            addBubble('agent', '<p>' + t('grRejected') + '</p>');
+            window.history.replaceState({}, '', window.location.pathname);
+          });
+          return;
+        }
       }
-      addBubble('agent',
-        '<p><strong>' + t('successTitle') + '</strong> Order ' + data.orderId +
-        ' · Capture ' + data.captureId + ' · status ' + data.status + '</p>' +
-        (data.alreadyCaptured ? '<p>' + t('alreadyCapturedNote') + '</p>' : '') +
-        '<p>' + t('successProof') + '</p>',
-        'success');
-      await showVault();
-      window.history.replaceState({}, '', window.location.pathname);
+      await doCapture();
     }
   });
 })();
