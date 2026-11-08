@@ -33,6 +33,9 @@
       <div id="risk" class="card">
         <p>Select a product to see its seller risk score (0–100).</p>
       </div>
+      <div id="hold-risk" class="card">
+        <p>Hold Predictor appears here once a product is selected.</p>
+      </div>
     </section>
 
     <!-- Step 3: Total Cost -->
@@ -43,7 +46,9 @@
       <div id="cost" class="card">
         <p>Select a product to see the full cost breakdown.</p>
       </div>
-      <p id="hold-warning" class="warning hidden"></p>
+      <div id="trouble-costs" class="card">
+        <p>The cost of things going wrong (chargeback, dispute, refund) appears here once a product is selected.</p>
+      </div>
     </section>
 
     <!-- Step 4: PayPal checkout -->
@@ -71,6 +76,9 @@
       <div id="vault" class="card">
         <p>No Proof Vault entries yet.</p>
       </div>
+      <div id="subscriptions" class="card">
+        <p>Subscription Watcher appears here once the vault has entries.</p>
+      </div>
     </section>
 
     <!-- Step 7: Simulate dispute -->
@@ -86,6 +94,6 @@
     <p>ShopPal v2 — PayPal AI Hackathon. Scores are a decision aid, not a PayPal guarantee. Sandbox only.</p>
   </footer>
 
-  <script src="./app.js"></script>
+  <script src="./app.js?v=3"></script>
 </body>
 </html>
