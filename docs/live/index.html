@@ -52,6 +52,7 @@
       </div>
       <div class="header-badges">
         <span class="live-badge" id="live-status"><span class="dot" aria-hidden="true"></span>Live · Sandbox</span>
+        <span class="sandbox-badge" id="health-badge" aria-live="polite">PayPal Sandbox: …</span>
         <span class="sandbox-badge">Live server · Sandbox · no real money</span>
       </div>
     </header>
@@ -60,6 +61,14 @@
       <div class="chat-col">
         <main id="chat" class="chat" role="log" aria-live="polite" aria-label="ShopPal conversation"></main>
         <noscript><p style="padding:1rem">ShopPal v2 is an AI shopping agent for the PayPal AI Hackathon. It scores sellers (0–100), shows the honest PayPal total before you pay, predicts hold risk, and auto-saves proof for disputes. Enable JavaScript to use the chat demo, it runs on PayPal Sandbox, so no real money moves.</p></noscript>
+
+        <div class="quick-demo" aria-label="Quick demo">
+          <span class="quick-demo-label">Quick Demo:</span>
+          <button type="button" class="chip quick-chip" data-prompt="beli barang termurah">🛒 Beli Barang Murah (&lt; $20)</button>
+          <button type="button" class="chip quick-chip" data-prompt="beli headphone p01">🛡️ Beli Headphone p01 ($59.99)</button>
+          <button type="button" class="chip quick-chip" data-prompt="patungan headphone p01 sama Budi dan Sari">🤝 Patungan p01 sama Budi &amp; Sari</button>
+          <button type="button" class="chip quick-chip" data-prompt="lacak dan dispute pesanan terakhir">📦 Lacak &amp; Dispute Pesanan</button>
+        </div>
 
         <footer class="composer">
           <input id="ask" type="text" placeholder="Ask ShopPal…" autocomplete="off" aria-label="Ask ShopPal">
@@ -72,11 +81,11 @@
         <div class="side-card">
           <h2>Live status</h2>
           <p><span class="score score-emerald">● Sandbox · Online</span></p>
-          <p>PayPal Sandbox API · no real money moves.</p>
+          <p id="side-health">PayPal Sandbox API · no real money moves.</p>
         </div>
         <div class="side-card">
           <h2>Guardrails</h2>
-          <p class="big num">$20.00</p>
+          <p class="big num" id="side-guardrail">$20.00</p>
           <p>Auto-approve limit. Above $20.00 the agent stops and asks you first.</p>
         </div>
         <div class="side-card">
