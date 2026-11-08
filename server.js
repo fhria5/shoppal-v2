@@ -1142,7 +1142,23 @@ const TROUBLE_COSTS = {
 
 // Routes
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', service: 'shoppal-v2', mode: PAYPAL_MODE });
+  const configured = !!(process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET);
+  res.json({
+    ok: true,
+    status: 'ok',
+    service: 'shoppal-v2',
+    server: 'shoppal-v2',
+    mode: PAYPAL_MODE,
+    sandbox: true,
+    guardrail: { autoApproveLimit: guardrails.autoApproveLimit, currency: 'USD' },
+    paypalSandbox: {
+      configured,
+      tokenCached: !!cachedToken && Date.now() < cachedTokenExpiresAt,
+      status: configured ? 'live' : 'not_configured',
+    },
+    mcpTools: 8,
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.get('/api/config', (req, res) => {
@@ -1288,6 +1304,7 @@ function agentToolList(lang) {
     '- check_price_watch {"watchId": string}: check a watch, moves the simulated price once and reports current price and status (watching/triggered). When triggered, you may create the order for that product.\n' +
     '- list_price_watches {}: list all active price watches with their current price and status.\n' +
     '- split_payment_link {"productId": string, "friends": [string]}: split a product price with friends and create a separate PayPal Sandbox order + payment link for each friend\'s share. This replaces the Invoicing API, which is not authorized for this sandbox app.\n' +
+    '- track_and_dispute {"reason": "not_received"|"not_as_described"|"unauthorized"}: track the latest purchase with the PayPal Tracking API and simulate a dispute for it, returns the dispute payload (PayPal Disputes API format, simulated). Use when the user asks to track or dispute their order.\n' +
     'Reply per step, strict JSON only, no other text:\n' +
     '{"action": "<tool>", "args": {...}, "reason": "<one short sentence>"} or ' +
     '{"action": "reply", "text": "<final message to the user>"} or ' +
@@ -1454,6 +1471,36 @@ function agentListPriceWatches() {
   return { data: { watches }, summary: watches.length + ' watch(es)' };
 }
 
+// Track the latest purchase and simulate a dispute for it. The tracking
+// step reuses the /api/tracking/add route (real PayPal Tracking API) over
+// HTTP so the route stays the single source of truth; the dispute step
+// calls simulateDispute directly (simulated Disputes API payload).
+async function agentTrackAndDispute(args, ctx) {
+  const reason = ['not_received', 'not_as_described', 'unauthorized'].includes(String(args.reason || ''))
+    ? String(args.reason)
+    : 'not_received';
+  const entries = [...vaultEntries.values()].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const entry = entries[0];
+  if (!entry) return { data: { error: 'No purchase yet. Buy something first, then track and dispute it.' }, summary: 'no purchase to track' };
+  let tracking = null;
+  try {
+    const r = await fetch(ctx.baseUrl + '/api/tracking/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vaultId: entry.id, lang: ctx.lang }),
+    });
+    tracking = await r.json();
+    if (!r.ok) tracking = { error: tracking.error || ('tracking failed (HTTP ' + r.status + ')') };
+  } catch (e) {
+    tracking = { error: String((e && e.message) || e) };
+  }
+  const dispute = await simulateDispute({ vaultId: entry.id, disputeType: reason }, ctx.lang);
+  return {
+    data: { vaultId: entry.id, product: entry.product ? entry.product.name : null, tracking, dispute },
+    summary: 'tracked ' + (entry.product ? entry.product.name : entry.id) + ', dispute win chance ' + (dispute.winChance !== undefined ? dispute.winChance + '%' : 'n/a'),
+  };
+}
+
 async function agentSplitPaymentLink(args, ctx) {
   const p = productsById.get(String(args.productId || ''));
   if (!p) return { data: { error: 'Unknown productId.' }, summary: 'unknown product' };
@@ -1523,6 +1570,7 @@ async function agentExecuteTool(action, args, ctx) {
     case 'check_price_watch': return agentCheckPriceWatch(a);
     case 'list_price_watches': return agentListPriceWatches();
     case 'split_payment_link': return agentSplitPaymentLink(a, ctx);
+    case 'track_and_dispute': return agentTrackAndDispute(a, ctx);
     default: return { data: { error: 'Unknown tool: ' + action }, summary: 'unknown tool' };
   }
 }
@@ -1535,11 +1583,13 @@ async function agentFallback(message, lang, ctx) {
   // "Cek pantauan" carries no product/price intent, so it must be checked
   // before the hasIntent gate below.
   const isCheckWatches = /cek (pantau|harga|watch)|check (my )?(price )?(watch|watches)|lihat pantauan/.test(message.toLowerCase());
+  // "Lacak & dispute pesanan" also carries no product/price intent.
+  const isTrackDispute = /(lacak|track|dispute|sengketa)/.test(message.toLowerCase());
   // No shopping intent at all (the frontend only routes buy goals here,
   // but a direct API call could send anything): do not guess a purchase.
   const hasIntent = intent.category || intent.maxPrice !== null || intent.minPrice !== null
     || intent.cheapest || intent.best || intent.seller || intent.needsReturn || intent.needsTracking
-    || isCheckWatches;
+    || isCheckWatches || isTrackDispute;
   if (!hasIntent) {
     return {
       reply: lang === 'id'
@@ -1550,6 +1600,28 @@ async function agentFallback(message, lang, ctx) {
   }
   const result = applyIntent(intent, null, lang);
   const products = result.products.slice(0, 5);
+  // Track & dispute intent ("lacak dan dispute pesanan terakhir"): track
+  // the latest purchase with the PayPal Tracking API and simulate a
+  // dispute, returning the dispute payload.
+  if (isTrackDispute) {
+    const out = await agentTrackAndDispute({ reason: 'not_received' }, ctx);
+    steps.push({ action: 'track_and_dispute', summary: out.summary });
+    if (out.data.error) {
+      return {
+        reply: lang === 'id'
+          ? 'Belum ada pesanan yang bisa dilacak. Beli dulu sesuatu, misalnya lewat chip "Beli Barang Murah", lalu lacak pesanannya di sini.'
+          : 'No purchase to track yet. Buy something first, for example with the "Buy a cheap item" chip, then track it here.',
+        steps, aiUsed: false,
+      };
+    }
+    const d = out.data.dispute || {};
+    return {
+      reply: lang === 'id'
+        ? 'Pesanan terakhir (' + (out.data.product || out.data.vaultId) + ') sudah dilacak' + (out.data.tracking && out.data.tracking.status ? ' (' + out.data.tracking.status + ')' : '') + '. Simulasi sengketa: peluang menang ' + (d.winChance !== undefined ? d.winChance + '%' : '-') + ' (' + (d.label || '') + '). Payload sengketa ada di bawah.'
+        : 'Latest order (' + (out.data.product || out.data.vaultId) + ') tracked' + (out.data.tracking && out.data.tracking.status ? ' (' + out.data.tracking.status + ')' : '') + '. Dispute simulation: win chance ' + (d.winChance !== undefined ? d.winChance + '%' : '-') + ' (' + (d.label || '') + '). The dispute payload is below.',
+      steps, tracking: out.data.tracking, dispute: d, aiUsed: false,
+    };
+  }
   // Check watches intent ("cek pantauan harga"): list watches, check each,
   // and if one triggered, prepare the buy (guardrails still apply).
   if (isCheckWatches) {
@@ -1775,7 +1847,7 @@ async function runAgentLoop(message, lang, ctx) {
         aiUsed: true,
       };
     }
-    if (!['search_products', 'get_risk_score', 'get_total_cost', 'get_hold_risk', 'check_guardrails', 'create_order', 'get_vault', 'simulate_dispute', 'price_watch', 'check_price_watch', 'list_price_watches', 'split_payment_link'].includes(decision.action)) {
+    if (!['search_products', 'get_risk_score', 'get_total_cost', 'get_hold_risk', 'check_guardrails', 'create_order', 'get_vault', 'simulate_dispute', 'price_watch', 'check_price_watch', 'list_price_watches', 'split_payment_link', 'track_and_dispute'].includes(decision.action)) {
       messages.push({ role: 'assistant', content: JSON.stringify(decision) });
       messages.push({ role: 'user', content: 'Tool result: {"error": "Unknown tool: ' + decision.action + '"}' });
       continue;
