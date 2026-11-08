@@ -273,6 +273,7 @@
     addBubble('agent',
       '<p>Hi, I’m ShopPal — your AI shopping agent. Tell me what you’re looking for, and I’ll check the seller, show you the real total (fees included), and keep your proof if you pay.</p>' +
       '<p>Everything here runs on PayPal Sandbox, so no real money moves.</p>' +
+      '<p class="hint">The server version can also search real eBay listings (free eBay developer keys in .env) — this static demo searches the 10-product demo catalog.</p>' +
       '<div class="chips">' +
       '<button type="button" class="chip" data-q="headphones under $60">Headphones under $60</button>' +
       '<button type="button" class="chip" data-q="smartwatch">Smartwatch</button>' +
