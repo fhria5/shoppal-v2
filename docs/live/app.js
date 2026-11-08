@@ -322,6 +322,7 @@
   function showTyping() {
     var div = document.createElement('div');
     div.className = 'msg agent typing';
+    div.setAttribute('aria-hidden', 'true');
     div.innerHTML = '<span></span><span></span><span></span>';
     chatEl.appendChild(div);
     scrollChat();
@@ -350,7 +351,9 @@
           var idx = compareList.findIndex(function (x) { return x.id === p.id; });
           if (idx >= 0) compareList.splice(idx, 1);
           else if (compareList.length < 2) compareList.push(p);
-          card.classList.toggle('selected', compareList.some(function (x) { return x.id === p.id; }));
+          var inList = compareList.some(function (x) { return x.id === p.id; });
+          card.classList.toggle('selected', inList);
+          card.setAttribute('aria-pressed', inList ? 'true' : 'false');
           updateCompareBar();
           return;
         }
@@ -493,17 +496,18 @@
       rows.push({ product: p, seller: seller, risk: risk, hold: hold, cost: cost });
     }
     var cell = function (r, fn) { return '<td>' + fn(r) + '</td>'; };
+    var shortHold = function (h) { return (h.chance || '').replace(' (estimate)', '').replace('under 5%', '<5%'); };
     addBubble('agent',
       '<p><strong>' + t('cmpTitle') + '</strong></p>' +
-      '<table>' +
-      '<tr><th></th>' + rows.map(function (r) { return '<th>' + r.product.name + '</th>'; }).join('') + '</tr>' +
-      '<tr><td>Price</td>' + rows.map(function (r) { return cell(r, function (x) { return money(x.product.priceUSD); }); }).join('') + '</tr>' +
-      '<tr><td>' + t('riskScore') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return x.risk.score + '/100 · ' + labelText(x.risk.label); }); }).join('') + '</tr>' +
-      '<tr><td>' + t('holdTitle') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return holdLabelText(x.hold.label) + ' · ' + x.hold.chance; }); }).join('') + '</tr>' +
-      '<tr><td>' + t('honestTotal') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return money(x.cost.total); }); }).join('') + '</tr>' +
-      '<tr><td>Seller</td>' + rows.map(function (r) { return cell(r, function (x) { return x.seller.name; }); }).join('') + '</tr>' +
-      '<tr><td>Tracking / Returns</td>' + rows.map(function (r) { return cell(r, function (x) { return (x.seller.hasTracking ? '✓' : '✗') + ' / ' + (x.seller.hasReturnPolicy ? '✓' : '✗'); }); }).join('') + '</tr>' +
-      '</table>');
+      '<div class="table-scroll"><table class="compare-table">' +
+      '<tr><th scope="col"></th>' + rows.map(function (r) { return '<th scope="col">' + r.product.name + '</th>'; }).join('') + '</tr>' +
+      '<tr><td scope="row">Price</td>' + rows.map(function (r) { return cell(r, function (x) { return money(x.product.priceUSD); }); }).join('') + '</tr>' +
+      '<tr><td scope="row">' + t('riskScore') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return x.risk.score + '/100 · ' + labelText(x.risk.label); }); }).join('') + '</tr>' +
+      '<tr><td scope="row">' + t('holdTitle') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return holdLabelText(x.hold.label) + ' · ' + shortHold(x.hold); }); }).join('') + '</tr>' +
+      '<tr><td scope="row">' + t('honestTotal') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return money(x.cost.total); }); }).join('') + '</tr>' +
+      '<tr><td scope="row">Seller</td>' + rows.map(function (r) { return cell(r, function (x) { return x.seller.name; }); }).join('') + '</tr>' +
+      '<tr><td scope="row">Tracking / Returns</td>' + rows.map(function (r) { return cell(r, function (x) { return (x.seller.hasTracking ? '✓' : '✗') + ' / ' + (x.seller.hasReturnPolicy ? '✓' : '✗'); }); }).join('') + '</tr>' +
+      '</table></div>');
     compareList = [];
     updateCompareBar();
     scrollChat();
