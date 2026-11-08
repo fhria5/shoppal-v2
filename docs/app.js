@@ -38,6 +38,7 @@
 
   var VAULT_KEY = 'shoppal-vault-v1';
   var selected = null; // { product, seller, risk, cost }
+  var lastResults = null; // products the last Ask reply showed — follow-ups ("yang termurah") refer to these
   var lastVaultId = null;
   var paypalRenderToken = 0;
 
@@ -138,36 +139,136 @@
   // ranked safest first.
   var ASK_SYNONYMS = {
     headphones: ['headphone', 'earbud', 'earphone', 'headset', 'audio'],
-    smartwatch: ['smartwatch', 'watch'],
+    smartwatch: ['smartwatch', 'watch', 'jam tangan', 'arloji'],
     keyboard: ['keyboard'],
     speaker: ['speaker', 'bluetooth'],
     charger: ['charger', 'cable', 'power', 'gan', 'adapter']
   };
-  function parseAsk(query) {
+  // Ask parser, v2. Two stages: parseAskRegex reads the words,
+  // applyIntent does the filtering and ranking. Understands English and
+  // Indonesian: budgets ("under $60", "di bawah 60"), ranges
+  // ("antara $30 dan $60"), rankings ("termurah" = cheapest first,
+  // "terbaik" = best first, "paling aman" = safest first), sellers
+  // ("dari TechHub"), features ("ada garansi", "ada tracking"), and
+  // follow-ups that refer to the last results ("yang termurah",
+  // "yang pertama" picks the first one shown).
+  var ASK_SELLERS = {
+    'techhub': 'TechHub Official',
+    'official': 'TechHub Official',
+    'gadgetzone': 'GadgetZone ID',
+    'dealhunter': 'DealHunter88'
+  };
+  function parseAskRegex(query) {
     var q = String(query || '').toLowerCase();
-    var budgetMatch = q.match(/(?:under|below|less than|max|up to|budget)\s*\$?\s*(\d+(?:\.\d{1,2})?)|\$\s*(\d+(?:\.\d{1,2})?)/);
-    var maxPrice = budgetMatch ? Number(budgetMatch[1] || budgetMatch[2]) : null;
-    // "Murah" (Indonesian for "cheap") flips the ranking to cheapest first:
-    // a buyer who asks for cheap wants the lowest price, not the safest seller.
-    var cheapest = /\b(murah|termurah|hemat|cheapest|cheap|affordable|lowest price)\b/.test(q);
+    var rangeMatch = q.match(/(?:antara|between)\s*\$?\s*(\d+(?:\.\d{1,2})?)\s*(?:dan|and|sampai|-|–|to)\s*\$?\s*(\d+(?:\.\d{1,2})?)/);
+    var budgetMatch = q.match(/(?:under|below|less than|max|up to|budget|di bawah|dibawah|bawah|kurang dari|maksimal|maks|dana)\s*\$?\s*(\d+(?:\.\d{1,2})?)|\$\s*(\d+(?:\.\d{1,2})?)/);
+    var maxPrice = rangeMatch
+      ? Number(rangeMatch[2])
+      : budgetMatch
+        ? Number(budgetMatch[1] || budgetMatch[2])
+        : null;
+    var minPrice = rangeMatch ? Number(rangeMatch[1]) : null;
+    var cheapest = /\b(murah|termurah|hemat|cheapest|cheap|affordable|lowest price|paling murah)\b/.test(q);
+    var best = /\b(terbaik|paling bagus|rekomendasi|recommended|best|paling baik)\b/.test(q);
+    var safest = /\b(teraman|paling aman|safest|paling terpercaya)\b/.test(q);
+    var selectFirst = /\b(yang pertama|pertama|yang itu|itu aja|pilih yang pertama)\b/.test(q) && !cheapest && !best;
     var category = null;
     for (var cat in ASK_SYNONYMS) {
       if (ASK_SYNONYMS[cat].some(function (w) { return q.includes(w); })) { category = cat; break; }
     }
-    var matches = CATALOG.products.slice();
-    if (category) {
-      var want = category.charAt(0).toUpperCase() + category.slice(1);
+    var seller = null;
+    for (var word in ASK_SELLERS) {
+      if (q.includes(word)) { seller = ASK_SELLERS[word]; break; }
+    }
+    var needsReturn = /\b(garansi|return|retur|refund|pengembalian|bisa dikembalikan)\b/.test(q);
+    var needsTracking = /\b(tracking|lacak|resi|track)\b/.test(q);
+    return { category: category, maxPrice: maxPrice, minPrice: minPrice, cheapest: cheapest, best: best, safest: safest, seller: seller, needsReturn: needsReturn, needsTracking: needsTracking, selectFirst: selectFirst };
+  }
+  function riskScoreOf(product) {
+    return calculateRiskScore(sellerOf(product), product).score;
+  }
+  function applyIntent(intent, contextProducts) {
+    var hasSearch = intent.category || intent.maxPrice !== null || intent.minPrice !== null || intent.seller || intent.needsReturn || intent.needsTracking;
+    var matches = hasSearch
+      ? CATALOG.products.slice()
+      : (contextProducts && contextProducts.length ? contextProducts.slice() : CATALOG.products.slice());
+    if (intent.category) {
+      var want = intent.category.charAt(0).toUpperCase() + intent.category.slice(1);
       matches = matches.filter(function (p) { return p.category === want; });
     }
-    if (maxPrice !== null) matches = matches.filter(function (p) { return p.priceUSD <= maxPrice; });
-    if (cheapest) {
+    if (intent.seller) matches = matches.filter(function (p) { return sellerOf(p).name === intent.seller; });
+    if (intent.needsReturn) matches = matches.filter(function (p) { return sellerOf(p).hasReturnPolicy; });
+    if (intent.needsTracking) matches = matches.filter(function (p) { return sellerOf(p).hasTracking; });
+    if (intent.maxPrice !== null) matches = matches.filter(function (p) { return p.priceUSD <= intent.maxPrice; });
+    if (intent.minPrice !== null) matches = matches.filter(function (p) { return p.priceUSD >= intent.minPrice; });
+    var selectFirst = false;
+    if (intent.selectFirst && matches.length) {
+      matches = [matches[0]];
+      selectFirst = true;
+    } else if (intent.cheapest) {
       matches.sort(function (a, b) { return a.priceUSD - b.priceUSD; });
+    } else if (intent.best) {
+      matches.sort(function (a, b) { return riskScoreOf(b) - riskScoreOf(a) || a.priceUSD - b.priceUSD; });
     } else {
-      matches.sort(function (a, b) {
-        return calculateRiskScore(sellerOf(b), b).score - calculateRiskScore(sellerOf(a), a).score;
-      });
+      matches.sort(function (a, b) { return riskScoreOf(b) - riskScoreOf(a); });
     }
-    return { category: category, maxPrice: maxPrice, cheapest: cheapest, matches: matches };
+    var note = !matches.length
+      ? 'No exact match in the demo catalog — showing all 10 demo products.'
+      : intent.cheapest
+        ? 'Matches sorted cheapest first.'
+        : intent.best
+          ? 'Best match first (safest, then cheapest).'
+          : 'Matches sorted safest first.';
+    return {
+      understood: {
+        category: intent.category,
+        maxPrice: intent.maxPrice,
+        minPrice: intent.minPrice,
+        cheapest: intent.cheapest,
+        best: intent.best,
+        seller: intent.seller,
+        needsReturn: intent.needsReturn,
+        needsTracking: intent.needsTracking,
+        note: note
+      },
+      products: matches.length ? matches : CATALOG.products,
+      selectFirst: selectFirst
+    };
+  }
+  function parseAsk(query, contextProducts) {
+    return applyIntent(parseAskRegex(query), contextProducts);
+  }
+
+  // Risk extras: what the score means next to the other listings, the
+  // scam pattern to watch for, and a short checklist before paying.
+  function riskExtras(seller, product, score, label, components) {
+    var saferThan = CATALOG.products.filter(function (p) {
+      return calculateRiskScore(sellerOf(p), p).score < score;
+    }).length;
+    var comparison = 'Safer than ' + saferThan + ' of ' + CATALOG.products.length + ' demo listings.';
+    var warning =
+      components.price < 60 && (seller.disputeRate >= 2 || label === 'Risky')
+        ? 'Too-good-to-be-true pattern: a price far below the median from a seller with a high dispute rate. This is the most common scam shape in the demo.'
+        : null;
+    var checklist =
+      label === 'Safe'
+        ? [
+            'Pay with PayPal Goods & Services (not Friends & Family).',
+            'Save the tracking number when the seller ships.',
+            'Keep the Proof Vault entry — it is saved automatically.'
+          ]
+        : label === 'Caution'
+          ? [
+              'Pay only with PayPal Goods & Services.',
+              'Ask the seller for tracking before the money clears.',
+              'If the seller asks you to pay outside PayPal, stop — that voids Buyer Protection.'
+            ]
+          : [
+              'Do not pay this seller if you can avoid it.',
+              'If you still proceed, use Goods & Services only — never Friends & Family.',
+              'Screenshot the listing and the chat before paying; you will need them for a dispute.'
+            ];
+    return { comparison: comparison, warning: warning, checklist: checklist };
   }
 
   // Subscription Watcher: same product bought twice or more.
@@ -300,14 +401,27 @@
     var typing = showTyping();
     setTimeout(function () {
       hideTyping(typing);
-      var parsed = parseAsk(q);
-      var products = parsed.matches.length ? parsed.matches : CATALOG.products;
+      var parsed = parseAsk(q, lastResults);
+      var products = parsed.products;
+      lastResults = products;
+      // "yang pertama" picks the first result shown — go straight to it.
+      if (parsed.selectFirst && products.length) {
+        selectProduct(products[0]);
+        return;
+      }
+      var u = parsed.understood;
       var understood = [];
-      if (parsed.category) understood.push(parsed.category);
-      if (parsed.maxPrice !== null) understood.push('under $' + parsed.maxPrice);
+      if (u.category) understood.push(u.category);
+      if (u.minPrice !== null && u.maxPrice !== null) understood.push('$' + u.minPrice + '–$' + u.maxPrice);
+      else if (u.maxPrice !== null) understood.push('under $' + u.maxPrice);
+      if (u.seller) understood.push('from ' + u.seller + ' only');
+      if (u.needsReturn) understood.push('with returns');
+      if (u.needsTracking) understood.push('with tracking');
+      if (u.cheapest) understood.push('cheapest first');
+      if (u.best) understood.push('best match first');
       addBubble('agent',
         '<p>Understood: ' + (understood.length ? understood.join(', ') : 'no category or budget found') +
-        ' — ' + (parsed.matches.length ? (parsed.cheapest ? 'matches sorted cheapest first.' : 'matches sorted safest first.') : 'No exact match in the demo catalog — showing all 10 demo products.') + '</p>' +
+        ' — ' + u.note + '</p>' +
         '<div class="cards" id="catalog"></div>');
       renderCatalogInto($('catalog'), products);
     }, 500);
@@ -331,10 +445,19 @@
   function showRisk() {
     var r = selected.risk;
     var zone = r.label.toLowerCase();
+    var extras = riskExtras(selected.seller, selected.product, r.score, r.label, r.components);
+    var extra = '';
+    if (extras.comparison) extra += '<p>' + extras.comparison + '</p>';
+    if (extras.warning) extra += '<p><strong>Watch out:</strong> ' + extras.warning + '</p>';
+    if (extras.checklist && extras.checklist.length) {
+      extra += '<p><strong>Before you pay:</strong></p><ul>' +
+        extras.checklist.map(function (c) { return '<li>' + c + '</li>'; }).join('') + '</ul>';
+    }
     addBubble('agent',
       '<p><strong>' + selected.seller.name + '</strong> — Risk Score <span class="score score-' + zone + '">' + r.score + '/100 · ' + r.label + '</span></p>' +
       '<ul>' + r.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' +
       '<p><strong>Recommendation:</strong> ' + r.recommendation + '</p>' +
+      extra +
       '<p class="hint">Profile ' + r.components.profile + ' · History ' + r.components.history +
       ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking + ' · ' + r.aiNote + '</p>',
       'risk');
