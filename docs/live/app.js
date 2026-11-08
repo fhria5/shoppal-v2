@@ -77,6 +77,21 @@
       orderStatusTitle: 'Live order status (PayPal)',
       orderStatusFailed: 'Could not check the order status: {msg}',
       alreadyCapturedNote: 'This order was already captured — showing the saved proof.',
+      simBtn: 'Simulate a dispute', simTitle: 'Dispute simulation',
+      simWinChance: 'Win chance: {n}%', simMissing: 'Missing proof: {list}',
+      simFailed: 'Could not simulate the dispute: {msg}',
+      simPreNote: 'Pre-purchase simulation — what your case would look like if you buy now.',
+      evBtn: 'Download Evidence Pack',
+      evFailed: 'Could not build the evidence pack: {msg}',
+      dlBtn: 'Deadlines', dlTitle: 'Deadlines',
+      dlFailed: 'Could not load the deadlines: {msg}',
+      dlLeft: '{days} days left', dlOverdue: '{days} days overdue',
+      dlToday: 'Due today', dlExpired: 'Expired',
+      dlNoReturn: 'No return policy', dlNoDispute: 'No dispute filed yet',
+      clTitle: 'Link check', clFailed: 'Could not check that link: {msg}',
+      clKnown: 'Known marketplace', clUnknown: 'Unknown domain',
+      clNoPrice: 'No price found on the page',
+      linkHint: 'Or paste any product link — I will check the seller and the price from the page.',
       mpHeader: 'Real listings · eBay', mpNone: 'No eBay listings found for that search.',
       checkoutCancelled: 'Checkout was cancelled in PayPal. No payment was made.',
       approvedCapturing: 'PayPal approved order {id} — capturing…',
@@ -128,6 +143,21 @@
       orderStatusTitle: 'Status order live (PayPal)',
       orderStatusFailed: 'Tidak bisa cek status order: {msg}',
       alreadyCapturedNote: 'Order ini sudah di-capture sebelumnya — menampilkan bukti yang tersimpan.',
+      simBtn: 'Simulasikan sengketa', simTitle: 'Simulasi sengketa',
+      simWinChance: 'Peluang menang: {n}%', simMissing: 'Bukti yang kurang: {list}',
+      simFailed: 'Tidak bisa mensimulasikan sengketa: {msg}',
+      simPreNote: 'Simulasi sebelum beli — gambaran kasusmu kalau beli sekarang.',
+      evBtn: 'Unduh Paket Bukti',
+      evFailed: 'Tidak bisa membuat paket bukti: {msg}',
+      dlBtn: 'Tenggat', dlTitle: 'Tenggat',
+      dlFailed: 'Tidak bisa memuat tenggat: {msg}',
+      dlLeft: 'sisa {days} hari', dlOverdue: 'terlambat {days} hari',
+      dlToday: 'Jatuh tempo hari ini', dlExpired: 'Kedaluwarsa',
+      dlNoReturn: 'Tidak ada kebijakan retur', dlNoDispute: 'Belum ada sengketa',
+      clTitle: 'Cek link', clFailed: 'Tidak bisa mengecek link itu: {msg}',
+      clKnown: 'Marketplace dikenal', clUnknown: 'Domain tidak dikenal',
+      clNoPrice: 'Tidak ada harga di halaman itu',
+      linkHint: 'Atau tempel link produk apa pun — saya akan cek seller dan harganya dari halaman itu.',
       mpHeader: 'Listing asli · eBay', mpNone: 'Tidak ada listing eBay untuk pencarian itu.',
       checkoutCancelled: 'Checkout dibatalkan di PayPal. Tidak ada pembayaran.',
       approvedCapturing: 'PayPal menyetujui order {id} — meng-capture…',
@@ -295,6 +325,7 @@
       '<button type="button" class="chip" data-q="keyboard">Keyboard</button>' +
       '</div>' +
       '<p class="hint">Or pick any product below.</p>' +
+      '<p class="hint">' + t('linkHint') + '</p>' +
       '<div class="cards" id="catalog"></div>');
     renderCatalogInto($('catalog'), catalog.products);
     var chips = chatEl.querySelectorAll('.chip');
@@ -314,6 +345,35 @@
     userBubble(q);
     clearSteps();
     var typing = showTyping();
+    // A pasted product link goes to the link checker, not the catalog.
+    if (/^https?:\/\/\S+/i.test(q)) {
+      var clRes = await fetch(API_BASE + '/api/check-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: q, lang }),
+      });
+      var cl = await clRes.json();
+      hideTyping(typing);
+      if (!clRes.ok) {
+        addBubble('agent', '<p>' + fmt(t('clFailed'), { msg: cl.error || clRes.status }) + '</p>');
+        return;
+      }
+      var clZone = (cl.label || 'Caution').toLowerCase();
+      var clBody = '<p><strong>' + t('clTitle') + '</strong> — ' + (cl.domain || '') +
+        ' · <span class="score score-' + clZone + '">' + (cl.score !== undefined ? cl.score + '/100 · ' : '') + labelText(cl.label) + '</span></p>';
+      if (cl.title) clBody += '<p><strong>' + escapeHtml(cl.title) + '</strong>' +
+        (cl.priceUSD ? ' — ' + money(cl.priceUSD) : ' · ' + t('clNoPrice')) + '</p>';
+      if (cl.image) clBody += '<p><img src="' + cl.image + '" alt="" style="max-width:220px;border-radius:8px"></p>';
+      if (cl.reasons && cl.reasons.length) {
+        clBody += '<ul>' + cl.reasons.map((r) => '<li>' + r + '</li>').join('') + '</ul>';
+      }
+      if (cl.totalCost) {
+        clBody += '<p><strong>' + t('honestTotal') + '</strong> — ' + money(cl.totalCost.total) + '</p>';
+      }
+      if (cl.note) clBody += '<p class="hint">' + cl.note + '</p>';
+      addBubble('agent', clBody);
+      return;
+    }
     var askParams = new URLSearchParams({ q, lang });
     if (lastResults && lastResults.length) {
       askParams.set('context', lastResults.map((p) => p.id).join(','));
@@ -391,6 +451,25 @@
     showCheckout();
   }
 
+  // Render a dispute-simulation result (shared by the pre-purchase button
+  // in the risk bubble and the vault button). Win chance is rules-only;
+  // the AI text (when present) only rewrites the explanation.
+  function renderSimHtml(d) {
+    var html = '<p><strong>' + t('simTitle') + '</strong> — ' + fmt(t('simWinChance'), { n: d.winChance }) +
+      ' · <span class="score score-' + (d.winChance >= 70 ? 'safe' : d.winChance >= 40 ? 'caution' : 'risky') + '">' + d.label + '</span></p>';
+    if (d.note) html += '<p class="hint">' + d.note + '</p>';
+    if (d.components && d.components.length) {
+      html += '<ul>' + d.components.map((c) =>
+        '<li>' + (c.points > 0 ? '+' : '') + c.points + ' — ' + c.note + '</li>').join('') + '</ul>';
+    }
+    if (d.missingProof && d.missingProof.length) {
+      html += '<p>' + fmt(t('simMissing'), { list: d.missingProof.join(', ') }) + '</p>';
+    }
+    if (d.recommendation) html += '<p><strong>' + t('recommendation') + '</strong> ' + d.recommendation + '</p>';
+    if (d.aiExplanation) html += '<p class="hint">' + d.aiExplanation + '</p>';
+    return html;
+  }
+
   function showRisk() {
     var r = selected.risk;
     var zone = r.label.toLowerCase();
@@ -401,15 +480,38 @@
       extra += '<p><strong>' + t('beforeYouPay') + '</strong></p><ul>' +
         r.checklist.map((c) => '<li>' + c + '</li>').join('') + '</ul>';
     }
-    addBubble('agent',
+    var isDemoProduct = selected.product && selected.product.id && selected.product.id.indexOf('ebay:') !== 0;
+    var bubble = addBubble('agent',
       '<p><strong>' + selected.seller.name + '</strong> — ' + t('riskScore') + ' <span class="score score-' + zone + '">' + r.score + '/100 · ' + labelText(r.label) + '</span></p>' +
       '<ul>' + r.reasons.map((reason) => '<li>' + reason + '</li>').join('') + '</ul>' +
       '<p><strong>' + t('recommendation') + '</strong> ' + r.recommendation + '</p>' +
       extra +
       '<p class="hint">Profile ' + r.components.profile + ' · History ' + r.components.history +
       ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking +
-      (r.aiAvailable ? '' : ' · ' + (r.aiNote || 'AI explanation unavailable.')) + '</p>',
+      (r.aiAvailable ? '' : ' · ' + (r.aiNote || 'AI explanation unavailable.')) + '</p>' +
+      (isDemoProduct ? '<p><button id="pre-sim-btn" type="button">' + t('simBtn') + '</button></p>' +
+      '<div id="pre-sim" class="card hidden"></div>' : ''),
       'risk');
+    if (isDemoProduct) {
+      bubble.querySelector('#pre-sim-btn').addEventListener('click', async function () {
+        var box = $('pre-sim');
+        if (!box) return;
+        box.classList.remove('hidden');
+        box.textContent = t('simTitle') + '…';
+        var res = await fetch(API_BASE + '/api/dispute/simulate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sellerId: selected.seller.id, productId: selected.product.id, lang }),
+        });
+        var d = await res.json();
+        if (!res.ok) {
+          box.textContent = fmt(t('simFailed'), { msg: d.error || res.status });
+          return;
+        }
+        box.innerHTML = renderSimHtml(d);
+        scrollChat();
+      });
+    }
   }
 
   async function showHold() {
@@ -565,12 +667,80 @@
       '<div class="card">' + subs + '</div>' +
       '<p><button id="vault-refresh" type="button">' + t('refreshVault') + '</button> ' +
       '<button id="dispute-btn" type="button"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button> ' +
+      '<button id="sim-btn" type="button"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('simBtn') + '</button> ' +
+      '<button id="evidence-btn" type="button"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('evBtn') + '</button> ' +
+      '<button id="deadlines-btn" type="button"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('dlBtn') + '</button> ' +
       '<button id="refund-btn" type="button"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('refundBtn') + '</button> ' +
       '<button id="order-status-btn" type="button"' + (data.entries && data.entries.length ? '' : ' disabled') + '>' + t('orderStatusBtn') + '</button></p>' +
       '<div id="dispute-draft" class="card hidden"></div>' +
+      '<div id="vault-tools" class="card hidden"></div>' +
       '<div id="paypal-actions" class="card hidden"></div>',
       'vault');
     bubble.querySelector('#vault-refresh').addEventListener('click', function () { showVault(); });
+    // Dispute simulation for the latest vault entry (post-purchase case).
+    bubble.querySelector('#sim-btn').addEventListener('click', async function () {
+      if (!lastVaultId) return;
+      var box = $('vault-tools');
+      if (!box) return;
+      box.classList.remove('hidden');
+      box.textContent = t('simTitle') + '…';
+      var res = await fetch(API_BASE + '/api/dispute/simulate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vaultId: lastVaultId, lang }),
+      });
+      var d = await res.json();
+      if (!res.ok) {
+        box.textContent = fmt(t('simFailed'), { msg: d.error || res.status });
+        return;
+      }
+      box.innerHTML = renderSimHtml(d);
+      scrollChat();
+    });
+    // Evidence Pack: download a printable proof page (order, capture,
+    // risk, timeline) as a file the buyer can attach to a PayPal dispute.
+    bubble.querySelector('#evidence-btn').addEventListener('click', async function () {
+      if (!lastVaultId) return;
+      var res = await fetch(API_BASE + '/api/evidence?vaultId=' + encodeURIComponent(lastVaultId) + '&lang=' + lang);
+      var d = await res.json();
+      if (!res.ok) {
+        var box = $('vault-tools');
+        if (box) {
+          box.classList.remove('hidden');
+          box.textContent = fmt(t('evFailed'), { msg: d.error || res.status });
+        }
+        return;
+      }
+      var blob = new Blob([d.html], { type: 'text/html' });
+      var url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+    });
+    // Deadline Tracker: 180-day filing + 20-day escalation + 30-day return.
+    bubble.querySelector('#deadlines-btn').addEventListener('click', async function () {
+      if (!lastVaultId) return;
+      var box = $('vault-tools');
+      if (!box) return;
+      box.classList.remove('hidden');
+      box.textContent = t('dlTitle') + '…';
+      var res = await fetch(API_BASE + '/api/deadlines?vaultId=' + encodeURIComponent(lastVaultId) + '&lang=' + lang);
+      var d = await res.json();
+      if (!res.ok) {
+        box.textContent = fmt(t('dlFailed'), { msg: d.error || res.status });
+        return;
+      }
+      box.innerHTML = '<p><strong>' + t('dlTitle') + '</strong></p>' +
+        '<ul>' + (d.deadlines || []).map(function (dl) {
+          var when;
+          if (dl.status === 'none') when = dl.note || t('dlNoReturn');
+          else if (dl.status === 'expired') when = t('dlExpired') + ' — ' + fmt(t('dlOverdue'), { days: -dl.daysLeft });
+          else if (dl.daysLeft === 0) when = t('dlToday');
+          else when = fmt(t('dlLeft'), { days: dl.daysLeft });
+          return '<li><strong>' + dl.label + '</strong> — ' + when +
+            (dl.dueDate ? ' (' + dl.dueDate.slice(0, 10) + ')' : '') + '</li>';
+        }).join('') + '</ul>';
+      scrollChat();
+    });
     // Refund the latest vault entry (full amount, PayPal Sandbox).
     // Two clicks: the first arms the button, the second executes it.
     var refundBtn = bubble.querySelector('#refund-btn');
