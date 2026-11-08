@@ -276,6 +276,22 @@ async function get(path) {
   r = await post('/api/paypal/create-order', { productId: 'p01', totalUSD: 10 });
   check('create-order bad total 400', r.status === 400 && /Total mismatch/.test(r.data.error || ''), r.data);
 
+  // ---------- Finishing touches: health, p11 auto-checkout, track & dispute ----------
+  r = await get('/api/health');
+  check('health ok', r.status === 200 && r.data.ok === true && r.data.status === 'ok' && r.data.sandbox === true, r.data);
+  check('health guardrail limit 20', r.status === 200 && r.data.guardrail && r.data.guardrail.autoApproveLimit === 20, r.data);
+  check('health paypal sandbox configured', r.status === 200 && r.data.paypalSandbox && r.data.paypalSandbox.configured === true && r.data.paypalSandbox.status === 'live', r.data);
+  check('health mcp tools 8', r.status === 200 && r.data.mcpTools === 8, r.data);
+  // Quick Demo chip 1: cheapest item is p11 ($14.99, total $16.74 <= $20) -> auto-checkout, no approval.
+  r = await post('/api/agent', { message: 'beli barang termurah', lang: 'id' });
+  check('agent cheapest item auto-checkout p11', r.status === 200 && r.data.order && r.data.order.totalUSD === 16.74 && !r.data.needsApproval, r.data);
+  // Quick Demo chip 4: track & dispute the latest purchase. Works when a
+  // vault entry exists (the E2E capture earlier); otherwise a helpful reply.
+  r = await post('/api/agent', { message: 'lacak dan dispute pesanan terakhir', lang: 'id' });
+  const tdOk = r.status === 200 && ((r.data.dispute && r.data.dispute.disputePayload && r.data.dispute.disputePayload.status === 'OPEN' && r.data.dispute.disputePayload.reason === 'MERCHANDISE_OR_SERVICE_NOT_RECEIVED') || (typeof r.data.reply === 'string' && /Belum ada pesanan|No purchase/.test(r.data.reply)));
+  check('agent track and dispute', tdOk, r.data);
+  check('agent track and dispute step', Array.isArray(r.data.steps) && r.data.steps.some((s) => s.action === 'track_and_dispute'), r.data.steps);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => {
