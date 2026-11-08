@@ -4,6 +4,40 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ShopPal v2 — Shop safer, see the real cost, keep your proof</title>
+  <meta name="description" content="ShopPal v2 is an AI shopping agent for the PayPal AI Hackathon. It scores sellers (0–100), shows the honest PayPal total before you pay, predicts hold risk, and auto-saves proof for disputes. Live-server demo on PayPal Sandbox — no real money.">
+  <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#1d4ed8">
+  <link rel="canonical" href="https://fhria5.github.io/shoppal-v2/live/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="ShopPal v2 — Shop safer, see the real cost, keep your proof">
+  <meta property="og:description" content="AI shopping agent: seller risk scores, honest PayPal totals, hold prediction, and a Proof Vault for disputes. Live-server demo on PayPal Sandbox — no real money.">
+  <meta property="og:url" content="https://fhria5.github.io/shoppal-v2/live/">
+  <meta property="og:site_name" content="ShopPal v2">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="ShopPal v2 — Shop safer, see the real cost, keep your proof">
+  <meta name="twitter:description" content="AI shopping agent: seller risk scores, honest PayPal totals, hold prediction, and a Proof Vault for disputes. Live-server demo on PayPal Sandbox — no real money.">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "ShopPal v2",
+    "applicationCategory": "ShoppingApplication",
+    "operatingSystem": "Web",
+    "description": "AI shopping agent that scores sellers, shows the honest PayPal total before you pay, predicts hold risk, and auto-saves proof for disputes.",
+    "url": "https://fhria5.github.io/shoppal-v2/live/",
+    "author": { "@type": "Person", "name": "Fahriannor" },
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "featureList": [
+      "AI Seller Risk Score (0–100)",
+      "Honest PayPal total cost before checkout",
+      "Hold Predictor and Hold Release Checklist",
+      "Proof Vault with dispute drafts",
+      "Dispute Win Simulator and Evidence Pack",
+      "PayPal phishing check",
+      "Import duty and VAT estimates per country"
+    ]
+  }
+  </script>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -13,16 +47,17 @@
         <svg class="avatar" viewBox="0 0 48 48" aria-hidden="true"><rect width="48" height="48" rx="12" fill="#1d4ed8"/><path d="M24 7l13 4.5V22c0 8.5-5.5 15-13 19-7.5-4-13-10.5-13-19V11.5L24 7z" fill="#fff"/><path d="M18 24.5l4.5 4.5L31 20" stroke="#1d4ed8" stroke-width="3.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <div>
           <div class="agent-name">ShopPal</div>
-          <div class="agent-status"><span class="dot"></span>AI shopping agent · Online</div>
+          <div class="agent-status"><span class="dot" aria-hidden="true"></span>AI shopping agent · Online</div>
         </div>
       </div>
       <span class="sandbox-badge">Live server · Sandbox · no real money</span>
     </header>
 
-    <main id="chat" class="chat"></main>
+    <main id="chat" class="chat" role="log" aria-live="polite" aria-label="ShopPal conversation"></main>
+    <noscript><p style="padding:1rem">ShopPal v2 is an AI shopping agent for the PayPal AI Hackathon. It scores sellers (0–100), shows the honest PayPal total before you pay, predicts hold risk, and auto-saves proof for disputes. Enable JavaScript to use the chat demo — it runs on PayPal Sandbox, so no real money moves.</p></noscript>
 
     <footer class="composer">
-      <input id="ask" type="text" placeholder="Ask ShopPal…" autocomplete="off">
+      <input id="ask" type="text" placeholder="Ask ShopPal…" autocomplete="off" aria-label="Ask ShopPal">
       <button id="ask-btn" type="button" aria-label="Send">➤</button>
     </footer>
     <p class="fineprint">ShopPal v2 — PayPal AI Hackathon. Scores are a decision aid, not a PayPal guarantee. Product photos are AI-generated illustrations of generic demo products, not real listings. Live-server demo: real PayPal Sandbox checkout via a Cloudflare Worker.</p>
