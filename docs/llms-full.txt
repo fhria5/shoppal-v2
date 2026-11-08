@@ -1,6 +1,6 @@
-# ShopPal v2 — Full documentation
+# ShopPal v2: Full documentation
 
-> ShopPal v2 is an AI shopping agent for the PayPal AI Hackathon. It acts for the buyer, not the seller: it scores sellers, shows the honest PayPal total before payment, predicts hold risk, and auto-saves proof for disputes. The demo runs on PayPal Sandbox — no real money moves.
+> ShopPal v2 is an AI shopping agent for the PayPal AI Hackathon. It acts for the buyer, not the seller: it scores sellers, shows the honest PayPal total before payment, predicts hold risk, and auto-saves proof for disputes. The demo runs on PayPal Sandbox, no real money moves.
 
 ## Demos
 
@@ -10,7 +10,7 @@
 
 ## The problem
 
-PayPal users face held funds, layered fees that can reach roughly 10% on a $50 cross-border purchase, disputes lost despite having proof, risky sellers they cannot vet, and subscriptions that keep charging unnoticed. These are the top complaints in PayPal user reviews — and no shopping tool shows the buyer the full picture before they pay.
+PayPal users face held funds, layered fees that can reach roughly 10% on a $50 cross-border purchase, disputes lost despite having proof, risky sellers they cannot vet, and subscriptions that keep charging unnoticed. These are the top complaints in PayPal user reviews, and no shopping tool shows the buyer the full picture before they pay.
 
 ## How it works
 
@@ -30,7 +30,7 @@ Built from four transparent components: profile age (25 points), transaction his
 
 ### Honest Total Cost
 
-Item price plus PayPal Checkout fee (3.49% + $0.49), international fee (1.5%), and currency conversion spread (~3.5%). Example: a $59.99 item costs $65.57 in total. The demo also shows the cost of things going wrong: chargeback $20, dispute $15 ($30 high-volume), refund keeps the original fee, instant transfer 1.5%, and the cheaper Micropayments rate for items under $12 — plus whether the purchase is covered by PayPal Buyer Protection (Goods & Services, not Friends & Family).
+Item price plus PayPal Checkout fee (3.49% + $0.49), international fee (1.5%), and currency conversion spread (~3.5%). Example: a $59.99 item costs $65.57 in total. The demo also shows the cost of things going wrong: chargeback $20, dispute $15 ($30 high-volume), refund keeps the original fee, instant transfer 1.5%, and the cheaper Micropayments rate for items under $12, plus whether the purchase is covered by PayPal Buyer Protection (Goods & Services, not Friends & Family).
 
 ### Hold Predictor and Hold Release Checklist
 
@@ -46,11 +46,11 @@ Before you buy, the simulator tells you the chance of winning a PayPal dispute i
 
 ### PayPal Phishing Check
 
-Paste any message claiming to be from PayPal and get a verdict (0–100) from rule-based signals — lookalike-domain detection (paypa1, pay-pal), urgency language, requests for passwords or OTP codes, generic greetings, link/text mismatch — plus an AI review from Vyce.
+Paste any message claiming to be from PayPal and get a verdict (0–100) from rule-based signals, lookalike-domain detection (paypa1, pay-pal), urgency language, requests for passwords or OTP codes, generic greetings, link/text mismatch, plus an AI review from Vyce.
 
 ### Import Cost
 
-Duty + VAT/GST per destination country, shown in the honest-total bubble. Indonesia: 7.5% duty + 11% VAT (verified against PMK 96/2023 + PMK 4/2025; FOB under US$3 is duty-free but VAT still applies). United States: $0 under the $800 de minimis. EU: 19% VAT. UK: 20% VAT. Singapore: 9% GST. The same $60 headphones cost $71.60 in Indonesia and $60 in the US. Always labelled an estimate — exact duty depends on the product HS code.
+Duty + VAT/GST per destination country, shown in the honest-total bubble. Indonesia: 7.5% duty + 11% VAT (verified against PMK 96/2023 + PMK 4/2025; FOB under US$3 is duty-free but VAT still applies). United States: $0 under the $800 de minimis. EU: 19% VAT. UK: 20% VAT. Singapore: 9% GST. The same $60 headphones cost $71.60 in Indonesia and $60 in the US. Always labelled an estimate, exact duty depends on the product HS code.
 
 ### Compare 2 Products
 
@@ -68,21 +68,21 @@ Paste any product URL and ShopPal reads the page's public metadata (title, price
 
 The server exposes a REST API (same routes on the Express server and the Cloudflare Worker):
 
-- POST /api/ask — natural-language product search (Indonesian + English, Vyce intent parsing with a regex fallback)
-- POST /api/risk-score — seller risk score with AI explanation
-- POST /api/total-cost — honest total with trouble-costs
-- POST /api/hold-risk — hold prediction
-- POST /api/hold-checklist — hold release checklist
-- POST /api/import-cost — duty + VAT/GST per country
-- POST /api/phishing-check — phishing verdict + AI review
-- POST /api/dispute/simulate — dispute win-chance estimate
-- GET /api/evidence?vaultId= — printable proof page (JSON { html })
-- POST /api/check-link — link metadata check
-- GET /api/deadlines — dispute/return deadlines
-- POST /api/paypal/create-order, POST /api/paypal/capture-order — Sandbox checkout
-- POST /api/paypal/refund, GET /api/paypal/order — refund and live order status
-- GET /api/vault, POST /api/dispute/draft — Proof Vault and simulated dispute draft
-- GET /api/marketplace/search — real eBay listings (needs eBay developer keys; dormant until approved)
+- POST /api/ask, natural-language product search (Indonesian + English, Vyce intent parsing with a regex fallback)
+- POST /api/risk-score, seller risk score with AI explanation
+- POST /api/total-cost, honest total with trouble-costs
+- POST /api/hold-risk, hold prediction
+- POST /api/hold-checklist, hold release checklist
+- POST /api/import-cost, duty + VAT/GST per country
+- POST /api/phishing-check, phishing verdict + AI review
+- POST /api/dispute/simulate, dispute win-chance estimate
+- GET /api/evidence?vaultId=, printable proof page (JSON { html })
+- POST /api/check-link, link metadata check
+- GET /api/deadlines, dispute/return deadlines
+- POST /api/paypal/create-order, POST /api/paypal/capture-order, Sandbox checkout
+- POST /api/paypal/refund, GET /api/paypal/order, refund and live order status
+- GET /api/vault, POST /api/dispute/draft, Proof Vault and simulated dispute draft
+- GET /api/marketplace/search, real eBay listings (needs eBay developer keys; dormant until approved)
 
 ## Facts and limits
 
