@@ -135,6 +135,48 @@
       refundAlready: 'Already refunded.', orderStatusBtn: 'Check live status',
       orderStatusTitle: 'Live order status (PayPal)',
       orderStatusFailed: 'Could not check the order status: {msg}',
+      simBtn: 'Simulate a dispute', simTitle: 'Dispute simulation',
+      simWinChance: 'Win chance: {n}%', simMissing: 'Missing proof: {list}',
+      simFailed: 'Could not simulate the dispute: {msg}',
+      simPreNote: 'Pre-purchase simulation — what your case would look like if you buy now.',
+      simStrong: 'Strong case', simModerate: 'Moderate case', simWeak: 'Weak case',
+      simCaptureOk: 'Payment captured and verified (COMPLETED).',
+      simCapturePlanned: 'Payment would be captured and verified (COMPLETED).',
+      simTrackingYes: 'Seller provides tracking — delivery can be proved.',
+      simTrackingNo: 'No tracking from this seller — delivery is hard to prove.',
+      simReturnsYes: 'Seller accepts returns.',
+      simReturnsNo: 'Seller does not accept returns.',
+      simDisputeRateHigh: 'Seller dispute rate is high ({rate}%) — a pattern that supports the buyer.',
+      simDisputeRateLow: 'Seller dispute rate is low ({rate}%).',
+      simWithinWindow: 'Still inside the 180-day PayPal filing window ({days} days left).',
+      simExpiredWindow: 'The 180-day filing window has passed.',
+      simTypeUnauthorized: 'Unauthorized payment — PayPal usually sides with the buyer when reported quickly.',
+      simTypeNotReceived: 'Item not received — tracking decides the outcome.',
+      simTypeNotDescribed: 'Item not as described — photos and the listing text decide the outcome.',
+      simMissingTracking: 'Tracking number / delivery proof',
+      simMissingPhotos: 'Photos of the item received vs the listing',
+      simMissingChat: 'Message history with the seller',
+      simMissingPolicy: 'Screenshot of the seller return policy',
+      simMissingReport: 'Report the unauthorized payment to PayPal and your bank/card issuer quickly',
+      simRecStrong: 'File with confidence — attach the proof from the Proof Vault.',
+      simRecModerate: 'File, but collect the missing proof first — it decides the outcome.',
+      simRecWeak: 'Collect the missing proof before filing, or ask the seller for a refund first.',
+      simRecTooLate: 'The filing window has passed. Your remaining option is a chargeback through your bank/card issuer.',
+      simAlreadyRefunded: 'This capture was already refunded — there is nothing left to dispute.',
+      evBtn: 'Download Evidence Pack',
+      evFailed: 'Could not build the evidence pack: {msg}',
+      evTitle: 'ShopPal Evidence Pack',
+      dlBtn: 'Deadlines', dlTitle: 'Deadlines',
+      dlFailed: 'Could not load the deadlines: {msg}',
+      dlLeft: '{days} days left', dlOverdue: '{days} days overdue',
+      dlToday: 'Due today', dlExpired: 'Expired',
+      dlNoReturn: 'Seller has no return policy', dlNoDispute: 'No dispute filed yet',
+      dlFiling: 'Dispute filing deadline', dlEscalation: 'Escalation deadline (dispute → claim)',
+      dlReturn: 'Return deadline',
+      clTitle: 'Link check', clFailed: 'Could not check that link: {msg}',
+      clKnown: 'Known marketplace', clUnknown: 'Unknown domain',
+      clNoPrice: 'No price found on the page',
+      linkHint: 'Or paste any product link — I will check the seller and the price from the page (live server).',
       disputeTitle: 'Simulated dispute draft', disputeReadiness: 'readiness {n}/100',
       disputeBody: 'Dispute response draft (simulated, factual only): Order {order} for {product} ({total}) was paid via PayPal Sandbox and captured as {status}. Seller: {seller} (risk score {score} at checkout). Proof is attached in the Proof Vault entry {id}.',
       disputeMissing: 'Still missing: {list}', disputeNone: 'No proof missing.',
@@ -212,6 +254,48 @@
       refundAlready: 'Sudah di-refund.', orderStatusBtn: 'Cek status live',
       orderStatusTitle: 'Status order live (PayPal)',
       orderStatusFailed: 'Tidak bisa cek status order: {msg}',
+      simBtn: 'Simulasikan sengketa', simTitle: 'Simulasi sengketa',
+      simWinChance: 'Peluang menang: {n}%', simMissing: 'Bukti yang kurang: {list}',
+      simFailed: 'Tidak bisa mensimulasikan sengketa: {msg}',
+      simPreNote: 'Simulasi sebelum beli — gambaran kasusmu kalau beli sekarang.',
+      simStrong: 'Kasus kuat', simModerate: 'Kasus sedang', simWeak: 'Kasus lemah',
+      simCaptureOk: 'Pembayaran ter-capture dan terverifikasi (COMPLETED).',
+      simCapturePlanned: 'Pembayaran akan ter-capture dan terverifikasi (COMPLETED).',
+      simTrackingYes: 'Seller menyediakan tracking — pengiriman bisa dibuktikan.',
+      simTrackingNo: 'Seller tidak menyediakan tracking — pengiriman sulit dibuktikan.',
+      simReturnsYes: 'Seller menerima retur.',
+      simReturnsNo: 'Seller tidak menerima retur.',
+      simDisputeRateHigh: 'Tingkat sengketa seller tinggi ({rate}%) — pola yang mendukung pembeli.',
+      simDisputeRateLow: 'Tingkat sengketa seller rendah ({rate}%).',
+      simWithinWindow: 'Masih dalam batas 180 hari pengajuan sengketa PayPal (sisa {days} hari).',
+      simExpiredWindow: 'Batas 180 hari pengajuan sudah lewat.',
+      simTypeUnauthorized: 'Pembayaran tidak sah — PayPal biasanya memihak pembeli kalau dilaporkan cepat.',
+      simTypeNotReceived: 'Barang tidak diterima — tracking yang menentukan hasil.',
+      simTypeNotDescribed: 'Barang tidak sesuai deskripsi — foto dan teks listing yang menentukan hasil.',
+      simMissingTracking: 'Nomor tracking / bukti pengiriman',
+      simMissingPhotos: 'Foto barang yang diterima vs listing',
+      simMissingChat: 'Riwayat chat dengan seller',
+      simMissingPolicy: 'Screenshot kebijakan retur seller',
+      simMissingReport: 'Laporkan pembayaran tidak sah ke PayPal dan bank/penerbit kartu secepatnya',
+      simRecStrong: 'Ajukan dengan percaya diri — lampirkan bukti dari Proof Vault.',
+      simRecModerate: 'Ajukan, tapi lengkapi dulu bukti yang kurang — itu yang menentukan hasil.',
+      simRecWeak: 'Lengkapi dulu bukti yang kurang sebelum mengajukan, atau minta refund ke seller dulu.',
+      simRecTooLate: 'Batas pengajuan sudah lewat. Opsi yang tersisa adalah chargeback lewat bank/penerbit kartu.',
+      simAlreadyRefunded: 'Capture ini sudah di-refund — tidak ada lagi yang bisa disengketakan.',
+      evBtn: 'Unduh Paket Bukti',
+      evFailed: 'Tidak bisa membuat paket bukti: {msg}',
+      evTitle: 'Paket Bukti ShopPal',
+      dlBtn: 'Tenggat', dlTitle: 'Tenggat',
+      dlFailed: 'Tidak bisa memuat tenggat: {msg}',
+      dlLeft: 'sisa {days} hari', dlOverdue: 'terlambat {days} hari',
+      dlToday: 'Jatuh tempo hari ini', dlExpired: 'Kedaluwarsa',
+      dlNoReturn: 'Seller tidak punya kebijakan retur', dlNoDispute: 'Belum ada sengketa',
+      dlFiling: 'Batas ajukan sengketa', dlEscalation: 'Batas eskalasi (sengketa → klaim)',
+      dlReturn: 'Batas retur',
+      clTitle: 'Cek link', clFailed: 'Tidak bisa mengecek link itu: {msg}',
+      clKnown: 'Marketplace dikenal', clUnknown: 'Domain tidak dikenal',
+      clNoPrice: 'Tidak ada harga di halaman itu',
+      linkHint: 'Atau tempel link produk apa pun — saya akan cek seller dan harganya dari halaman itu (server live).',
       disputeTitle: 'Draf sengketa simulasi', disputeReadiness: 'kesiapan {n}/100',
       disputeBody: 'Draf jawaban sengketa (simulasi, hanya fakta): Order {order} untuk {product} ({total}) dibayar via PayPal Sandbox dan di-capture sebagai {status}. Seller: {seller} (skor risiko {score} saat checkout). Bukti terlampir di entri Proof Vault {id}.',
       disputeMissing: 'Masih kurang: {list}', disputeNone: 'Tidak ada bukti yang kurang.',
@@ -268,6 +352,177 @@
         ? t('recCaution')
         : t('recRisky');
     return { score: total, label: label, components: components, reasons: reasons.slice(0, 3), recommendation: recommendation, aiAvailable: false, aiNote: t('aiNoteStatic') };
+  }
+
+  // Dispute Win Simulator (rule-based mirror of the server endpoint — the
+  // static demo has no server vault, so it simulates from the local entry).
+  function simulateLocal(opts) {
+    var type = ['not_received', 'not_as_described', 'unauthorized'].indexOf(opts.disputeType) >= 0 ? opts.disputeType : 'not_received';
+    var entry = opts.vaultId ? loadVault().find(function (e) { return e.id === opts.vaultId; }) : null;
+    var product = opts.productId ? CATALOG.products.find(function (p) { return p.id === opts.productId; }) : null;
+    var seller = null;
+    if (entry && entry.seller && entry.seller.id) seller = CATALOG.sellers.find(function (s) { return s.id === entry.seller.id; }) || null;
+    if (!seller && product) seller = sellerOf(product);
+    if (!entry && !product) return { error: t('disputeNotFound') };
+    var isVault = !!entry;
+    var hasTracking = isVault ? !!(entry.seller && entry.seller.tracking) : !!(seller && seller.hasTracking);
+    var hasReturns = isVault ? !!(entry.seller && entry.seller.returnPolicy) : !!(seller && seller.hasReturnPolicy);
+    var disputeRate = seller ? seller.disputeRate : null;
+    var refunded = isVault && entry.paypal && entry.paypal.refund && entry.paypal.refund.status === 'COMPLETED';
+    var purchaseISO = isVault ? (entry.paypal && entry.paypal.createTime || entry.createdAt) : new Date().toISOString();
+    var daysSince = Math.max(0, Math.floor((Date.now() - new Date(purchaseISO).getTime()) / 86400000));
+    var filingDaysLeft = 180 - daysSince;
+    var tooLate = filingDaysLeft < 0;
+    var components = [];
+    var chance = 50;
+    if (isVault) { chance += 15; components.push({ points: 15, note: t('simCaptureOk') }); }
+    else { chance += 10; components.push({ points: 10, note: t('simCapturePlanned') }); }
+    if (hasTracking) { chance += 10; components.push({ points: 10, note: t('simTrackingYes') }); }
+    else components.push({ points: 0, note: t('simTrackingNo') });
+    if (hasReturns) { chance += 5; components.push({ points: 5, note: t('simReturnsYes') }); }
+    else components.push({ points: 0, note: t('simReturnsNo') });
+    if (disputeRate !== null && disputeRate !== undefined) {
+      if (disputeRate >= 2) { chance += 10; components.push({ points: 10, note: fmt(t('simDisputeRateHigh'), { rate: disputeRate }) }); }
+      else { chance += 5; components.push({ points: 5, note: fmt(t('simDisputeRateLow'), { rate: disputeRate }) }); }
+    }
+    if (tooLate) { chance -= 40; components.push({ points: -40, note: t('simExpiredWindow') }); }
+    else { chance += 10; components.push({ points: 10, note: fmt(t('simWithinWindow'), { days: filingDaysLeft }) }); }
+    if (type === 'unauthorized') { chance += 10; components.push({ points: 10, note: t('simTypeUnauthorized') }); }
+    else if (type === 'not_received') { chance += 5; components.push({ points: 5, note: t('simTypeNotReceived') }); }
+    else components.push({ points: 0, note: t('simTypeNotDescribed') });
+    if (refunded) { chance -= 45; components.push({ points: -45, note: t('simAlreadyRefunded') }); }
+    chance = Math.max(5, Math.min(95, chance));
+    var label = chance >= 70 ? t('simStrong') : chance >= 40 ? t('simModerate') : t('simWeak');
+    var missingProof = [];
+    if (!hasTracking) missingProof.push(t('simMissingTracking'));
+    if (type === 'not_as_described') missingProof.push(t('simMissingPhotos'));
+    if (!hasReturns) missingProof.push(t('simMissingPolicy'));
+    if (isVault) missingProof.push(t('simMissingChat'));
+    if (type === 'unauthorized') missingProof.push(t('simMissingReport'));
+    var recommendation = tooLate ? t('simRecTooLate')
+      : refunded ? t('simAlreadyRefunded')
+      : chance >= 70 ? t('simRecStrong')
+      : chance >= 40 ? t('simRecModerate')
+      : t('simRecWeak');
+    return {
+      simulated: true, prePurchase: !isVault,
+      vaultId: entry ? entry.id : null,
+      product: isVault ? (entry.product && entry.product.name) : (product && product.name),
+      disputeType: type, winChance: chance, label: label,
+      components: components, missingProof: missingProof,
+      recommendation: recommendation, filingDaysLeft: filingDaysLeft,
+      note: !isVault ? t('simPreNote') : null,
+    };
+  }
+
+  function renderSimHtml(d) {
+    var html = '<p><strong>' + t('simTitle') + '</strong> — ' + fmt(t('simWinChance'), { n: d.winChance }) +
+      ' · <span class="score score-' + (d.winChance >= 70 ? 'safe' : d.winChance >= 40 ? 'caution' : 'risky') + '">' + d.label + '</span></p>';
+    if (d.note) html += '<p class="hint">' + d.note + '</p>';
+    if (d.components && d.components.length) {
+      html += '<ul>' + d.components.map(function (c) {
+        return '<li>' + (c.points > 0 ? '+' : '') + c.points + ' — ' + c.note + '</li>';
+      }).join('') + '</ul>';
+    }
+    if (d.missingProof && d.missingProof.length) {
+      html += '<p>' + fmt(t('simMissing'), { list: d.missingProof.join(', ') }) + '</p>';
+    }
+    if (d.recommendation) html += '<p><strong>' + t('recommendation') + '</strong> ' + d.recommendation + '</p>';
+    return html;
+  }
+
+  // Deadline Tracker (rule-based mirror of the server endpoint).
+  function deadlineStatusLocal(daysLeft) {
+    if (daysLeft < 0) return { daysLeft: daysLeft, status: 'expired' };
+    if (daysLeft <= 7) return { daysLeft: daysLeft, status: 'urgent' };
+    if (daysLeft <= 30) return { daysLeft: daysLeft, status: 'soon' };
+    return { daysLeft: daysLeft, status: 'ok' };
+  }
+  function calculateDeadlinesLocal(purchaseISO, hasReturnPolicy, disputeFiledISO) {
+    var now = new Date();
+    var purchase = new Date(purchaseISO);
+    var out = [];
+    if (!isNaN(purchase.getTime())) {
+      // Days left counts whole days since the purchase, so a deadline set
+      // 180 days out still reads "180 days left" right after buying.
+      var daysSince = Math.max(0, Math.floor((now.getTime() - purchase.getTime()) / 86400000));
+      var filingDue = new Date(purchase.getTime() + 180 * 86400000);
+      var f = deadlineStatusLocal(180 - daysSince);
+      out.push({ type: 'filing', label: t('dlFiling'), dueDate: filingDue.toISOString(), daysLeft: f.daysLeft, status: f.status });
+      if (hasReturnPolicy) {
+        var returnDue = new Date(purchase.getTime() + 30 * 86400000);
+        var r = deadlineStatusLocal(30 - daysSince);
+        out.push({ type: 'return', label: t('dlReturn'), dueDate: returnDue.toISOString(), daysLeft: r.daysLeft, status: r.status });
+      } else {
+        out.push({ type: 'return', label: t('dlReturn'), dueDate: null, daysLeft: null, status: 'none', note: t('dlNoReturn') });
+      }
+    }
+    if (disputeFiledISO) {
+      var filed = new Date(disputeFiledISO);
+      if (!isNaN(filed.getTime())) {
+        var daysSinceFiled = Math.max(0, Math.floor((now.getTime() - filed.getTime()) / 86400000));
+        var escDue = new Date(filed.getTime() + 20 * 86400000);
+        var e = deadlineStatusLocal(20 - daysSinceFiled);
+        out.push({ type: 'escalation', label: t('dlEscalation'), dueDate: escDue.toISOString(), daysLeft: e.daysLeft, status: e.status });
+      }
+    } else {
+      out.push({ type: 'escalation', label: t('dlEscalation'), dueDate: null, daysLeft: null, status: 'none', note: t('dlNoDispute') });
+    }
+    return out;
+  }
+  function renderDeadlinesHtml(deadlines) {
+    return '<p><strong>' + t('dlTitle') + '</strong></p>' +
+      '<ul>' + deadlines.map(function (dl) {
+        var when;
+        if (dl.status === 'none') when = dl.note || t('dlNoReturn');
+        else if (dl.status === 'expired') when = t('dlExpired') + ' — ' + fmt(t('dlOverdue'), { days: -dl.daysLeft });
+        else if (dl.daysLeft === 0) when = t('dlToday');
+        else when = fmt(t('dlLeft'), { days: dl.daysLeft });
+        return '<li><strong>' + dl.label + '</strong> — ' + when +
+          (dl.dueDate ? ' (' + dl.dueDate.slice(0, 10) + ')' : '') + '</li>';
+      }).join('') + '</ul>';
+  }
+
+  // Evidence Pack (printable HTML, built locally from the vault entry).
+  function evidenceHtmlLocal(entry) {
+    var esc = function (s) {
+      return String(s === null || s === undefined ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    };
+    var row = function (k, v) { return '<tr><th>' + esc(k) + '</th><td>' + esc(v) + '</td></tr>'; };
+    var refund = entry.paypal && entry.paypal.refund;
+    return '<!DOCTYPE html><html lang="' + lang + '"><head><meta charset="utf-8">' +
+      '<title>' + esc(t('evTitle')) + ' — ' + esc(entry.id) + '</title>' +
+      '<style>body{font-family:system-ui,sans-serif;max-width:720px;margin:32px auto;padding:0 20px;color:#1a2233}' +
+      'h1{font-size:22px}h2{font-size:16px;margin-top:28px;border-bottom:2px solid #1d4ed8;padding-bottom:4px}' +
+      'table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:8px 10px;border-bottom:1px solid #e5e7eb;vertical-align:top}' +
+      'th{width:200px;color:#475569}.note{font-size:13px;color:#64748b;margin-top:28px}' +
+      'button{background:#1d4ed8;color:#fff;border:0;padding:10px 18px;border-radius:8px;font-size:15px;cursor:pointer}' +
+      '@media print{button{display:none}}</style></head><body>' +
+      '<h1>' + esc(t('evTitle')) + '</h1>' +
+      '<p>ShopPal v2 · ' + esc(entry.id) + ' · ' + esc(entry.createdAt || '') + '</p>' +
+      '<button onclick="window.print()">Print / Save as PDF</button>' +
+      '<h2>Order / Capture</h2><table>' +
+      row('Order ID', entry.paypal && entry.paypal.orderId || entry.id) +
+      row('Capture ID', entry.paypal && entry.paypal.captureId || '') +
+      row('Capture status', entry.paypal && entry.paypal.status || '') +
+      row('Payer', entry.paypal && entry.paypal.payerEmail || '') +
+      row('Total paid', '$' + (entry.totalCost && entry.totalCost.total != null ? entry.totalCost.total : entry.product && entry.product.priceUSD || '') + ' ' + (entry.totalCost && entry.totalCost.currency || 'USD')) +
+      (refund ? row('Refund', refund.id + ' — ' + (refund.status || '') + ' — $' + refund.amount) : '') +
+      '</table>' +
+      '<h2>Product / Seller</h2><table>' +
+      row('Product', entry.product && entry.product.name || '') +
+      row('Category', entry.product && entry.product.category || '') +
+      row('Price', '$' + (entry.product && entry.product.priceUSD != null ? entry.product.priceUSD : '')) +
+      row('Seller', entry.seller && entry.seller.name || '') +
+      row('Risk Score', entry.riskScore ? entry.riskScore.score + ' / 100 (' + entry.riskScore.label + ')' : '') +
+      '</table>' +
+      '<h2>Timeline</h2><table>' +
+      row('Purchase / capture', entry.paypal && entry.paypal.createTime || entry.createdAt || '') +
+      row('Capture verified', entry.paypal && entry.paypal.updateTime || '') +
+      (refund ? row('Refund ' + (refund.status || ''), refund.createTime || '') : '') +
+      '</table>' +
+      '<p class="note">ShopPal v2 (PayPal AI Hackathon). Sandbox proof only — no real money moved. Print this page to PDF to attach it to a PayPal dispute.</p>' +
+      '</body></html>';
   }
 
   // Total Cost (same rates as server.js)
@@ -548,6 +803,7 @@
       '<button type="button" class="chip" data-q="keyboard">Keyboard</button>' +
       '</div>' +
       '<p class="hint">Or pick any product below.</p>' +
+      '<p class="hint">' + t('linkHint') + '</p>' +
       '<div class="cards" id="catalog"></div>');
     renderCatalogInto($('catalog'), CATALOG.products);
     var chips = chatEl.querySelectorAll('.chip');
@@ -567,6 +823,42 @@
     userBubble(q);
     clearSteps();
     var typing = showTyping();
+    // A pasted product link goes to the link checker on the live server
+    // (the static demo cannot fetch other sites from the browser).
+    if (/^https?:\/\/\S+/i.test(q)) {
+      fetch(WORKER_API + '/api/check-link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: q, lang: lang }),
+      }).then(function (res) { return res.json().then(function (cl) { return { ok: res.ok, cl: cl, status: res.status }; }); })
+        .then(function (out) {
+          hideTyping(typing);
+          var cl = out.cl;
+          if (!out.ok) {
+            addBubble('agent', '<p>' + fmt(t('clFailed'), { msg: cl.error || out.status }) + '</p>');
+            return;
+          }
+          var clZone = (cl.label || 'Caution').toLowerCase();
+          var clBody = '<p><strong>' + t('clTitle') + '</strong> — ' + (cl.domain || '') +
+            ' · <span class="score score-' + clZone + '">' + (cl.score !== undefined ? cl.score + '/100 · ' : '') + labelText(cl.label) + '</span></p>';
+          if (cl.title) clBody += '<p><strong>' + escapeHtml(cl.title) + '</strong>' +
+            (cl.priceUSD ? ' — ' + money(cl.priceUSD) : ' · ' + t('clNoPrice')) + '</p>';
+          if (cl.image) clBody += '<p><img src="' + cl.image + '" alt="" style="max-width:220px;border-radius:8px"></p>';
+          if (cl.reasons && cl.reasons.length) {
+            clBody += '<ul>' + cl.reasons.map(function (r) { return '<li>' + r + '</li>'; }).join('') + '</ul>';
+          }
+          if (cl.totalCost) {
+            clBody += '<p><strong>' + t('honestTotal') + '</strong> — ' + money(cl.totalCost.total) + '</p>';
+          }
+          if (cl.note) clBody += '<p class="hint">' + cl.note + '</p>';
+          addBubble('agent', clBody);
+        })
+        .catch(function (e) {
+          hideTyping(typing);
+          addBubble('agent', '<p>' + fmt(t('clFailed'), { msg: String(e && e.message || e) }) + '</p>');
+        });
+      return;
+    }
     setTimeout(function () {
       hideTyping(typing);
       var parsed = parseAsk(q, lastResults);
@@ -621,14 +913,29 @@
       extra += '<p><strong>' + t('beforeYouPay') + '</strong></p><ul>' +
         extras.checklist.map(function (c) { return '<li>' + c + '</li>'; }).join('') + '</ul>';
     }
-    addBubble('agent',
+    var bubble = addBubble('agent',
       '<p><strong>' + selected.seller.name + '</strong> — ' + t('riskScore') + ' <span class="score score-' + zone + '">' + r.score + '/100 · ' + labelText(r.label) + '</span></p>' +
       '<ul>' + r.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' +
       '<p><strong>' + t('recommendation') + '</strong> ' + r.recommendation + '</p>' +
       extra +
       '<p class="hint">Profile ' + r.components.profile + ' · History ' + r.components.history +
-      ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking + ' · ' + r.aiNote + '</p>',
+      ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking + ' · ' + r.aiNote + '</p>' +
+      '<p><button id="pre-sim-btn" type="button">' + t('simBtn') + '</button></p>' +
+      '<div id="pre-sim" class="card hidden"></div>',
       'risk');
+    // Pre-purchase dispute simulation (rule-based, local — no server).
+    bubble.querySelector('#pre-sim-btn').addEventListener('click', function () {
+      var box = $('pre-sim');
+      if (!box) return;
+      box.classList.remove('hidden');
+      var d = simulateLocal({ sellerId: selected.seller.id, productId: selected.product.id });
+      if (d.error) {
+        box.textContent = fmt(t('simFailed'), { msg: d.error });
+        return;
+      }
+      box.innerHTML = renderSimHtml(d);
+      scrollChat();
+    });
   }
 
   function showHold() {
@@ -807,13 +1114,67 @@
       '<div class="card">' + subs + '</div>' +
       '<p><button id="vault-refresh" type="button">' + t('refreshVault') + '</button> ' +
       '<button id="dispute-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('disputeBtn') + '</button> ' +
+      '<button id="sim-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('simBtn') + '</button> ' +
+      '<button id="evidence-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('evBtn') + '</button> ' +
+      '<button id="deadlines-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('dlBtn') + '</button> ' +
       '<button id="refund-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('refundBtn') + '</button> ' +
       '<button id="order-status-btn" type="button"' + (entries.length ? '' : ' disabled') + '>' + t('orderStatusBtn') + '</button></p>' +
       '<div id="dispute-draft" class="card hidden"></div>' +
+      '<div id="vault-tools" class="card hidden"></div>' +
       '<div id="paypal-actions" class="card hidden"></div>',
       'vault');
     bubble.querySelector('#vault-refresh').addEventListener('click', function () { showVault(); });
     bubble.querySelector('#dispute-btn').addEventListener('click', function () { showDisputeDraft(); });
+    // Dispute simulation for the latest vault entry (rule-based, local).
+    bubble.querySelector('#sim-btn').addEventListener('click', function () {
+      if (!lastVaultId) return;
+      var box = $('vault-tools');
+      if (!box) return;
+      box.classList.remove('hidden');
+      var d = simulateLocal({ vaultId: lastVaultId });
+      if (d.error) {
+        box.textContent = fmt(t('simFailed'), { msg: d.error });
+        return;
+      }
+      box.innerHTML = renderSimHtml(d);
+      scrollChat();
+    });
+    // Evidence Pack: download a printable proof page built locally.
+    bubble.querySelector('#evidence-btn').addEventListener('click', function () {
+      if (!lastVaultId) return;
+      var entry = loadVault().find(function (e) { return e.id === lastVaultId; });
+      var box = $('vault-tools');
+      if (!entry) {
+        if (box) {
+          box.classList.remove('hidden');
+          box.textContent = fmt(t('evFailed'), { msg: t('disputeNotFound') });
+        }
+        return;
+      }
+      var blob = new Blob([evidenceHtmlLocal(entry)], { type: 'text/html' });
+      var url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+    });
+    // Deadline Tracker: 180-day filing + 20-day escalation + 30-day return.
+    bubble.querySelector('#deadlines-btn').addEventListener('click', function () {
+      if (!lastVaultId) return;
+      var box = $('vault-tools');
+      if (!box) return;
+      box.classList.remove('hidden');
+      var entry = loadVault().find(function (e) { return e.id === lastVaultId; });
+      if (!entry) {
+        box.textContent = fmt(t('dlFailed'), { msg: t('disputeNotFound') });
+        return;
+      }
+      var deadlines = calculateDeadlinesLocal(
+        entry.paypal && entry.paypal.createTime || entry.createdAt,
+        !!(entry.seller && entry.seller.returnPolicy),
+        entry.disputeDraftAt || null
+      );
+      box.innerHTML = renderDeadlinesHtml(deadlines);
+      scrollChat();
+    });
     // Refund the latest vault entry (full amount, PayPal Sandbox) via the
     // deployed Worker. Two clicks: the first arms the button.
     var refundBtn = bubble.querySelector('#refund-btn');
@@ -883,6 +1244,16 @@
     if (!box) return;
     box.classList.remove('hidden');
     if (!entry) { box.textContent = t('disputeNotFound'); return; }
+    // The draft date starts the 20-day escalation clock for the tracker.
+    if (!entry.disputeDraftAt) {
+      entry.disputeDraftAt = new Date().toISOString();
+      var all = loadVault();
+      var i = all.findIndex(function (e) { return e.id === lastVaultId; });
+      if (i >= 0) {
+        all[i].disputeDraftAt = entry.disputeDraftAt;
+        try { localStorage.setItem(VAULT_KEY, JSON.stringify(all)); } catch (e) { /* storage unavailable */ }
+      }
+    }
     var missing = [];
     if (!entry.paypal || !entry.paypal.captureId) missing.push('capture ID');
     if (!entry.seller || !entry.seller.tracking) missing.push('tracking proof');
