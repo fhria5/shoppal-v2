@@ -1820,6 +1820,28 @@ async function runAgentLoop(message, lang, ctx) {
       order, aiUsed: false,
     };
   }
+  // Track & dispute is deterministic (the Quick Demo chip): run it directly
+  // instead of letting the model ask a clarifying question first.
+  if (/(lacak|track|dispute|sengketa)/.test(message.toLowerCase())) {
+    const steps = [];
+    const out = await agentTrackAndDispute({ reason: 'not_received' }, ctx);
+    steps.push({ action: 'track_and_dispute', summary: out.summary });
+    if (out.data.error) {
+      return {
+        reply: lang === 'id'
+          ? 'Belum ada pesanan yang bisa dilacak. Beli dulu sesuatu, misalnya lewat chip "Beli Barang Murah", lalu lacak pesanannya di sini.'
+          : 'No purchase to track yet. Buy something first, for example with the "Buy a cheap item" chip, then track it here.',
+        steps, aiUsed: false,
+      };
+    }
+    const d = out.data.dispute || {};
+    return {
+      reply: lang === 'id'
+        ? 'Pesanan terakhir (' + (out.data.product || out.data.vaultId) + ') sudah dilacak' + (out.data.tracking && out.data.tracking.status ? ' (' + out.data.tracking.status + ')' : '') + '. Simulasi sengketa: peluang menang ' + (d.winChance !== undefined ? d.winChance + '%' : '-') + ' (' + (d.label || '') + '). Payload sengketa ada di bawah.'
+        : 'Latest order (' + (out.data.product || out.data.vaultId) + ') tracked' + (out.data.tracking && out.data.tracking.status ? ' (' + out.data.tracking.status + ')' : '') + '. Dispute simulation: win chance ' + (d.winChance !== undefined ? d.winChance + '%' : '-') + ' (' + (d.label || '') + '). The dispute payload is below.',
+      steps, tracking: out.data.tracking, dispute: d, aiUsed: false,
+    };
+  }
   const system = 'You are ShopPal, a PayPal shopping agent. You act for the user: you search, check, and prepare PayPal payments. ' + agentToolList(lang);
   const messages = [
     { role: 'system', content: system },
