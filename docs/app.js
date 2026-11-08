@@ -203,6 +203,25 @@
       budLeft: '{left} left this month.', budOver: 'Over budget by {over} this month.',
       budWarn: 'This purchase would take you over your monthly budget ({spent} of {budget} spent).',
       budNoBudget: 'No monthly budget set.',
+      hrcTitle: 'Hold release checklist', hrcBtn: 'How to release this hold faster',
+      hrcIntro: 'PayPal holds new or risky sellers’ money for up to 21 days. Each step below can release it sooner — tick what is already done and see the estimated release.',
+      hrcEstimated: 'Estimated release: {n} days', hrcCurrent: 'Current hold: {n} days',
+      hrcDone: 'Done', hrcTodo: 'To do', hrcSaves: 'saves up to {n} days',
+      hrcPrevents: 'prevents future holds',
+      hrcStepTracking: 'Add a tracking number to the PayPal transaction',
+      hrcStepTrackingDetail: 'The hold is released 3 days after the carrier confirms delivery.',
+      hrcStepShipped: 'Mark the order as Shipped in PayPal',
+      hrcStepShippedDetail: 'Without tracking, the hold is released 7 days after the ship date.',
+      hrcStepBuyer: 'Ask the buyer to confirm receipt in PayPal',
+      hrcStepBuyerDetail: 'The hold is released 1 day after the buyer confirms receipt.',
+      hrcStepProof: 'Upload proof of delivery (invoice, delivery photo)',
+      hrcStepProofDetail: 'Helps PayPal release the hold faster if the transaction is reviewed.',
+      hrcStepShipFast: 'Ship within 7 days of payment',
+      hrcStepShipFastDetail: 'Late shipping can extend the hold.',
+      hrcStepDisputes: 'Keep the dispute rate low and respond to disputes fast',
+      hrcStepDisputesDetail: 'High dispute rates trigger holds on future sales.',
+      hrcNote: 'PayPal’s published hold rules (new-seller and risk holds, up to 21 days). Estimates, not a guarantee — PayPal decides each case.',
+      hrcNotFound: 'Pick a product first to see its hold checklist.',
       disputeTitle: 'Simulated dispute draft', disputeReadiness: 'readiness {n}/100',
       disputeBody: 'Dispute response draft (simulated, factual only): Order {order} for {product} ({total}) was paid via PayPal Sandbox and captured as {status}. Seller: {seller} (risk score {score} at checkout). Proof is attached in the Proof Vault entry {id}.',
       disputeMissing: 'Still missing: {list}', disputeNone: 'No proof missing.',
@@ -348,6 +367,25 @@
       budLeft: 'Sisa {left} bulan ini.', budOver: 'Melebihi budget {over} bulan ini.',
       budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
       budNoBudget: 'Belum ada budget bulanan.',
+      hrcTitle: 'Checklist cairkan hold', hrcBtn: 'Cara cairkan hold ini lebih cepat',
+      hrcIntro: 'PayPal menahan uang seller baru atau berisiko sampai 21 hari. Tiap langkah di bawah bisa mencairkannya lebih cepat — centang yang sudah dilakukan dan lihat perkiraan cairnya.',
+      hrcEstimated: 'Perkiraan cair: {n} hari', hrcCurrent: 'Hold saat ini: {n} hari',
+      hrcDone: 'Selesai', hrcTodo: 'Belum', hrcSaves: 'hemat sampai {n} hari',
+      hrcPrevents: 'mencegah hold berikutnya',
+      hrcStepTracking: 'Tambahkan nomor resi ke transaksi PayPal',
+      hrcStepTrackingDetail: 'Hold cair 3 hari setelah kurir mengonfirmasi barang diterima.',
+      hrcStepShipped: 'Tandai order sebagai Shipped di PayPal',
+      hrcStepShippedDetail: 'Tanpa resi, hold cair 7 hari setelah tanggal kirim.',
+      hrcStepBuyer: 'Minta pembeli mengonfirmasi penerimaan di PayPal',
+      hrcStepBuyerDetail: 'Hold cair 1 hari setelah pembeli mengonfirmasi.',
+      hrcStepProof: 'Unggah bukti pengiriman (invoice, foto pengiriman)',
+      hrcStepProofDetail: 'Membantu PayPal mencairkan hold lebih cepat bila transaksi ditinjau.',
+      hrcStepShipFast: 'Kirim dalam 7 hari setelah pembayaran',
+      hrcStepShipFastDetail: 'Pengiriman terlambat bisa memperpanjang hold.',
+      hrcStepDisputes: 'Jaga dispute tetap rendah dan balas sengketa dengan cepat',
+      hrcStepDisputesDetail: 'Tingkat dispute tinggi memicu hold di penjualan berikutnya.',
+      hrcNote: 'Aturan hold resmi PayPal (hold seller baru dan berisiko, sampai 21 hari). Perkiraan, bukan jaminan — PayPal yang memutuskan tiap kasus.',
+      hrcNotFound: 'Pilih produk dulu untuk melihat checklist hold-nya.',
       disputeTitle: 'Draf sengketa simulasi', disputeReadiness: 'kesiapan {n}/100',
       disputeBody: 'Draf jawaban sengketa (simulasi, hanya fakta): Order {order} untuk {product} ({total}) dibayar via PayPal Sandbox dan di-capture sebagai {status}. Seller: {seller} (skor risiko {score} saat checkout). Bukti terlampir di entri Proof Vault {id}.',
       disputeMissing: 'Masih kurang: {list}', disputeNone: 'Tidak ada bukti yang kurang.',
@@ -504,6 +542,53 @@
     if (ph.aiReview) body += '<p class="hint">' + ph.aiReview + '</p>';
     if (ph.note) body += '<p class="hint">' + ph.note + '</p>';
     return body;
+  }
+
+  // ---------- Hold Release Checklist (local mirror of the server rules) ----------
+  function buildHoldChecklistLocal(seller, product) {
+    if (!seller || !product) return null;
+    var hold = calculateHoldRisk(seller, product);
+    var currentDays = hold.label === 'Low' ? 0 : hold.label === 'Moderate' ? 7 : 21;
+    var steps = [
+      { id: 'tracking', title: t('hrcStepTracking'), detail: t('hrcStepTrackingDetail'), done: Boolean(seller.hasTracking), savesDays: 18 },
+      { id: 'shipped', title: t('hrcStepShipped'), detail: t('hrcStepShippedDetail'), done: false, savesDays: 14 },
+      { id: 'buyer', title: t('hrcStepBuyer'), detail: t('hrcStepBuyerDetail'), done: false, savesDays: 20 },
+      { id: 'proof', title: t('hrcStepProof'), detail: t('hrcStepProofDetail'), done: false, savesDays: 0 },
+      { id: 'shipFast', title: t('hrcStepShipFast'), detail: t('hrcStepShipFastDetail'), done: false, savesDays: 0 },
+      { id: 'disputes', title: t('hrcStepDisputes'), detail: t('hrcStepDisputesDetail'), done: Number(seller.disputeRate || 0) < 1, savesDays: 0 },
+    ];
+    return { holdLabel: hold.label, holdChance: hold.chance, currentDays: currentDays, steps: steps, note: t('hrcNote') };
+  }
+
+  // Interactive checklist: ticking a step recomputes the estimated release.
+  function renderHoldChecklist(box, d) {
+    var state = {};
+    d.steps.forEach(function (s) { state[s.id] = s.done; });
+    var estDays = function () {
+      if (state.buyer) return 1;
+      if (state.tracking) return 3;
+      if (state.shipped) return 7;
+      return 21;
+    };
+    var render = function () {
+      var html = '<p><strong>' + t('hrcTitle') + '</strong></p>' +
+        '<p>' + t('hrcIntro') + '</p>' +
+        '<p><strong>' + fmt(t('hrcCurrent'), { n: d.currentDays }) + '</strong> · <strong>' + fmt(t('hrcEstimated'), { n: estDays() }) + '</strong></p>' +
+        '<ul>' + d.steps.map(function (s) {
+          return '<li><label><input type="checkbox" data-step="' + s.id + '"' + (state[s.id] ? ' checked' : '') + '> ' +
+            '<strong>' + s.title + '</strong> — ' + s.detail + ' <em>(' +
+            (s.savesDays > 0 ? fmt(t('hrcSaves'), { n: s.savesDays }) : t('hrcPrevents')) + ')</em></label></li>';
+        }).join('') + '</ul>' +
+        '<p class="hint">' + d.note + '</p>';
+      box.innerHTML = html;
+      box.querySelectorAll('input[data-step]').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          state[cb.getAttribute('data-step')] = cb.checked;
+          render();
+        });
+      });
+    };
+    render();
   }
 
   var $ = function (id) { return document.getElementById(id); };
@@ -1239,12 +1324,27 @@
   function showHold() {
     var h = calculateHoldRisk(selected.seller, selected.product);
     var zone = h.label === 'Low' ? 'safe' : h.label === 'Moderate' ? 'caution' : 'risky';
-    addBubble('agent',
+    var bubble = addBubble('agent',
       '<p><strong>' + t('holdTitle') + '</strong> — hold risk <span class="score score-' + zone + '">' + holdLabelText(h.label) + ' · ' + h.chance + '</span></p>' +
       '<ul>' + h.reasons.map(function (reason) { return '<li>' + reason + '</li>'; }).join('') + '</ul>' +
       '<p>' + h.tip + '</p>' +
-      '<p class="hint">' + t('holdHint') + '</p>',
+      '<p class="hint">' + t('holdHint') + '</p>' +
+      '<p><button id="hrc-btn" type="button">' + t('hrcBtn') + '</button></p>' +
+      '<div id="hrc-box" class="card hidden"></div>',
       'hold');
+    // Hold Release Checklist (rule-based, local — no server).
+    bubble.querySelector('#hrc-btn').addEventListener('click', function () {
+      var box = $('hrc-box');
+      if (!box) return;
+      box.classList.remove('hidden');
+      var d = buildHoldChecklistLocal(selected.seller, selected.product);
+      if (!d) {
+        box.textContent = t('hrcNotFound');
+        return;
+      }
+      renderHoldChecklist(box, d);
+      scrollChat();
+    });
   }
 
   function showCost() {
