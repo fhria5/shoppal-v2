@@ -196,6 +196,9 @@
       phNote: 'Rule-based check + AI review. When in doubt, never click — open paypal.com yourself.',
       phPlaceholder: 'Paste the suspicious message…',
       cmpToggle: 'Compare products', cmpTitle: 'Compare products',
+      cmpSafer: 'Safer pick', cmpCheaper: 'Cheapest',
+      cmpVerdictBoth: 'Safer and cheapest: {safer} ({score}/100).',
+      cmpVerdictSplit: 'Safer: {safer} ({score}/100). Cheapest: {cheaper} ({price}, saves {saves}).',
       cmpPick: 'Pick two products to compare.',
       cmpSelected: '{n}/2 selected', cmpCompareBtn: 'Compare', cmpClear: 'Clear',
       budTitle: 'Monthly budget', budSet: 'Set monthly budget (USD)',
@@ -360,6 +363,9 @@
       phNote: 'Pemeriksaan berbasis aturan + tinjauan AI. Kalau ragu, jangan klik — buka paypal.com sendiri.',
       phPlaceholder: 'Tempel pesan yang mencurigakan…',
       cmpToggle: 'Bandingkan produk', cmpTitle: 'Bandingkan produk',
+      cmpSafer: 'Paling aman', cmpCheaper: 'Termurah',
+      cmpVerdictBoth: 'Paling aman dan termurah: {safer} ({score}/100).',
+      cmpVerdictSplit: 'Paling aman: {safer} ({score}/100). Termurah: {cheaper} ({price}, hemat {saves}).',
       cmpPick: 'Pilih dua produk untuk dibandingkan.',
       cmpSelected: '{n}/2 dipilih', cmpCompareBtn: 'Bandingkan', cmpClear: 'Bersihkan',
       budTitle: 'Budget bulanan', budSet: 'Atur budget bulanan (USD)',
@@ -1157,19 +1163,35 @@
         cost: calculateTotalCost(p.priceUSD, true, true),
       };
     });
-    var cell = function (r, fn) { return '<td>' + fn(r) + '</td>'; };
     var shortHold = function (h) { return (h.chance || '').replace(' (estimate)', '').replace('under 5%', '<5%'); };
+    // One-line verdict: which is safer, which is cheaper — then two
+    // stacked cards, so nothing ever needs a horizontal scroll on a phone.
+    var safer = rows[0].risk.score >= rows[1].risk.score ? rows[0] : rows[1];
+    var cheaper = rows[0].product.priceUSD <= rows[1].product.priceUSD ? rows[0] : rows[1];
+    var other = cheaper === rows[0] ? rows[1] : rows[0];
+    var verdict = safer === cheaper
+      ? t('cmpVerdictBoth')
+      : fmt(t('cmpVerdictSplit'), { safer: safer.seller.name, score: safer.risk.score, cheaper: cheaper.seller.name, price: money(cheaper.product.priceUSD), saves: money(other.product.priceUSD - cheaper.product.priceUSD) });
+    var cardHtml = function (r) {
+      var zone = r.risk.label === 'Safe' ? 'safe' : r.risk.label === 'Caution' ? 'caution' : 'risky';
+      var hz = r.hold.label === 'Low' ? 'safe' : r.hold.label === 'Moderate' ? 'caution' : 'risky';
+      var badges = '';
+      if (r === safer) badges += ' <span class="pick-badge pick-safer">' + t('cmpSafer') + '</span>';
+      if (r === cheaper && r !== safer) badges += ' <span class="pick-badge pick-cheaper">' + t('cmpCheaper') + '</span>';
+      return '<div class="compare-card' + (r === safer ? ' compare-safer' : '') + '">' +
+        '<div class="compare-head">' +
+        '<img src="' + IMAGE[r.product.category] + '" alt="' + r.product.name + '">' +
+        '<div><strong>' + r.product.name + '</strong><br><span class="price">' + money(r.product.priceUSD) + '</span> · ' + r.seller.name + badges + '</div></div>' +
+        '<ul><li>' + t('riskScore') + ': <span class="score score-' + zone + '">' + r.risk.score + '/100 · ' + labelText(r.risk.label) + '</span></li>' +
+        '<li>' + t('holdTitle') + ': <span class="score score-' + hz + '">' + holdLabelText(r.hold.label) + ' · ' + shortHold(r.hold) + '</span></li>' +
+        '<li>' + t('honestTotal') + ': <strong>' + money(r.cost.total) + '</strong></li>' +
+        '<li>Tracking / Returns: ' + (r.seller.hasTracking ? '✓' : '✗') + ' / ' + (r.seller.hasReturnPolicy ? '✓' : '✗') + '</li></ul>' +
+        '</div>';
+    };
     addBubble('agent',
       '<p><strong>' + t('cmpTitle') + '</strong></p>' +
-      '<div class="table-scroll"><table class="compare-table">' +
-      '<tr><th scope="col"></th>' + rows.map(function (r) { return '<th scope="col">' + r.product.name + '</th>'; }).join('') + '</tr>' +
-      '<tr><td scope="row">Price</td>' + rows.map(function (r) { return cell(r, function (x) { return money(x.product.priceUSD); }); }).join('') + '</tr>' +
-      '<tr><td scope="row">' + t('riskScore') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return x.risk.score + '/100 · ' + labelText(x.risk.label); }); }).join('') + '</tr>' +
-      '<tr><td scope="row">' + t('holdTitle') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return holdLabelText(x.hold.label) + ' · ' + shortHold(x.hold); }); }).join('') + '</tr>' +
-      '<tr><td scope="row">' + t('honestTotal') + '</td>' + rows.map(function (r) { return cell(r, function (x) { return money(x.cost.total); }); }).join('') + '</tr>' +
-      '<tr><td scope="row">Seller</td>' + rows.map(function (r) { return cell(r, function (x) { return x.seller.name; }); }).join('') + '</tr>' +
-      '<tr><td scope="row">Tracking / Returns</td>' + rows.map(function (r) { return cell(r, function (x) { return (x.seller.hasTracking ? '✓' : '✗') + ' / ' + (x.seller.hasReturnPolicy ? '✓' : '✗'); }); }).join('') + '</tr>' +
-      '</table></div>');
+      '<p>' + verdict + '</p>' +
+      '<div class="compare-list">' + rows.map(cardHtml).join('') + '</div>');
     compareList = [];
     updateCompareBar();
     scrollChat();
