@@ -188,8 +188,13 @@ async function get(path) {
   check('ex headphones row', edata.byCategory.some((x) => x.category === 'Headphones' && x.total > 0), edata.byCategory);
 
   // ---------- 8. Price Watch + Split Bill ----------
-  r = await post('/api/price-watch', { productId: 'p03', targetPrice: 25, lang: 'en' });
-  check('pw create watch', r.status === 200 && r.data.status === 'watching' && r.data.targetPrice === 25 && typeof r.data.currentPrice === 'number' && r.data.currentPrice > 25, r.data);
+  // Target $5 sits below the sim price floor for p03 (base $29.99, floor
+  // base x 0.8 = $23.99), so the watch is always 'watching' at creation no
+  // matter how far the simulated price has drifted down. A $25 target was
+  // flaky: the drifted price can sit at the $23.99 floor, below the target,
+  // and the watch is created 'triggered' instead.
+  r = await post('/api/price-watch', { productId: 'p03', targetPrice: 5, lang: 'en' });
+  check('pw create watch', r.status === 200 && r.data.status === 'watching' && r.data.targetPrice === 5 && typeof r.data.currentPrice === 'number' && r.data.currentPrice > 5, r.data);
   const pwId = r.data.id;
   r = await post('/api/price-watch', { productId: 'p03', targetPrice: 999, lang: 'en' });
   check('pw high target triggers at once', r.status === 200 && r.data.status === 'triggered', r.data);
