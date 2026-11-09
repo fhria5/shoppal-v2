@@ -512,12 +512,14 @@ button:active:not(:disabled) { transform: translateY(1px); }
 }
 
 /* ==========================================================================
-   MODERN AI CHAT UI THEME OVERRIDE — SHOPPAL V2
-   (Appended 9 Nov 2026: ChatGPT/Claude/Perplexity-style app shell.
-   Adapted to the project's real selectors: #ask is the input
-   (class .chat-input), #ask-btn is the send button (class .send-btn),
-   the composer is wrapped in <form class="composer-form" id="chat-form">,
-   product cards use .card-body > strong / .price / .seller.)
+   MODERN AI CHAT UI (DESKTOP + MOBILE) — SHOPPAL V2
+   (Replaced the previous override 9 Nov 2026 ~08:35 WITA with the user's
+   v2 CSS, adapted to the project's real selectors: the header uses
+   h1.agent-name + div.agent-status (not strong/span), product cards use
+   .card-body > strong / .price / .seller (not .card-title/.card-price/
+   .card-meta), #ask is the input (class .chat-input), #ask-btn is the
+   send button (class .send-btn), the composer is wrapped in
+   <form class="composer-form" id="chat-form">.)
    ========================================================================== */
 
 :root {
@@ -537,7 +539,7 @@ body {
     overflow: hidden;
 }
 
-/* 1. Full-Viewport Modern Chat App Shell */
+/* 1. App Shell Full-Viewport */
 .app {
     max-width: 100% !important;
     width: 100%;
@@ -550,16 +552,22 @@ body {
     overflow: hidden;
 }
 
+/* 2. Header Rapi & Tidak Terpotong di Mobile maupun Desktop */
 .chat-header {
-    height: 62px;
-    padding: 0 1.5rem !important;
-    background: rgba(255, 255, 255, 0.92) !important;
+    min-height: 60px;
+    height: auto !important;
+    padding: 0.5rem 1.25rem !important;
+    background: rgba(255, 255, 255, 0.95) !important;
     backdrop-filter: blur(12px);
     border: none !important;
     border-bottom: 1px solid var(--border-subtle) !important;
     border-radius: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
     flex-shrink: 0;
-    z-index: 20;
+    z-index: 30;
     /* The header was navy with white text; the new glass header is white,
        so the identity text and the pills need dark colours. */
     color: var(--text-main) !important;
@@ -582,19 +590,44 @@ body {
     animation: pulse-dot 2s infinite;
 }
 
+.agent-id {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-width: 0;
+}
+
+/* Real markup: h1.agent-name + div.agent-status (not strong/span). */
+.agent-name {
+    display: block;
+    font-size: 1.05rem !important;
+    line-height: 1.2;
+    color: var(--text-main);
+    margin: 0 !important;
+}
+
+.agent-status {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.76rem !important;
+    line-height: 1.2;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+/* 3. Layout 2 Kolom Desktop */
 .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px !important;
+    grid-template-columns: minmax(0, 1fr) 350px !important;
     gap: 0 !important;
     margin-top: 0 !important;
     padding: 0 !important;
     flex: 1;
     min-height: 0;
-    height: calc(100dvh - 62px);
     overflow: hidden;
 }
 
-/* 2. Centered Scrollable AI Conversation Column */
 .chat-col {
     display: flex;
     flex-direction: column;
@@ -618,17 +651,17 @@ body {
     width: 100%;
     max-width: 840px;
     margin: 0 auto;
-    padding: 1.5rem 1.25rem 1rem !important;
+    padding: 1.15rem 1rem 1rem !important;
     display: flex;
     flex-direction: column;
-    gap: 1rem !important;
+    gap: 0.85rem !important;
 }
 
-/* 3. Modern User & AI Message Bubbles */
+/* 4. Bubble Chat Modern */
 @keyframes msgSlideIn {
     from {
         opacity: 0;
-        transform: translateY(8px);
+        transform: translateY(6px);
     }
     to {
         opacity: 1;
@@ -637,16 +670,16 @@ body {
 }
 
 .msg {
-    animation: msgSlideIn 0.22s ease-out;
-    line-height: 1.55 !important;
+    animation: msgSlideIn 0.2s ease-out;
+    line-height: 1.5 !important;
 }
 
 .msg.user {
     background: linear-gradient(135deg, #0b2545 0%, #163e6c 100%) !important;
     color: #ffffff !important;
     align-self: flex-end !important;
-    max-width: 72% !important;
-    padding: 0.75rem 1.15rem !important;
+    max-width: 78% !important;
+    padding: 0.7rem 1.05rem !important;
     border-radius: 20px 20px 4px 20px !important;
     box-shadow: 0 3px 10px rgba(11, 37, 69, 0.14);
     font-weight: 500;
@@ -656,7 +689,7 @@ body {
     background: var(--surface-card) !important;
     border: 1px solid var(--border-subtle) !important;
     border-radius: 16px !important;
-    padding: 1.15rem 1.25rem !important;
+    padding: 1rem 1.1rem !important;
     max-width: 100% !important;
     width: 100%;
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
@@ -666,29 +699,29 @@ body {
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
-    font-size: 0.75rem !important;
+    font-size: 0.72rem !important;
     font-weight: 700 !important;
     text-transform: uppercase;
     letter-spacing: 0.03em;
     color: var(--navy-primary) !important;
-    margin-bottom: 0.5rem !important;
+    margin-bottom: 0.4rem !important;
 }
 
 .msg-label::before {
     content: "";
     display: inline-block;
-    width: 8px;
-    height: 8px;
+    width: 7px;
+    height: 7px;
     border-radius: 50%;
     background-color: #10b981;
 }
 
-/* 4. Bento Product Cards & WCAG Contrast Fix */
+/* 5. Product Cards & WCAG Contrast Fix */
 .cards {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)) !important;
-    gap: 0.85rem !important;
-    margin-top: 0.75rem !important;
+    gap: 0.75rem !important;
+    margin-top: 0.65rem !important;
 }
 
 button.product-card,
@@ -699,7 +732,7 @@ button.product-card.selected {
     background-color: #ffffff !important;
     color: var(--text-main) !important;
     border-radius: 14px !important;
-    padding: 0.85rem !important;
+    padding: 0.75rem !important;
     border: 1px solid var(--border-subtle) !important;
     transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease !important;
 }
@@ -722,36 +755,33 @@ button.product-card.selected {
 button.product-card .card-body strong {
     color: var(--text-main) !important;
     font-weight: 600;
-    font-size: 0.9rem;
-    margin-top: 0.4rem;
+    font-size: 0.88rem;
 }
 
 button.product-card .price {
     color: var(--navy-primary) !important;
     font-weight: 700;
-    font-size: 1rem;
-    margin: 0.2rem 0;
+    font-size: 0.95rem;
+    margin: 0.15rem 0;
 }
 
 button.product-card .seller {
     color: var(--text-secondary) !important;
-    font-size: 0.78rem;
+    font-size: 0.75rem;
 }
 
-/* 5. Floating Pill Composer & Single-Row Quick Demo Chips */
+/* 6. Bottom Composer & Quick Demo Chips */
 .quick-demo {
     width: 100%;
     max-width: 840px;
     margin: 0 auto;
-    padding: 0.4rem 1.25rem !important;
+    padding: 0.35rem 1rem !important;
     display: flex !important;
     flex-wrap: nowrap !important;
     overflow-x: auto;
-    gap: 0.5rem !important;
+    gap: 0.45rem !important;
     scrollbar-width: none;
     flex-shrink: 0;
-    /* The old rule gave .quick-demo a surface background + top border;
-       the floating bottom bar is transparent so the chat fades into it. */
     background: transparent !important;
     border-top: none !important;
 }
@@ -766,28 +796,20 @@ button.product-card .seller {
     color: var(--text-main) !important;
     border: 1px solid #cbd5e1 !important;
     border-radius: 999px !important;
-    padding: 0.42rem 0.9rem !important;
-    font-size: 0.82rem !important;
+    padding: 0.38rem 0.8rem !important;
+    font-size: 0.8rem !important;
     font-weight: 500;
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
-}
-
-.chip:hover {
-    background: #f1f5f9 !important;
-    border-color: var(--navy-primary) !important;
 }
 
 .composer {
     width: 100%;
     max-width: 840px;
     margin: 0 auto;
-    padding: 0.25rem 1.25rem 0.85rem !important;
+    padding: 0.25rem 1rem 0.65rem !important;
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.25rem;
     flex-shrink: 0;
-    /* The old .composer was a bordered surface bar; the floating bottom
-       bar is transparent so the chat fades into it. */
     background: transparent !important;
     border-top: none !important;
 }
@@ -796,8 +818,8 @@ button.product-card .seller {
     background: #ffffff;
     border: 1px solid #cbd5e1;
     border-radius: 28px;
-    padding: 0.35rem 0.45rem 0.35rem 1.15rem;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.07);
+    padding: 0.3rem 0.4rem 0.3rem 1rem;
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
     display: flex;
     align-items: center;
     transition: border-color 0.2s, box-shadow 0.2s;
@@ -805,7 +827,7 @@ button.product-card .seller {
 
 .composer-form:focus-within {
     border-color: var(--navy-primary);
-    box-shadow: 0 8px 28px rgba(11, 37, 69, 0.15);
+    box-shadow: 0 6px 24px rgba(11, 37, 69, 0.16);
 }
 
 .chat-input {
@@ -813,8 +835,8 @@ button.product-card .seller {
     min-width: 0;
     border: none !important;
     background: transparent !important;
-    padding: 0.5rem 0.5rem !important;
-    font-size: 0.95rem !important;
+    padding: 0.45rem 0.4rem !important;
+    font-size: 0.92rem !important;
     color: var(--text-main) !important;
 }
 
@@ -826,8 +848,8 @@ button.product-card .seller {
 }
 
 .send-btn {
-    width: 40px !important;
-    height: 40px !important;
+    width: 38px !important;
+    height: 38px !important;
     border-radius: 50% !important;
     background: var(--navy-primary) !important;
     color: #ffffff !important;
@@ -846,16 +868,16 @@ button.product-card .seller {
     background: transparent !important;
 }
 
-/* 6. Clean Right Companion Sidebar */
+/* 7. Sidebar Kanan Desktop */
 .sidebar {
     background: #ffffff;
     border-left: 1px solid var(--border-subtle);
-    padding: 1.25rem;
+    padding: 1.15rem;
     height: 100%;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.85rem;
     /* The desktop media query made it sticky; inside the fixed-height
        grid it is a plain scrolling column. */
     position: static !important;
@@ -869,28 +891,150 @@ button.product-card .seller {
     padding: 1rem !important;
 }
 
-/* Responsive Tablet & Mobile */
+/* Vault tools drawer: the vault bubble is long, so it can collapse to a
+   single toggle (collapsed by default on phones, expanded on desktop). */
+.vault-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.35rem;
+    padding: 0.4rem 0.85rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--navy-primary);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    cursor: pointer;
+}
+
+.msg.agent[data-step="vault"].vault-collapsed > :not(.msg-label):not(.vault-toggle) {
+    display: none !important;
+}
+
+/* ==========================================================================
+   8. KHUSUS LAYAR MOBILE (<= 920px): GAYA APLIKASI CHAT AI MOBILE
+   ========================================================================== */
 @media (max-width: 920px) {
-    body, .app, .layout, .chat-col {
-        height: auto;
-        max-height: none;
-        overflow: visible;
+    /* Pertahankan 100dvh agar input chat selalu terkunci di bawah layar HP
+       (round sebelumnya pakai height:auto di sini dan composer terdorong
+       ke bawah halaman sampai hilang dari layar pertama). */
+    body, .app {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
     }
-    .layout {
-        /* minmax(0, 1fr): a plain 1fr column refuses to shrink below its
-           content width and the 840px chat overflows the phone viewport. */
-        grid-template-columns: minmax(0, 1fr) !important;
-    }
-    .chat-col, .chat {
-        min-width: 0;
-    }
-    .sidebar {
-        border-left: none;
-        border-top: 1px solid var(--border-subtle);
-        height: auto;
-    }
-    /* On mobile the header badges collapse to the live pill only. */
+
     .chat-header {
-        padding: 0 1rem !important;
+        padding: 0.5rem 0.85rem !important;
+        min-height: 54px;
+    }
+
+    /* Avatar lebih kecil di HP agar header muat dalam 54px. */
+    .chat-header .avatar {
+        width: 36px !important;
+        height: 36px !important;
+    }
+
+    /* Sembunyikan badge panjang di header mobile agar tidak sempit */
+    #health-badge,
+    .header-badges .sandbox-badge:not(#live-status) {
+        display: none !important;
+    }
+
+    .layout {
+        display: flex !important;
+        flex-direction: column !important;
+        /* flex:1 mengisi sisa ruang di bawah header apa pun tingginya;
+           calc(100dvh - 54px) rapuh bila header tumbuh di atas 54px. */
+        flex: 1 !important;
+        min-height: 0 !important;
+        height: auto !important;
+        overflow: hidden !important;
+    }
+
+    /* Sembunyikan sidebar sekunder di mobile agar fokus pada ruang chat */
+    .sidebar {
+        display: none !important;
+    }
+
+    .chat-col {
+        flex: 1 !important;
+        height: 100% !important;
+        min-width: 0;
+        display: flex !important;
+        flex-direction: column !important;
+        overflow: hidden !important;
+    }
+
+    .chat {
+        flex: 1 !important;
+        min-width: 0;
+        overflow-y: auto !important;
+        padding: 0.75rem 0.75rem 0.5rem !important;
+        gap: 0.65rem !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Perkecil kartu greeting & chip di mobile */
+    .msg.agent {
+        padding: 0.85rem 0.95rem !important;
+        border-radius: 14px !important;
+        font-size: 0.88rem !important;
+    }
+
+    .chips {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        gap: 0.4rem !important;
+        padding-bottom: 0.25rem;
+        scrollbar-width: none;
+    }
+
+    .chips::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Ubah katalog produk menjadi Horizontal Swipe Carousel di layar HP! */
+    #catalog.cards {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        scroll-snap-type: x mandatory;
+        gap: 0.65rem !important;
+        padding: 0.25rem 0.1rem 0.5rem !important;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #catalog.cards button.product-card {
+        flex: 0 0 235px !important;
+        width: 235px !important;
+        scroll-snap-align: start;
+        padding: 0.65rem !important;
+    }
+
+    /* Thumbnail kompak 56px di kiri (layout horizontal bawaan <=480px),
+       agar kartu carousel tetap ramping. */
+    #catalog.cards button.product-card img {
+        width: 56px !important;
+        height: 56px !important;
+    }
+
+    /* Kunci Quick Demo & Input Chat di bagian bawah layar HP */
+    .quick-demo {
+        padding: 0.3rem 0.75rem !important;
+        background: rgba(248, 250, 252, 0.96);
+        border-top: 1px solid rgba(226, 232, 240, 0.7);
+    }
+
+    .composer {
+        padding: 0.2rem 0.75rem 0.55rem !important;
+        background: rgba(248, 250, 252, 0.98);
+    }
+
+    /* Sembunyikan fineprint panjang di mobile agar input bar lebih lega */
+    .fineprint {
+        display: none !important;
     }
 }
