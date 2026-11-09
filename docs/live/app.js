@@ -1040,7 +1040,9 @@
         });
         var ag = await agRes.json();
         hideTyping(typing);
-        if (!agRes.ok) {
+        // 403 + needsApproval is the guardrail contract, not an error:
+        // render the Approve / Reject callout instead of an error bubble.
+        if (!agRes.ok && !ag.needsApproval) {
           addBubble('agent', '<p>' + escapeHtml(ag.error || String(agRes.status)) + '</p>');
           return;
         }
