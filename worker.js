@@ -1437,7 +1437,7 @@ function agentToolList(lang) {
     '{"action": "<tool>", "args": {...}, "reason": "<one short sentence>"} or ' +
     '{"action": "reply", "text": "<final message to the user>"} or ' +
     '{"action": "ask_approval", "productId": "<id>", "totalUSD": <number>, "text": "<why approval is needed>"}.\n' +
-    'Rules: always search first. Check risk, total, and hold before buying. Never pick a Risky seller when a Safe one fits the budget. Never pay above the user-stated budget. Always check guardrails before create_order. If the user asks to continue or check out their share after a split or a search (for example "lanjut checkout bagian saya", "beli bagian saya", "lanjut checkout"), use the active product from the session note below — call create_order for it (with amountUSD = the share when one is given) — and never re-search the catalog for it. The buyer approves the payment on PayPal, you only prepare the order and hand them the link. Reply in ' + (lang === 'id' ? 'Indonesian' : 'English') + '.'
+    'Rules: always search first. Check risk, total, and hold before buying. Never pick a Risky seller when a Safe one fits the budget. Never pay above the user-stated budget. Always check guardrails before create_order. If the user asks to continue or check out their share after a split or a search (for example "lanjut checkout bagian saya", "beli bagian saya", "lanjut checkout"), use the active product from the session note below - call create_order for it (with amountUSD = the share when one is given) - and never re-search the catalog for it. The buyer approves the payment on PayPal, you only prepare the order and hand them the link. Reply in ' + (lang === 'id' ? 'Indonesian' : 'English') + '.'
   );
 }
 
@@ -1719,7 +1719,7 @@ async function agentExecuteTool(action, args, ctx) {
 }
 
 // Checkout continuations: after a split (or a product search), the user
-// often follows up with a short phrase that names no product — "lanjut
+// often follows up with a short phrase that names no product - "lanjut
 // checkout bagian saya", "beli bagian saya", "lanjut checkout". Those
 // phrases must resolve to the ACTIVE product and run the checkout flow,
 // never a generic catalog search. The frontend routes them to /api/agent
@@ -1737,7 +1737,7 @@ function isCheckoutContinuation(message) {
 }
 
 // Resolve the active product for a continuation. Priority: (1) the active
-// split session — the user split THIS product, so "bagian saya" is its
+// split session - the user split THIS product, so "bagian saya" is its
 // share; (2) the first product of the last search results the chat showed
 // (frontend `lastResults`, sent as `context`). IDs are validated against
 // the catalog, so a forged ID resolves to nothing, never to a purchase.
@@ -1755,7 +1755,7 @@ function resolveContinuationProduct(ctx) {
 // Shared by the runAgentLoop bypass and the agentFallback branch: resolve
 // the continuation to the active product and check out. Returns the full
 // agent result object (an order, or needsApproval, or a clarification
-// reply when there is no active product — never a catalog dump).
+// reply when there is no active product - never a catalog dump).
 async function agentCheckoutContinuation(message, lang, ctx) {
   const steps = [{ action: 'checkout_continuation', summary: 'continuation: ' + String(message || '').slice(0, 60) }];
   const p = resolveContinuationProduct(ctx);
@@ -1794,7 +1794,7 @@ async function agentCheckoutContinuation(message, lang, ctx) {
     };
   }
   // The share is an arbitrary amount (not the catalog total), so it goes
-  // through createSplitPaymentOrder — createPayPalOrder rejects any total
+  // through createSplitPaymentOrder - createPayPalOrder rejects any total
   // that does not match the computed full total. The full-total path uses
   // createPayPalOrder as usual.
   const raw = isShare
@@ -1821,7 +1821,7 @@ async function agentFallback(message, lang, ctx) {
   // "Lacak & dispute pesanan" also carries no product/price intent.
   const isTrackDispute = /(lacak|track|dispute|sengketa)/.test(message.toLowerCase());
   // Checkout continuations ("lanjut checkout bagian saya", "beli bagian
-  // saya") also name no product — the product comes from the active split
+  // saya") also name no product - the product comes from the active split
   // session or the last search results (ctx), never from a fresh search.
   const isContinuation = isCheckoutContinuation(message);
   // No shopping intent at all (the frontend only routes buy goals here,
@@ -2114,8 +2114,8 @@ async function runAgentLoop(message, lang, ctx) {
     const share = split ? Number(split.initiatorShare ?? split.share) : NaN;
     sessionNote = '\nActive session: the user is working on ' + active.name + ' (' + active.id + ', $' + active.priceUSD + ')' +
       (Number.isFinite(share) && share > 0
-        ? ', split with friends, their own share is $' + share.toFixed(2) + '. If the user asks to continue, check out, or pay their share (for example "lanjut checkout bagian saya", "beli bagian saya", "lanjut checkout"), call create_order for ' + active.id + ' with amountUSD ' + share.toFixed(2) + ' — do not search the catalog again.'
-        : '. If the user asks to continue or check out (for example "lanjut checkout", "beli bagian saya"), call create_order for ' + active.id + ' — do not search the catalog again.');
+        ? ', split with friends, their own share is $' + share.toFixed(2) + '. If the user asks to continue, check out, or pay their share (for example "lanjut checkout bagian saya", "beli bagian saya", "lanjut checkout"), call create_order for ' + active.id + ' with amountUSD ' + share.toFixed(2) + ' - do not search the catalog again.'
+        : '. If the user asks to continue or check out (for example "lanjut checkout", "beli bagian saya"), call create_order for ' + active.id + ' - do not search the catalog again.');
   }
   const system = 'You are ShopPal, a PayPal shopping agent. You act for the user: you search, check, and prepare PayPal payments. ' + agentToolList(lang) + sessionNote;
   const messages = [
@@ -2194,7 +2194,7 @@ routes.push({ method: 'POST', path: '/api/agent', handler: async (req, res) => {
       approvedOrder: b.approvedOrder || null,
       // Conversation state the client owns: the product IDs the chat last
       // showed (lastResults) and the active split session, if any. Both
-      // are validated against the catalog before use — a forged ID
+      // are validated against the catalog before use - a forged ID
       // resolves to nothing, never to a purchase.
       context: Array.isArray(b.context) ? b.context.map((x) => String(x)) : [],
       lastSplit: (b.lastSplit && typeof b.lastSplit === 'object') ? b.lastSplit : null,
