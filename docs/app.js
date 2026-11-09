@@ -1722,6 +1722,15 @@
   // agent on the live server, which runs the whole flow (search, score,
   // total, guardrails, PayPal order) and only asks the user to approve.
   // Everything else keeps the local Ask flow below.
+  // Delivery-status checks ("cek pengiriman" / "check delivery" / "where is
+  // my order"): a status verb + a shipment noun. They go to /api/agent,
+  // never to the generic Ask search.
+  function isDeliveryCheck(q) {
+    var s = ' ' + q.toLowerCase() + ' ';
+    return /(cek|check|status|where|di mana|dimana|sampai mana|mana)/.test(s) &&
+      /(pengiriman|delivery|kiriman|paket|pesanan|order|package|barang|shipment|shipping)/.test(s);
+  }
+
   function isCheckoutContinuation(q) {
     var s = ' ' + q.toLowerCase().replace(/\s+/g, ' ').trim() + ' ';
     return (/\blanjut\b/.test(s) || /\blanjutkan\b/.test(s) ||
@@ -1742,7 +1751,8 @@
     // agent from the context + lastSplit sent with the request. They must
     // go to /api/agent, never to the generic Ask search.
     var cont = isCheckoutContinuation(q);
-    return ((buy || watch || split || track) && target) || cont;
+    var delivery = isDeliveryCheck(q);
+    return ((buy || watch || split || track) && target) || cont || delivery;
   }
 
   // "Check my budget guardrail limit" is a settings question, not a product
@@ -1888,6 +1898,17 @@
         '<pre class="codeblock"><code>' + escapeHtml(JSON.stringify(dp, null, 2)) + '</code></pre>' +
         '<p><button type="button" class="btn-secondary sim-copy-json">' + t('copyJson') + '</button></p>');
       wireSimCopy(dpBubble, ag.dispute);
+    }
+    if (ag.delivery) {
+      var dv = ag.delivery;
+      var dtr = dv.tracking || {};
+      var dvHtml = '<div class="card"><p><strong>' + t('dwTitle') + '</strong></p>' +
+        '<p><strong>' + escapeHtml(dv.product || dv.vaultId || '') + '</strong> · ' + fmt(t('dwStatus'), { status: dtr.status || '-' }) + '</p>' +
+        (dtr.trackingNumber ? '<p><span class="num">' + escapeHtml(dtr.trackingNumber) + '</span> (' + escapeHtml(dtr.carrier || '') + ')</p>' : '') +
+        '<p>' + (dv.overdue ? fmt(t('dwOverdue'), { n: dv.days }) : fmt(t('dwOnTime'), { n: dv.days })) + '</p>' +
+        (dv.overdue && dv.autoDraft ? '<p class="hint">' + t('dwDraftReady') + ' ' + fmt(t('simWinChance'), { n: dv.autoDraft.winChance }) + ' · ' + escapeHtml(dv.autoDraft.label || '') + '</p>' : '') +
+        '</div>';
+      addBubble('agent', dvHtml);
     }
     scrollChat();
   }
