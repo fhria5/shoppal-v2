@@ -1,10 +1,10 @@
-/* ShopPal v2 — FinTech design system (Nov 2026).
+/* ShopPal v2 - FinTech design system (Nov 2026).
    Direction: clean, high-trust, Stripe/Linear/PayPal-modern.
    Palette: soft background #F8FAFC, white surfaces, slate borders
    #E2E8F0, PayPal navy #003087 + blue #0070BA accents.
    Type: Inter/system-ui for UI; tabular-nums + monospace for money,
    Order IDs and JSON payloads, like a financial dashboard.
-   Accessibility: WCAG 2.1 AA — text contrast >= 4.5:1, touch targets
+   Accessibility: WCAG 2.1 AA - text contrast >= 4.5:1, touch targets
    44px, visible focus, prefers-reduced-motion support. */
 
 :root {
@@ -296,7 +296,7 @@ tr.total-row td { border-top: 2px solid var(--navy); font-size: 1.15rem; padding
   animation: card-in 0.3s ease-out;
 }
 .callout-head { display: flex; align-items: center; gap: 0.5rem; font-weight: 700; color: var(--amber-text); }
-.callout-head .shield { font-size: 1.1rem; }
+.callout-head .shield { width: 18px; height: 18px; flex: none; }
 .callout p { margin: 0.4rem 0; color: var(--ink); }
 .callout .hint { color: var(--amber-text); }
 .callout-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.6rem; }
@@ -458,7 +458,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
   border-top: 1px solid var(--border);
 }
 .quick-demo-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
-.quick-chip { padding: 0.5rem 0.8rem; min-height: 38px; font-size: 0.85rem; }
+.quick-chip { padding: 0.7rem 0.9rem; min-height: 48px; font-size: 0.85rem; }
 
 /* Composer: input + send, pinned to the bottom. */
 .composer {
@@ -512,7 +512,7 @@ button:active:not(:disabled) { transform: translateY(1px); }
 }
 
 /* ==========================================================================
-   MODERN AI CHAT UI (DESKTOP + MOBILE) — SHOPPAL V2
+   MODERN AI CHAT UI (DESKTOP + MOBILE) - SHOPPAL V2
    (Replaced the previous override 9 Nov 2026 ~08:35 WITA with the user's
    v2 CSS, adapted to the project's real selectors: the header uses
    h1.agent-name + div.agent-status (not strong/span), product cards use
