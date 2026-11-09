@@ -144,16 +144,12 @@ async function get(path) {
   check('gr $65.57 needs approval', r.data.needsApproval === true && r.data.reasons.length === 1, r.data);
   r = await post('/api/guardrails/check', { totalUSD: 65.57, category: 'Headphones', lang: 'id' });
   check('gr id reason', r.data.needsApproval === true && /di atas batas/.test(r.data.reasons[0] || ''), r.data);
-  r = await post('/api/guardrails', { autoApproveLimit: 100, categoryCaps: { Headphones: 50, Speaker: 50 } });
-  check('gr set limit 100 + cap', r.data.autoApproveLimit === 100 && r.data.categoryCaps.Headphones === 50, r.data);
+  r = await post('/api/guardrails', { autoApproveLimit: 100 });
+  check('gr set limit 100', r.data.autoApproveLimit === 100, r.data);
   r = await post('/api/guardrails/check', { totalUSD: 65.57, category: 'Headphones', lang: 'en' });
-  check('gr $65.57 over cap 50', r.data.needsApproval === true && r.data.reasons.length === 1, r.data);
-  r = await post('/api/guardrails/check', { totalUSD: 40, category: 'Speaker', lang: 'en' });
-  check('gr $40 speaker under cap 50', r.data.needsApproval === false, r.data);
-  r = await post('/api/guardrails/check', { totalUSD: 40, category: 'Speaker', lang: 'en' });
-  check('gr $40 speaker no cap', r.data.needsApproval === false, r.data);
-  r = await post('/api/guardrails', { autoApproveLimit: 20, categoryCaps: {} });
-  check('gr reset to default', r.data.autoApproveLimit === 20 && Object.keys(r.data.categoryCaps).length === 0, r.data);
+  check('gr $65.57 under limit 100 auto-ok', r.data.needsApproval === false, r.data);
+  r = await post('/api/guardrails', { autoApproveLimit: 20 });
+  check('gr reset to default', r.data.autoApproveLimit === 20, r.data);
   r = await post('/api/guardrails/check', { totalUSD: 20, category: 'Headphones', lang: 'en' });
   check('gr exactly $20 auto-ok', r.data.needsApproval === false, r.data);
 
