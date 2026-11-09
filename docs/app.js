@@ -660,9 +660,24 @@
     var btn = $('settings-btn');
     if (btn) btn.focus();
   }
+  function openVault() {
+    showVault();
+    var ov = $('vault-overlay');
+    if (!ov) return;
+    ov.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    var closeBtn = $('vault-close');
+    if (closeBtn) closeBtn.focus();
+  }
+  function closeVault() {
+    var ov = $('vault-overlay');
+    if (ov) ov.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+    var btn = $('vault-btn');
+    if (btn) btn.focus();
+  }
   function refreshVaultSummary() {
-    var vault = chatEl ? chatEl.querySelector('[data-step="vault"]') : null;
-    if (vault) showVault();
+    showVault();
   }
   function clearChatHistory() {
     try {
@@ -1638,6 +1653,7 @@
     var greeting = addBubble('agent',
       '<button type="button" class="dismiss-btn" id="greet-dismiss" aria-label="Dismiss introduction">×</button>' +
       '<p>Hi, I’m ShopPal, your AI shopping agent. Tell me what you’re looking for, and I’ll check the seller, show you the real total (fees included), and keep your proof if you pay.</p>' +
+      '<p class="hint">Try: \u201cFind noise-cancelling headphones under $50\u201d \u2014 or tap a demo below.</p>' +
       '<div class="chips">' +
       '<button type="button" class="chip" data-q="headphones under $60">Headphones under $60</button>' +
       '<button type="button" class="chip" data-q="smartwatch">Smartwatch</button>' +
@@ -2135,8 +2151,8 @@
       '<p class="hint">' + t('pwSimNote') + '</p>',
       'risk');
     // Price Watch creation (via the Worker).
-    bubble.querySelector('#pw-watch-btn').addEventListener('click', async function () {
-      var target = Number(bubble.querySelector('#pw-target').value);
+    $('pw-watch-btn').addEventListener('click', async function () {
+      var target = Number($('pw-target').value);
       var st = $('pw-status');
       if (!target || target <= 0) { if (st) st.textContent = t('pwTarget'); return; }
       try {
@@ -2146,7 +2162,7 @@
       } catch (e) { if (st) st.textContent = String(e && e.message || e); }
     });
     // Pre-purchase dispute simulation (rule-based, local, no server).
-    bubble.querySelector('#pre-sim-btn').addEventListener('click', function () {
+    $('pre-sim-btn').addEventListener('click', function () {
       var box = $('pre-sim');
       if (!box) return;
       box.classList.remove('hidden');
@@ -2174,7 +2190,7 @@
       '<div id="hrc-box" class="card hidden"></div>',
       'hold');
     // Hold Release Checklist (rule-based, local, no server).
-    bubble.querySelector('#hrc-btn').addEventListener('click', function () {
+    $('hrc-btn').addEventListener('click', function () {
       var box = $('hrc-box');
       if (!box) return;
       box.classList.remove('hidden');
@@ -2247,7 +2263,7 @@
       'cost');
     // Import cost for the selected destination country (local estimate).
     renderFx(c.total, 'fx-box');
-    bubble.querySelector('#import-country').addEventListener('change', function () {
+    $('import-country').addEventListener('change', function () {
       var box = $('import-cost');
       if (!box) return;
       var country = this.value;
@@ -2291,7 +2307,7 @@
         warn.innerHTML = '<p><strong>' + fmt(t('budWarn'), { spent: money(spent), budget: money(budget) }) + '</strong></p>';
       }
     }
-    var approve = bubble.querySelector('#approve');
+    var approve = $('approve');
     approve.addEventListener('change', function () { renderPayPalButton(); });
     renderPayPalButton();
   }
@@ -2416,9 +2432,55 @@
     }).render('#paypal-button-container');
   }
 
+
+  // Sample Proof: a REAL Sandbox capture from this project's own E2E test
+  // run (8 Nov 2026), shown so a judge can see the vault's format before
+  // buying anything. Clearly labelled SAMPLE; nothing here is a live order.
+  var SAMPLE_PROOF = {
+    orderId: '7L12554580106983W',
+    captureId: '4DA71960H4899750Y',
+    captureStatus: 'COMPLETED',
+    product: 'Aurora Wireless Headphones',
+    seller: 'TechHub Official',
+    riskScore: 100,
+    riskLabel: 'Safe',
+    totalUSD: 65.57
+  };
+  function sampleProofHtml() {
+    var proof = {
+      orderId: SAMPLE_PROOF.orderId,
+      captureId: SAMPLE_PROOF.captureId,
+      captureStatus: SAMPLE_PROOF.captureStatus,
+      product: SAMPLE_PROOF.product,
+      seller: SAMPLE_PROOF.seller,
+      riskScore: SAMPLE_PROOF.riskScore,
+      riskLabel: SAMPLE_PROOF.riskLabel,
+      totalUSD: SAMPLE_PROOF.totalUSD
+    };
+    var dispute = {
+      dispute_id: 'PP-D-SAMPLE-7L1255',
+      reason: 'MERCHANDISE_OR_SERVICE_NOT_RECEIVED',
+      status: 'OPEN',
+      dispute_life_cycle_stage: 'INQUIRY'
+    };
+    var letter = 'Subject: Item Not Received - Order ' + SAMPLE_PROOF.orderId + '\n\n' +
+      'Hello PayPal Resolution Center,\n\n' +
+      'I am writing about order ' + SAMPLE_PROOF.orderId + ' (' + SAMPLE_PROOF.product + ', $' + SAMPLE_PROOF.totalUSD.toFixed(2) + ', paid via PayPal Sandbox). ' +
+      'The payment was captured (Capture ID ' + SAMPLE_PROOF.captureId + ', status COMPLETED), but the item was never delivered.\n\n' +
+      'Seller: ' + SAMPLE_PROOF.seller + ' (Risk Score ' + SAMPLE_PROOF.riskScore + '/100, ' + SAMPLE_PROOF.riskLabel + ').\n' +
+      'Tracking: no tracking number was provided.\n\n' +
+      'I request a refund of $' + SAMPLE_PROOF.totalUSD.toFixed(2) + ' under PayPal Purchase Protection (Merchandise or Service Not Received).\n\n' +
+      'Proof attached: order receipt, capture confirmation, risk-score report.';
+    return '<p><strong>Proof JSON</strong></p><pre>' + escapeHtml(JSON.stringify(proof, null, 2)) + '</pre>' +
+      '<p><strong>Dispute draft (PayPal Disputes API format, simulated)</strong></p><pre>' + escapeHtml(JSON.stringify(dispute, null, 2)) + '</pre>' +
+      '<p><strong>Pre-filled dispute letter</strong></p><pre>' + escapeHtml(letter) + '</pre>';
+  }
   function showVault() {
-    var old = chatEl.querySelector('[data-step="vault"]');
-    if (old) old.remove();
+    // The vault lives in its own modal now, not in the chat: render into
+    // the modal body (hidden until the user opens it) and keep the header
+    // badge in sync.
+    var box = $('vault-body');
+    if (!box) return;
     var entries = loadVault();
     var body = '';
     if (!entries.length) {
@@ -2429,6 +2491,11 @@
         return '<p><strong>' + (e.product && e.product.name || e.id) + '</strong>, ' +
           (e.paypal && e.paypal.status || 'unknown') + ' · Order ' + (e.paypal && e.paypal.orderId || 'n/a') + '</p>';
       }).join('');
+    }
+    var vc = $('vault-count');
+    if (vc) {
+      vc.textContent = String(entries.length);
+      vc.classList.toggle('hidden', entries.length === 0);
     }
     var patterns = findSubscriptions(entries);
     var subs = '';
@@ -2451,8 +2518,12 @@
       '<p>' + fmt(t('setGrSummary'), { limit: money(gr.autoApproveLimit) }) + '</p>' +
       '<p><button id="vault-settings" type="button" class="btn-secondary">' + t('setOpen') + '</button></p></div>';
     var dwHtml = '<div class="card" id="dw-card"><p><strong>' + t('dwTitle') + '</strong></p><p class="hint">' + t('dwIntro') + '</p><p id="dw-body">…</p></div>';
-    var bubble = addBubble('agent',
+    box.innerHTML =
       '<p><strong>Proof Vault</strong></p>' + body +
+      '<div class="card" id="sample-proof-card"><p><strong>Sample Proof</strong> <span class="score score-safe">SAMPLE</span></p>' +
+      '<p class="hint">A real Sandbox capture from our own test run - see exactly what the vault saves, before you buy anything.</p>' +
+      '<p><button id="sample-proof-btn" type="button" class="btn-secondary">View Sample Proof</button></p>' +
+      '<div id="sample-proof-body" class="hidden"></div></div>' +
       '<div class="card">' + subs + '</div>' +
       setHtml +
       dwHtml +
@@ -2468,26 +2539,21 @@
       '<button id="order-status-btn" type="button" class="btn-secondary"' + (entries.length ? '' : ' disabled') + '>' + t('orderStatusBtn') + '</button></div>' +
       '<div id="dispute-draft" class="card hidden"></div>' +
       '<div id="vault-tools" class="card hidden"></div>' +
-      '<div id="paypal-actions" class="card hidden"></div>',
-      'vault');
-    // Mobile: the vault tools card is long; collapse it by default on a
-    // phone and let the user expand it with a tap (drawer-style).
-    var vaultToggle = document.createElement('button');
-    vaultToggle.type = 'button';
-    vaultToggle.className = 'vault-toggle';
-    var vaultCollapsed = window.matchMedia('(max-width: 920px)').matches;
-    var setVaultCollapsed = function (c) {
-      vaultCollapsed = c;
-      bubble.classList.toggle('vault-collapsed', c);
-      vaultToggle.textContent = c ? t('vaultShow') : t('vaultHide');
-    };
-    vaultToggle.addEventListener('click', function () { setVaultCollapsed(!vaultCollapsed); });
-    bubble.insertBefore(vaultToggle, bubble.children[1] || null);
-    setVaultCollapsed(vaultCollapsed);
-    bubble.querySelector('#vault-refresh').addEventListener('click', function () { showVault(); });
+      '<div id="paypal-actions" class="card hidden"></div>';
+    $('vault-refresh').addEventListener('click', function () { showVault(); });
+    $('sample-proof-btn').addEventListener('click', function () {
+      var b = $('sample-proof-body');
+      if (!b) return;
+      if (b.classList.contains('hidden')) {
+        b.innerHTML = sampleProofHtml();
+        b.classList.remove('hidden');
+      } else {
+        b.classList.add('hidden');
+      }
+    });
     // Budget + guardrails live in the Settings modal now; the vault keeps
     // a summary card with a button that opens it.
-    bubble.querySelector('#vault-settings').addEventListener('click', function () { openSettings(); });
+    $('vault-settings').addEventListener('click', function () { closeVault(); openSettings(); });
     // Delivery Watch (local mirror: overdue = 7+ days, no DELIVERED update).
     (function renderDwLocal() {
       var box = $('dw-body');
@@ -2628,9 +2694,9 @@
         } catch (e) { out.innerHTML = '<p>' + (e && e.message || e) + '</p>'; }
       });
     })();
-    bubble.querySelector('#dispute-btn').addEventListener('click', function () { showDisputeDraft(); });
+    $('dispute-btn').addEventListener('click', function () { showDisputeDraft(); });
     // Dispute simulation for the latest vault entry (rule-based, local).
-    bubble.querySelector('#sim-btn').addEventListener('click', function () {
+    $('sim-btn').addEventListener('click', function () {
       if (!lastVaultId) return;
       var box = $('vault-tools');
       if (!box) return;
@@ -2645,7 +2711,7 @@
       scrollChat();
     });
     // Evidence Pack: download a printable proof page built locally.
-    bubble.querySelector('#evidence-btn').addEventListener('click', function () {
+    $('evidence-btn').addEventListener('click', function () {
       if (!lastVaultId) return;
       var entry = loadVault().find(function (e) { return e.id === lastVaultId; });
       var box = $('vault-tools');
@@ -2662,7 +2728,7 @@
       setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
     });
     // Deadline Tracker: 180-day filing + 20-day escalation + 30-day return.
-    bubble.querySelector('#deadlines-btn').addEventListener('click', function () {
+    $('deadlines-btn').addEventListener('click', function () {
       if (!lastVaultId) return;
       var box = $('vault-tools');
       if (!box) return;
@@ -2682,7 +2748,7 @@
     });
     // Refund the latest vault entry (full amount, PayPal Sandbox) via the
     // deployed Worker. Two clicks: the first arms the button.
-    var refundBtn = bubble.querySelector('#refund-btn');
+    var refundBtn = $('refund-btn');
     refundBtn.addEventListener('click', async function () {
       if (!lastVaultId) return;
       if (refundBtn.getAttribute('data-armed') !== '1') {
@@ -2722,7 +2788,7 @@
       scrollChat();
     });
     // Live order status, re-verified with PayPal via the Worker.
-    bubble.querySelector('#order-status-btn').addEventListener('click', async function () {
+    $('order-status-btn').addEventListener('click', async function () {
       if (!lastVaultId) return;
       var box = $('paypal-actions');
       if (!box) return;
@@ -2817,9 +2883,29 @@
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && settingsOverlay && !settingsOverlay.classList.contains('hidden')) closeSettings();
     });
+    // Proof Vault button in the header opens the vault modal (same
+    // pattern as Settings); Escape or a tap on the backdrop closes it.
+    var vaultBtn = $('vault-btn');
+    if (vaultBtn) vaultBtn.addEventListener('click', function () { openVault(); });
+    var vaultClose = $('vault-close');
+    if (vaultClose) vaultClose.addEventListener('click', function () { closeVault(); });
+    var vaultOverlay = $('vault-overlay');
+    if (vaultOverlay) vaultOverlay.addEventListener('click', function (e) { if (e.target === vaultOverlay) closeVault(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && vaultOverlay && !vaultOverlay.classList.contains('hidden')) closeVault();
+    });
     // Quick Demo chips: one tap fills the prompt and sends it, so a demo
     // scenario runs without typing.
     document.querySelectorAll('.quick-chip').forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        var prompt = chip.getAttribute('data-prompt') || '';
+        if (!prompt) return;
+        $('ask').value = prompt;
+        sendAsk();
+      });
+    });
+    // Demo scenario chips: same one-tap send as Quick Demo.
+    document.querySelectorAll('.scenario-chip').forEach(function (chip) {
       chip.addEventListener('click', function () {
         var prompt = chip.getAttribute('data-prompt') || '';
         if (!prompt) return;
@@ -2880,13 +2966,15 @@
     var sideStatus = $('side-health');
     var sideGuard = $('side-guardrail');
     try {
+      var t0 = performance.now();
       const res = await fetch(WORKER_API + '/api/health');
       const h = await res.json();
       if (!res.ok || !h.ok) throw new Error('health check failed');
       var pp = (h.paypalSandbox && h.paypalSandbox.status === 'live') ? 'PayPal Sandbox: Live' : 'PayPal Sandbox: Not configured';
       var gl = 'Guardrail Limit: $' + Number(h.guardrail && h.guardrail.autoApproveLimit !== undefined ? h.guardrail.autoApproveLimit : 20).toFixed(2);
       var mcp = 'MCP Tools: ' + (h.mcpTools || 8) + ' Ready';
-      if (badge) badge.textContent = pp + ' · ' + gl + ' · ' + mcp;
+      var lat = 'Latency: ' + Math.round(performance.now() - t0) + 'ms';
+      if (badge) badge.textContent = pp + ' · ' + gl + ' · ' + mcp + ' · ' + lat;
       if (sideStatus) sideStatus.textContent = pp + ' · ' + mcp;
       if (sideGuard) sideGuard.textContent = '$' + Number(h.guardrail && h.guardrail.autoApproveLimit !== undefined ? h.guardrail.autoApproveLimit : 20).toFixed(2);
     } catch (e) {
