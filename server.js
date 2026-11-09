@@ -1611,8 +1611,8 @@ async function agentFallback(message, lang, ctx) {
     if (out.data.error) {
       return {
         reply: lang === 'id'
-          ? 'Belum ada pesanan yang bisa dilacak. Beli dulu sesuatu, misalnya lewat chip "Beli Barang Murah", lalu lacak pesanannya di sini.'
-          : 'No purchase to track yet. Buy something first, for example with the "Buy a cheap item" chip, then track it here.',
+          ? 'Belum ada pesanan yang bisa dilacak. Beli dulu sesuatu, lalu lacak pesanannya di sini.'
+          : 'No purchase to track yet. Buy something first, then track it here.',
         steps, aiUsed: false,
       };
     }
@@ -1831,8 +1831,8 @@ async function runAgentLoop(message, lang, ctx) {
     if (out.data.error) {
       return {
         reply: lang === 'id'
-          ? 'Belum ada pesanan yang bisa dilacak. Beli dulu sesuatu, misalnya lewat chip "Beli Barang Murah", lalu lacak pesanannya di sini.'
-          : 'No purchase to track yet. Buy something first, for example with the "Buy a cheap item" chip, then track it here.',
+          ? 'Belum ada pesanan yang bisa dilacak. Beli dulu sesuatu, lalu lacak pesanannya di sini.'
+          : 'No purchase to track yet. Buy something first, then track it here.',
         steps, aiUsed: false,
       };
     }
