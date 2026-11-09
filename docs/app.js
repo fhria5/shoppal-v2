@@ -43,6 +43,7 @@
   var WORKER_API = 'https://shoppal-v2.fahriannor07.workers.dev';
   var selected = null; // { product, seller, risk, cost }
   var lastResults = null; // products the last Ask reply showed, follow-ups ("yang termurah") refer to these
+  var lastSplit = null; // the active split session {productId, share, initiatorShare, total, friends}, if any
 
   // Bilingual replies (Dwibahasa). The agent answers in the language the
   // buyer types: Indonesian when the message has Indonesian words, English
@@ -1278,6 +1279,28 @@
       }
     } catch (e) { /* ignore */ }
   }
+  // The active split session persists across refreshes, so "lanjut
+  // checkout bagian saya" still resolves to the split product after a
+  // reload. It is replaced by the next split, and cleared once the user's
+  // own share has been checked out (see renderAgentResult).
+  function saveLastSplit() {
+    try {
+      if (lastSplit && lastSplit.productId) {
+        localStorage.setItem(CHAT_HISTORY_KEY + '-split', JSON.stringify(lastSplit));
+      } else {
+        localStorage.removeItem(CHAT_HISTORY_KEY + '-split');
+      }
+    } catch (e) { /* storage unavailable — the split session just doesn't persist */ }
+  }
+  function restoreLastSplit() {
+    try {
+      var raw = localStorage.getItem(CHAT_HISTORY_KEY + '-split');
+      if (raw) {
+        var s = JSON.parse(raw);
+        if (s && s.productId) lastSplit = s;
+      }
+    } catch (e) { /* corrupted storage — start with no split session */ }
+  }
   // Persist on any chat change (debounced): addBubble saves immediately,
   // but result cards are rendered into an existing bubble afterwards, so
   // a MutationObserver catches those fills too.
@@ -1539,6 +1562,13 @@
   // agent on the live server, which runs the whole flow (search, score,
   // total, guardrails, PayPal order) and only asks the user to approve.
   // Everything else keeps the local Ask flow below.
+  function isCheckoutContinuation(q) {
+    var s = ' ' + q.toLowerCase().replace(/\s+/g, ' ').trim() + ' ';
+    return (/\blanjut\b/.test(s) || /\blanjutkan\b/.test(s) ||
+      /\bbagian\s+(saya|ku|gue|gw)\b/.test(s) || /\bmy\s+share\b/.test(s) ||
+      /\b(bayar|beli|checkout)\s+(bagian|saya|sekarang|now)\b/.test(s));
+  }
+
   function isBuyGoal(q) {
     var s = ' ' + q.toLowerCase() + ' ';
     var buy = /(beli|belikan|bayar|bayarkan|pesan|checkout|buy|purchase|pay|order)/.test(s);
@@ -1546,7 +1576,13 @@
     var split = /(patungan|split|bagi rata|bagi-bagi)/.test(s);
     var track = /(lacak|track|dispute|sengketa)/.test(s);
     var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d|pantauan|watch|pesanan|order|lacak|track|dispute|sengketa)/.test(s);
-    return (buy || watch || split || track) && target;
+    // Checkout continuations ("lanjut checkout bagian saya", "beli bagian
+    // saya") name no product, so they carry no target — they continue the
+    // ACTIVE product (split session, then lastResults), resolved by the
+    // agent from the context + lastSplit sent with the request. They must
+    // go to /api/agent, never to the generic Ask search.
+    var cont = isCheckoutContinuation(q);
+    return ((buy || watch || split || track) && target) || cont;
   }
 
   // "Cek limit budget guardrail" is a settings question, not a product
@@ -1576,6 +1612,17 @@
   }
 
   function renderAgentResult(ag, q) {
+    // Track the active split session: a split result sets it (so a later
+    // "lanjut checkout bagian saya" resolves to this product's share), and
+    // a completed share checkout clears it (the session is done).
+    if (ag.splitPayment && ag.splitPayment.productId) {
+      lastSplit = { productId: ag.splitPayment.productId, share: ag.splitPayment.share, initiatorShare: ag.splitPayment.initiatorShare, total: ag.splitPayment.total, friends: ag.splitPayment.friends || [] };
+      saveLastSplit();
+    }
+    if (ag.order && ag.order.shareCheckout) {
+      lastSplit = null;
+      saveLastSplit();
+    }
     var html = '';
     if (ag.steps && ag.steps.length) {
       html += '<p><strong>' + t('agentSteps') + '</strong></p><ul>' +
@@ -1771,10 +1818,17 @@
     }
     // Pay Agent: buying goals go to the agent on the live server.
     if (isBuyGoal(q)) {
+      // The agent resolves checkout continuations ("lanjut checkout
+      // bagian saya") against the active product: the split session
+      // first, then the last search results. Both are sent here; the
+      // server validates the IDs against the catalog before use.
+      var agBody = { message: q, lang: lang, guardrails: getGuardrails() };
+      if (lastResults && lastResults.length) agBody.context = lastResults.map(function (p) { return p.id; });
+      if (lastSplit && lastSplit.productId) agBody.lastSplit = lastSplit;
       fetch(WORKER_API + '/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: q, lang: lang, guardrails: getGuardrails() }),
+        body: JSON.stringify(agBody),
       }).then(function (res) { return res.json().then(function (ag) { return { ok: res.ok, ag: ag, status: res.status }; }); })
         .then(function (out) {
           hideTyping(typing);
@@ -2356,6 +2410,8 @@
               var d2 = await r2.json();
               setBusy(splBtn, false);
               if (!r2.ok) { splOut.innerHTML = '<p>' + (d2.error || r2.status) + '</p>'; return; }
+              // A split made here is an active split session too.
+              if (d2.productId) { lastSplit = { productId: d2.productId, share: d2.share, initiatorShare: d2.initiatorShare, total: d2.total, friends: d2.friends || [] }; saveLastSplit(); }
               var splHtml = '<div class="card split-card"><p><strong>' + t('splLinks') + '</strong></p>' +
                 '<div class="split-breakdown">' +
                 '<div class="row"><span>' + t('splTotal') + '</span><span class="num">' + money(d2.total) + '</span></div>' +
@@ -2574,6 +2630,7 @@
     // Restore the previous conversation (if any) before the fresh
     // greeting, so a refresh keeps the chat history and its context.
     restoreChatHistory();
+    restoreLastSplit();
     // Re-wire product cards restored from history: their per-card
     // listeners are lost when the HTML is serialized, so a delegated
     // handler on the chat covers them. Fresh cards carry _wired (a JS
