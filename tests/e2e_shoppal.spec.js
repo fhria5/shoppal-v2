@@ -103,7 +103,7 @@ test.describe('ShopPal v2 — core user flows', () => {
       await expect(page.locator('#ask-btn')).toBeVisible();
       await expect(page.locator('.quick-demo')).toBeVisible();
       const chips = page.locator('.quick-demo .chip');
-      await expect(chips).toHaveCount(4);
+      await expect(chips).toHaveCount(5);
       await expect(chips.first()).toHaveAttribute('data-prompt', 'headphones under $60');
       await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toHaveCount(1);
       await expect(page.locator('#chat .msg.agent[data-step="catalog"] .product-card')).toHaveCount(20);
@@ -218,7 +218,7 @@ test.describe('ShopPal v2 — core user flows', () => {
     expect(gearBox.height).toBeGreaterThanOrEqual(44);
     expect(gearBox.width).toBeGreaterThanOrEqual(44);
     // Quick Demo chips carry SVG icons, not emoji.
-    expect(await page.locator('.quick-chip svg').count()).toBe(4);
+    expect(await page.locator('.quick-chip svg').count()).toBe(5);
 
     // Open the modal: four sections, English active by default (the demo
     // is English-first; Auto/Indonesian stay available in Settings).
