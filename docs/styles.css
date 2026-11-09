@@ -1038,3 +1038,79 @@ button.product-card .seller {
         display: none !important;
     }
 }
+
+/* --- Skeleton loader: shimmer placeholder while the agent searches --- */
+/* Shown in place of the typing dots on Ask/search flows; it previews the
+   results layout (title line + product-card grid) so the wait feels shorter.
+   The bubble is aria-hidden and never saved to chat history (see
+   saveChatHistory, which strips .skeleton-msg). */
+.skeleton-msg {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0.5rem 0 !important;
+}
+.skeleton-msg .cards {
+    margin-top: 0.6rem;
+}
+.skeleton-line {
+    height: 12px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton-title {
+    width: 55%;
+    height: 14px;
+}
+.skeleton-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.skeleton-img {
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton-card .skeleton-line {
+    width: 90%;
+}
+.skeleton-card .skeleton-short {
+    width: 55%;
+}
+@keyframes skeleton-shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .skeleton-line,
+    .skeleton-img {
+        animation: none;
+    }
+}
+
+/* Mobile: the skeleton previews the catalog carousel (same 235px cards,
+   horizontal snap scroll), so the results do not jump in height when
+   they replace it. */
+@media (max-width: 920px) {
+    .skeleton-msg .cards {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+    }
+    .skeleton-msg .skeleton-card {
+        flex: 0 0 235px;
+        width: 235px;
+        scroll-snap-align: start;
+    }
+}
