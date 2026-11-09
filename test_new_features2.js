@@ -301,6 +301,14 @@ async function get(path) {
   const tdOk = r.status === 200 && ((r.data.dispute && r.data.dispute.disputePayload && r.data.dispute.disputePayload.status === 'OPEN' && r.data.dispute.disputePayload.reason === 'MERCHANDISE_OR_SERVICE_NOT_RECEIVED') || (typeof r.data.reply === 'string' && /Belum ada pesanan|No purchase/.test(r.data.reply)));
   check('agent track and dispute', tdOk, r.data);
   check('agent track and dispute step', Array.isArray(r.data.steps) && r.data.steps.some((s) => s.action === 'track_and_dispute'), r.data.steps);
+  // One-tap buy ("buy p11" / "buy p12"): the agent buys the exact product
+  // by ID. p11 ($16.74 total) auto-checks out; p12 ($38.44 total) needs
+  // approval (over the $20 guardrail).
+  r = await post('/api/agent', { message: 'buy p11', lang: 'en' });
+  check('agent buy by id p11 auto-checkout', r.status === 200 && r.data.order && r.data.order.totalUSD === 16.74 && r.data.order.productId === 'p11' && !r.data.needsApproval, r.data);
+  check('agent buy by id p11 step', Array.isArray(r.data.steps) && r.data.steps.some((s) => s.action === 'buy_product'), r.data.steps);
+  r = await post('/api/agent', { message: 'buy p12', lang: 'en' });
+  check('agent buy by id p12 guardrail 403', r.status === 403 && r.data.status === 'GUARDRAIL_TRIGGERED' && r.data.pendingOrder && r.data.pendingOrder.productId === 'p12', r.data);
   // check_delivery: the agent answers "cek pengiriman" directly with the
   // live tracking status (adds a tracker first when the entry has none).
   // Works when a vault entry exists; otherwise a helpful reply.
