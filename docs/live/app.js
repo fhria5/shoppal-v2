@@ -89,7 +89,7 @@
       readyToPay: 'Ready to pay?', neverPay: 'I never pay without your approval.',
       approveLabel: 'I reviewed the risk score and total cost, and I approve this payment.',
       payButton: 'Pay with PayPal Sandbox', checkoutHint: 'Use a PayPal Sandbox buyer account to approve. No real money is involved.',
-      simNote: 'Sandbox simulation: this creates a PayPal Sandbox order for the listing total. It does <strong>not</strong> buy the eBay item, it proves the total and saves the proof.',
+      simNote: 'Sandbox simulation: this creates a PayPal Sandbox order for the listing total. It does <strong>not</strong> buy the {mp} item, it proves the total and saves the proof.',
       creatingOrder: 'Creating PayPal order…',
       orderFailed: 'Could not create the PayPal order: {msg}',
       orderCreated: 'Order created: <strong>{id}</strong>, total {total}. Approve it in PayPal Sandbox, then you will be sent back here to capture it.',
@@ -199,7 +199,7 @@
       hrcPrevents: 'prevents future holds',
       hrcNote: 'PayPal’s published hold rules (new-seller and risk holds, up to 21 days). Estimates, not a guarantee, PayPal decides each case.',
       hrcNotFound: 'Pick a product first to see its hold checklist.',
-      mpHeader: 'Real listings · eBay', mpNone: 'No eBay listings found for that search.',
+      mpHeader: 'Real listings', mpNone: 'No {mp} listings found for that search.',
       checkoutCancelled: 'Checkout was cancelled in PayPal. No payment was made.',
       approvedCapturing: 'PayPal approved order {id}, capturing…',
       captureFailed: 'Capture failed: {msg}',
@@ -229,7 +229,7 @@
       readyToPay: 'Siap bayar?', neverPay: 'Saya tidak pernah bayar tanpa persetujuanmu.',
       approveLabel: 'Saya sudah memeriksa skor risiko dan total biaya, dan saya menyetujui pembayaran ini.',
       payButton: 'Bayar dengan PayPal Sandbox', checkoutHint: 'Pakai akun buyer PayPal Sandbox untuk menyetujui. Tidak ada uang asli yang terlibat.',
-      simNote: 'Simulasi sandbox: ini membuat order PayPal Sandbox sebesar total listing. Ini <strong>tidak</strong> membeli barang eBay, hanya membuktikan total dan menyimpan bukti.',
+      simNote: 'Simulasi sandbox: ini membuat order PayPal Sandbox sebesar total listing. Ini <strong>tidak</strong> membeli barang {mp}, hanya membuktikan total dan menyimpan bukti.',
       creatingOrder: 'Membuat order PayPal…',
       orderFailed: 'Tidak bisa membuat order PayPal: {msg}',
       orderCreated: 'Order dibuat: <strong>{id}</strong>, total {total}. Setujui di PayPal Sandbox, lalu kamu akan dikembalikan ke sini untuk capture.',
@@ -339,7 +339,7 @@
       hrcPrevents: 'mencegah hold berikutnya',
       hrcNote: 'Aturan hold resmi PayPal (hold seller baru dan berisiko, sampai 21 hari). Perkiraan, bukan jaminan, PayPal yang memutuskan tiap kasus.',
       hrcNotFound: 'Pilih produk dulu untuk melihat checklist hold-nya.',
-      mpHeader: 'Listing asli · eBay', mpNone: 'Tidak ada listing eBay untuk pencarian itu.',
+      mpHeader: 'Listing asli', mpNone: 'Tidak ada listing {mp} untuk pencarian itu.',
       checkoutCancelled: 'Checkout dibatalkan di PayPal. Tidak ada pembayaran.',
       approvedCapturing: 'PayPal menyetujui order {id}, meng-capture…',
       captureFailed: 'Capture gagal: {msg}',
@@ -473,7 +473,7 @@
   function saveChatHistory() {
     try {
       var clone = chatEl.cloneNode(true);
-      clone.querySelectorAll('[data-step="greeting"], [data-step="catalog"], [data-step="vault"], [data-step="checkout"], .typing, .skeleton-msg, .catalog-toggle').forEach(function (el) { el.remove(); });
+      clone.querySelectorAll('[data-step="greeting"], [data-step="catalog"], [data-step="vault"], [data-step="checkout"], [data-step="marketplace"], .typing, .skeleton-msg, .catalog-toggle').forEach(function (el) { el.remove(); });
       var html = clone.innerHTML;
       while (html.length > CHAT_HISTORY_MAX_BYTES) {
         var first = clone.firstElementChild;
@@ -697,24 +697,94 @@
     });
   }
 
+  // Marketplace source: eBay or Etsy. Persisted per browser; the
+  // automatic search after every Ask uses it, and the toggle in the
+  // results bubble switches it (re-running the last search with the new
+  // source). Listings already carry their own marketplace name, so the
+  // card, the selection and the checkout all read it from the listing.
+  var MP_SOURCE_KEY = 'shoppal-mp-source';
+  function getMpSource() {
+    try {
+      var s = localStorage.getItem(MP_SOURCE_KEY);
+      return s === 'etsy' ? 'etsy' : 'ebay';
+    } catch (e) { return 'ebay'; }
+  }
+  var mpSource = getMpSource();
+  var lastMpQuery = null;
+  function mpSourceName() { return mpSource === 'etsy' ? 'Etsy' : 'eBay'; }
+  function mpSourceToggleHtml() {
+    return '<span class="mp-source-toggle">' +
+      '<button type="button" class="chip mp-source-btn' + (mpSource === 'ebay' ? ' active' : '') + '" data-mp-source="ebay">eBay</button>' +
+      '<button type="button" class="chip mp-source-btn' + (mpSource === 'etsy' ? ' active' : '') + '" data-mp-source="etsy">Etsy</button>' +
+      '</span>';
+  }
+  function setMpSource(next) {
+    mpSource = next === 'etsy' ? 'etsy' : 'ebay';
+    try { localStorage.setItem(MP_SOURCE_KEY, mpSource); } catch (e) { /* ignore */ }
+  }
+  async function fetchMarketplace() {
+    var mq = lastMpQuery || { q: '', lang: 'en', maxPrice: null, cheapest: false };
+    var mpParams = new URLSearchParams({ q: mq.q, lang: mq.lang, source: mpSource });
+    if (mq.maxPrice !== null && mq.maxPrice !== undefined) mpParams.set('maxPrice', mq.maxPrice);
+    if (mq.cheapest) mpParams.set('cheapest', 'true');
+    var mpRes = await fetch(API_BASE + '/api/marketplace/search?' + mpParams.toString());
+    return mpRes.json();
+  }
+  function renderMpIntoBubble(bubble, mp) {
+    var header = bubble.querySelector('.mp-header');
+    var note = bubble.querySelector('.mp-note');
+    var cards = bubble.querySelector('.cards');
+    if (header) header.innerHTML = '<strong>' + t('mpHeader') + '</strong> ' + mpSourceToggleHtml();
+    if (note) note.textContent = mp.note || '';
+    if (cards) {
+      if (mp.configured && mp.listings && mp.listings.length) {
+        renderMarketplaceInto(cards, mp.listings);
+      } else if (mp.configured) {
+        cards.innerHTML = '<p class="hint">' + escapeHtml(fmt(t('mpNone'), { mp: mpSourceName() })) + '</p>';
+      } else {
+        cards.innerHTML = '';
+      }
+    }
+    wireMpSourceToggle(bubble);
+  }
+  function wireMpSourceToggle(bubble) {
+    var btns = bubble.querySelectorAll('[data-mp-source]');
+    btns.forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var next = btn.getAttribute('data-mp-source');
+        if (next === mpSource) return;
+        setMpSource(next);
+        try {
+          var mp = await fetchMarketplace();
+          renderMpIntoBubble(bubble, mp);
+        } catch (e) { /* a failed switch leaves the old results in place */ }
+      });
+    });
+  }
+
   function marketplaceCardHtml(l) {
     var risk = l.risk || {};
     var zone = (risk.label || 'Caution').toLowerCase();
     var img = safeImageUrl(l.image);
+    var mpName = l.marketplace || 'eBay';
+    // The listing URL comes from the marketplace API (seller-side data):
+    // only an https link may become a clickable anchor, never a
+    // javascript: URL.
+    var itemUrl = (typeof l.itemUrl === 'string' && l.itemUrl.indexOf('https://') === 0) ? l.itemUrl : null;
     // data-listing carries the full listing (URL-encoded JSON) so a card
     // restored from saved chat history can still be opened.
     var listingAttr = '';
     try { listingAttr = ' data-listing="' + encodeURIComponent(JSON.stringify(l)) + '"'; } catch (e) { /* ignore */ }
-    return '<button type="button" class="product-card" data-marketplace="eBay"' + listingAttr + '>' +
+    return '<button type="button" class="product-card" data-marketplace="' + mpName + '"' + listingAttr + '>' +
       (img ? '<img src="' + img + '" alt="">' : '') +
       '<span class="card-body"><strong>' + escapeHtml(l.title) + '</strong>' +
-      '<span class="price">' + money(l.priceUSD) + '</span> · eBay<br>' +
+      '<span class="price">' + money(l.priceUSD) + '</span> · ' + mpName + '<br>' +
       '<span class="seller">Seller: ' + escapeHtml(l.sellerName) +
       (l.sellerFeedbackPercentage !== null && l.sellerFeedbackPercentage !== undefined
         ? ' (' + l.sellerFeedbackPercentage + '% positive)' : '') + '</span><br>' +
       '<span class="score score-' + zone + '">' +
       (risk.score !== undefined ? risk.score + '/100 · ' + risk.label : risk.label) + '</span> ' +
-      (l.itemUrl ? '<a href="' + l.itemUrl + '" target="_blank" rel="noopener" class="ext-link">View on eBay ↗</a>' : '') +
+      (itemUrl ? '<a href="' + itemUrl + '" target="_blank" rel="noopener" class="ext-link">View on ' + mpName + ' ↗</a>' : '') +
       '</span></button>';
   }
   function renderMarketplaceInto(grid, listings) {
@@ -735,21 +805,23 @@
   // with its marketplace risk score (attached by the search endpoint).
   // Checkout is a PayPal Sandbox simulation, it never buys the eBay item.
   function selectMarketplaceItem(l) {
+    var mpName = l.marketplace || 'eBay';
+    var mpKey = mpName.toLowerCase();
     var seller = {
-      id: 'ebay:' + (l.sellerName || 'unknown'),
+      id: mpKey + ':' + (l.sellerName || 'unknown'),
       name: l.sellerName || 'Unknown seller',
       hasTracking: !!l.hasShipping,
       hasReturnPolicy: !!l.returnsAccepted,
     };
     var product = {
-      id: 'ebay:' + String(l.itemId || '').slice(0, 60),
+      id: mpKey + ':' + String(l.itemId || '').slice(0, 60),
       name: l.title,
       priceUSD: l.priceUSD,
-      category: 'Marketplace · eBay',
+      category: 'Marketplace · ' + mpName,
     };
     selected = { product: product, seller: seller, risk: l.risk, holdRisk: l.holdRisk, cost: null, marketplace: l };
     clearSteps();
-    userBubble(l.title + ', ' + money(l.priceUSD) + ' (eBay)');
+    userBubble(l.title + ', ' + money(l.priceUSD) + ' (' + mpName + ')');
     showRisk();
     showHold();
     showCost();
@@ -1254,28 +1326,25 @@
       (data.understood && data.understood.aiParsed ? ' ' + t('parsedByAI') : '') + '</p>' +
       '<div class="cards"></div>');
     renderCatalogInto(resultsBubble.querySelector('.cards'), products);
-    // Real marketplace search (eBay), same query. Runs after the demo
+    // Real marketplace search, same query. Runs after the demo
     // catalog reply so the Ask answer never waits on the marketplace.
+    // The bubble always appears, with the eBay/Etsy toggle, so the
+    // source choice is visible even when a source is not configured
+    // yet (its note explains the missing key).
+    lastMpQuery = {
+      q: q, lang: lang,
+      maxPrice: (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) ? data.understood.maxPrice : null,
+      cheapest: !!(data.understood && data.understood.cheapest),
+    };
     try {
-      var mpParams = new URLSearchParams({ q, lang });
-      if (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) mpParams.set('maxPrice', data.understood.maxPrice);
-      if (data.understood && data.understood.cheapest) mpParams.set('cheapest', 'true');
-      var mpRes = await fetch(API_BASE + '/api/marketplace/search?' + mpParams.toString());
-      var mp = await mpRes.json();
-      if (mp.configured && mp.listings && mp.listings.length) {
-        hideTyping(typing);
-        var mpBubble = addBubble('agent',
-          '<p><strong>' + t('mpHeader') + '</strong></p>' +
-          '<p class="hint">' + (mp.note || '') + '</p>' +
-          '<div class="cards"></div>');
-        renderMarketplaceInto(mpBubble.querySelector('.cards'), mp.listings);
-        return;
-      }
-      if (mp.configured) {
-        hideTyping(typing);
-        addBubble('agent', '<p class="hint">' + t('mpNone') + '</p>');
-        return;
-      }
+      var mp = await fetchMarketplace();
+      hideTyping(typing);
+      var mpBubble = addBubble('agent',
+        '<p class="mp-header"><strong>' + t('mpHeader') + '</strong> ' + mpSourceToggleHtml() + '</p>' +
+        '<p class="hint mp-note"></p>' +
+        '<div class="cards"></div>', 'marketplace');
+      renderMpIntoBubble(mpBubble, mp);
+      return;
     } catch (e) {
       // Marketplace search is a bonus, a failure never breaks the Ask flow.
     }
@@ -1749,7 +1818,7 @@
   }
   function showCheckout() {
     var simNote = selected.marketplace
-      ? '<p>' + t('simNote') + '</p>'
+      ? '<p>' + fmt(t('simNote'), { mp: selected.marketplace.marketplace || 'eBay' }) + '</p>'
       : '';
     var bubble = addBubble('agent',
       '<p><strong>' + t('readyToPay') + '</strong> ' + t('neverPay') + '</p>' +
@@ -1786,7 +1855,7 @@
     var body = selected.marketplace
       ? {
           marketplace: {
-            marketplace: 'eBay',
+            marketplace: selected.marketplace.marketplace || 'eBay',
             itemId: selected.marketplace.itemId,
             title: selected.marketplace.title,
             priceUSD: selected.product.priceUSD,
