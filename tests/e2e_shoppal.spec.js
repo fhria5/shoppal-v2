@@ -106,7 +106,17 @@ test.describe('ShopPal v2 — core user flows', () => {
       await expect(chips).toHaveCount(5);
       await expect(chips.first()).toHaveAttribute('data-prompt', 'headphones under $60');
       await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toHaveCount(1);
+      await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toContainText('Find noise-cancelling headphones under $50');
       await expect(page.locator('#chat .msg.agent[data-step="catalog"] .product-card')).toHaveCount(20);
+      // Demo scenarios row: the three contrast cases (auto-approve,
+      // guardrail intercept, risky seller shield).
+      const scenarios = page.locator('.scenario-demo .scenario-chip');
+      await expect(scenarios).toHaveCount(3);
+      await expect(scenarios.nth(0)).toHaveAttribute('data-prompt', 'buy p11');
+      await expect(scenarios.nth(1)).toHaveAttribute('data-prompt', 'buy p12');
+      await expect(scenarios.nth(2)).toHaveAttribute('data-prompt', 'buy p14');
+      // Health badge shows the live latency once /api/health returns.
+      await expect(page.locator('#health-badge')).toContainText('Latency:', { timeout: 15000 });
     });
 
     await test.step('2. Quick Demo chip — skeleton shimmer, then product cards', async () => {
@@ -243,13 +253,23 @@ test.describe('ShopPal v2 — core user flows', () => {
     await expect(page.locator('#set-gr-status')).toHaveText('Guardrails tersimpan.');
     expect(await page.evaluate(() => localStorage.getItem('shoppal-budget-usd'))).toBe('60');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('shoppal-guardrails')).autoApproveLimit)).toBe(25);
-    await expect(page.locator('#chat [data-step="vault"]')).toContainText('$25');
-
-    // Escape closes; the vault summary button reopens the modal.
+    // The vault lives in its own modal now, not in the chat: close
+    // Settings first (its overlay covers the header), then open the vault
+    // via the header button and check the summary + sample proof there.
     await page.keyboard.press('Escape');
     await expect(page.locator('#settings-overlay')).toHaveClass(/hidden/);
+    await page.locator('#vault-btn').click();
+    await expect(page.locator('#vault-overlay')).not.toHaveClass(/hidden/);
+    await expect(page.locator('#vault-body')).toContainText('$25');
+    await expect(page.locator('#chat [data-step="vault"]')).toHaveCount(0);
+    await page.locator('#sample-proof-btn').click();
+    await expect(page.locator('#sample-proof-body')).toContainText('7L12554580106983W');
+    await expect(page.locator('#sample-proof-body')).toContainText('4DA71960H4899750Y');
+
+    // The vault summary button reopens Settings (vault closes first).
     await page.locator('#vault-settings').click();
     await expect(page.locator('#settings-overlay')).not.toHaveClass(/hidden/);
+    await expect(page.locator('#vault-overlay')).toHaveClass(/hidden/);
 
     // Clear chat history: fresh greeting, no saved user history.
     await page.locator('#set-clear-chat').click();
