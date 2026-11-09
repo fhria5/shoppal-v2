@@ -633,7 +633,7 @@
   function productCardHtml(p) {
     var seller = sellerOf(p);
     return '<button type="button" class="product-card" data-product="' + p.id + '">' +
-      '<img src="/' + (p.image || '') + '" alt="' + p.name + '">' +
+      '<img src="' + (p.image || '') + '" alt="' + p.name + '">' +
       '<span class="card-body"><strong>' + p.name + '</strong>' +
       '<span class="price">' + money(p.priceUSD) + '</span> · ' + p.category + '<br>' +
       '<span class="seller">Seller: ' + seller.name + '</span> ' +
@@ -835,7 +835,7 @@
       if (r === cheaper && r !== safer) badges += ' <span class="pick-badge pick-cheaper">' + t('cmpCheaper') + '</span>';
       return '<div class="compare-card' + (r === safer ? ' compare-safer' : '') + '">' +
         '<div class="compare-head">' +
-        (r.product.image ? '<img src="/' + r.product.image + '" alt="' + r.product.name + '">' : '') +
+        (r.product.image ? '<img src="' + r.product.image + '" alt="' + r.product.name + '">' : '') +
         '<div><strong>' + r.product.name + '</strong><br><span class="price">' + money(r.product.priceUSD) + '</span> · ' + r.seller.name + badges + '</div></div>' +
         '<ul><li>' + t('riskScore') + ': <span class="score score-' + zone + '">' + r.risk.score + '/100 · ' + labelText(r.risk.label) + '</span></li>' +
         '<li>' + t('holdTitle') + ': <span class="score score-' + hz + '">' + holdLabelText(r.hold.label) + ' · ' + shortHold(r.hold) + '</span></li>' +
