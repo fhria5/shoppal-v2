@@ -417,7 +417,73 @@
     div.innerHTML = (who === 'agent' ? '<div class="msg-label">' + (STEP_TITLES[step] || 'ShopPal AI · Assistant') + '</div>' : '') + html;
     chatEl.appendChild(div);
     scrollChat();
+    saveChatHistory();
     return div;
+  }
+  // Chat history persistence: the conversation survives a page refresh.
+  // The chat HTML is saved to localStorage on every new bubble, excluding
+  // bubbles that are re-created fresh on load (greeting, catalog, vault,
+  // checkout with its live PayPal button) and the typing indicator. On
+  // load, the saved bubbles are restored before the fresh greeting, so the
+  // user sees their history and can keep chatting. Restored bubbles are
+  // static records — their buttons don't work — except product cards,
+  // which are re-wired by the delegated handler in init. The follow-up
+  // context (last Ask results, so "yang termurah" still refers to the
+  // products shown before the refresh) is saved alongside.
+  var CHAT_HISTORY_KEY = 'shoppal-chat-v1';
+  var CHAT_HISTORY_MAX_BYTES = 200 * 1024; // 200KB cap; oldest bubbles drop first
+  function saveChatHistory() {
+    try {
+      var clone = chatEl.cloneNode(true);
+      clone.querySelectorAll('[data-step="greeting"], [data-step="catalog"], [data-step="vault"], [data-step="checkout"], .typing').forEach(function (el) { el.remove(); });
+      var html = clone.innerHTML;
+      while (html.length > CHAT_HISTORY_MAX_BYTES) {
+        var first = clone.firstElementChild;
+        if (!first) break;
+        first.remove();
+        html = clone.innerHTML;
+      }
+      localStorage.setItem(CHAT_HISTORY_KEY, html);
+    } catch (e) { /* storage unavailable or full — history just doesn't persist */ }
+  }
+  function restoreChatHistory() {
+    try {
+      var html = localStorage.getItem(CHAT_HISTORY_KEY);
+      if (html) {
+        chatEl.innerHTML = html;
+        var ctx = localStorage.getItem(CHAT_HISTORY_KEY + '-context');
+        if (ctx && catalog) {
+          var ids = JSON.parse(ctx);
+          if (Array.isArray(ids)) {
+            lastResults = ids.map(function (id) { return catalog.products.find(function (p) { return p.id === id; }); }).filter(Boolean);
+            if (!lastResults.length) lastResults = null;
+          }
+        }
+        return true;
+      }
+    } catch (e) { /* corrupted storage — start fresh */ }
+    return false;
+  }
+  function saveChatContext() {
+    try {
+      if (lastResults && lastResults.length) {
+        localStorage.setItem(CHAT_HISTORY_KEY + '-context', JSON.stringify(lastResults.map(function (p) { return p.id; })));
+      } else {
+        localStorage.removeItem(CHAT_HISTORY_KEY + '-context');
+      }
+    } catch (e) { /* ignore */ }
+  }
+  // Persist on any chat change (debounced): addBubble saves immediately,
+  // but result cards are rendered into an existing bubble afterwards, so
+  // a MutationObserver catches those fills too.
+  var saveChatTimer = null;
+  function scheduleSaveChatHistory() {
+    if (saveChatTimer) clearTimeout(saveChatTimer);
+    saveChatTimer = setTimeout(saveChatHistory, 300);
+  }
+  function setupChatHistoryObserver() {
+    if (!window.MutationObserver || !chatEl) return;
+    new MutationObserver(function () { scheduleSaveChatHistory(); }).observe(chatEl, { childList: true, subtree: true });
   }
   function userBubble(text) {
     return addBubble('user', '<p>' + text + '</p>');
@@ -506,6 +572,7 @@
       var wrap = document.createElement('div');
       wrap.innerHTML = productCardHtml(p);
       var card = wrap.firstChild;
+      card._wired = true; // JS property only — lost on HTML serialization, so the delegated handler can tell restored cards apart
       card.addEventListener('click', function () {
         if (compareMode) {
           var idx = compareList.findIndex(function (x) { return x.id === p.id; });
@@ -527,7 +594,11 @@
     var risk = l.risk || {};
     var zone = (risk.label || 'Caution').toLowerCase();
     var img = safeImageUrl(l.image);
-    return '<button type="button" class="product-card" data-marketplace="eBay">' +
+    // data-listing carries the full listing (URL-encoded JSON) so a card
+    // restored from saved chat history can still be opened.
+    var listingAttr = '';
+    try { listingAttr = ' data-listing="' + encodeURIComponent(JSON.stringify(l)) + '"'; } catch (e) { /* ignore */ }
+    return '<button type="button" class="product-card" data-marketplace="eBay"' + listingAttr + '>' +
       (img ? '<img src="' + img + '" alt="">' : '') +
       '<span class="card-body"><strong>' + escapeHtml(l.title) + '</strong>' +
       '<span class="price">' + money(l.priceUSD) + '</span> · eBay<br>' +
@@ -545,6 +616,7 @@
       var wrap = document.createElement('div');
       wrap.innerHTML = marketplaceCardHtml(l);
       var card = wrap.firstChild;
+      card._wired = true; // JS property only — see renderCatalogInto
       var link = card.querySelector('a');
       if (link) link.addEventListener('click', function (e) { e.stopPropagation(); });
       card.addEventListener('click', function () { selectMarketplaceItem(l); });
@@ -924,6 +996,7 @@
     var data = await res.json();
     var products = data.products || catalog.products;
     lastResults = products;
+    saveChatContext();
     // "yang pertama" picks the first result shown, go straight to it.
     if (data.selectFirst && products.length) {
       hideTyping(typing);
@@ -1761,6 +1834,7 @@
 
   document.addEventListener('DOMContentLoaded', async () => {
     chatEl = $('chat');
+    setupChatHistoryObserver();
     $('ask-btn').addEventListener('click', sendAsk);
     $('ask').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') sendAsk();
@@ -1796,6 +1870,40 @@
     });
     await loadConfig();
     await loadCatalog();
+    // Restore the previous conversation (if any) before the fresh
+    // greeting, so a refresh keeps the chat history and its context.
+    restoreChatHistory();
+    // Re-wire product cards restored from history: their per-card
+    // listeners are lost when the HTML is serialized, so a delegated
+    // handler on the chat covers them. Fresh cards carry _wired (a JS
+    // property, not serialized) and keep their own listeners, so the
+    // delegated handler skips them and nothing fires twice.
+    chatEl.addEventListener('click', function (e) {
+      if (e.target.closest('a')) return; // e.g. "View on eBay" opens the link only
+      var card = e.target.closest('.product-card');
+      if (!card || card._wired) return;
+      var pid = card.getAttribute('data-product');
+      if (pid && catalog) {
+        var p = catalog.products.find(function (x) { return x.id === pid; });
+        if (!p) return;
+        if (compareMode) {
+          var idx = compareList.findIndex(function (x) { return x.id === p.id; });
+          if (idx >= 0) compareList.splice(idx, 1);
+          else if (compareList.length < 2) compareList.push(p);
+          var inList = compareList.some(function (x) { return x.id === p.id; });
+          card.classList.toggle('selected', inList);
+          card.setAttribute('aria-pressed', inList ? 'true' : 'false');
+          updateCompareBar();
+          return;
+        }
+        selectProduct(p);
+        return;
+      }
+      var raw = card.getAttribute('data-listing');
+      if (raw) {
+        try { selectMarketplaceItem(JSON.parse(decodeURIComponent(raw))); } catch (err) { /* ignore */ }
+      }
+    });
     greet();
     await showVault();
     loadHealth();
