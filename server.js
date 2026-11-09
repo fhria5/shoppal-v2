@@ -1305,6 +1305,7 @@ function agentToolList(lang) {
     '- list_price_watches {}: list all active price watches with their current price and status.\n' +
     '- split_payment_link {"productId": string, "friends": [string]}: split a product price with friends and create a separate PayPal Sandbox order + payment link for each friend\'s share. This replaces the Invoicing API, which is not authorized for this sandbox app.\n' +
     '- track_and_dispute {"reason": "not_received"|"not_as_described"|"unauthorized"}: track the latest purchase with the PayPal Tracking API and simulate a dispute for it, returns the dispute payload (PayPal Disputes API format, simulated). Use when the user asks to track or dispute their order.\n' +
+    '- check_delivery {"vaultId": string|null, "productId": string|null}: check the delivery status of the latest purchase (or a named one) with the PayPal Tracking API. Returns tracking number, carrier, live status, days since purchase, and whether it is overdue. Use when the user asks where their order is, for a delivery status, or "cek pengiriman".\n' +
     'Reply per step, strict JSON only, no other text:\n' +
     '{"action": "<tool>", "args": {...}, "reason": "<one short sentence>"} or ' +
     '{"action": "reply", "text": "<final message to the user>"} or ' +
@@ -1501,6 +1502,78 @@ async function agentTrackAndDispute(args, ctx) {
   };
 }
 
+// Check the delivery status of the latest purchase (or a named one) with
+// the PayPal Tracking API. Ensures a tracker exists first (via the
+// /api/tracking/add route, same as track_and_dispute), then reads the live
+// status from /api/tracking/status - both routes stay the single source of
+// truth. Overdue (not DELIVERED and 7+ days) also prepares a dispute draft.
+async function agentCheckDelivery(args, ctx) {
+  const a = args && typeof args === 'object' ? args : {};
+  const entries = [...vaultEntries.values()].sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''));
+  let entry = null;
+  const want = String(a.vaultId || a.orderId || '');
+  if (want) entry = entries.find((e) => e.id === want || (e.paypal && e.paypal.orderId) === want);
+  if (!entry && a.productId) entry = entries.find((e) => e.product && e.product.id === String(a.productId));
+  if (!entry) entry = entries[0];
+  if (!entry) return { data: { error: 'No purchase yet. Buy something first, then check its delivery.' }, summary: 'no purchase to check' };
+  if (!entry.tracking || !entry.tracking.trackerId) {
+    try {
+      const r = await fetch(ctx.baseUrl + '/api/tracking/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vaultId: entry.id, lang: ctx.lang }),
+      });
+      const j = await r.json();
+      if (!r.ok) return { data: { vaultId: entry.id, product: entry.product ? entry.product.name : null, tracking: { error: j.error || ('tracking failed (HTTP ' + r.status + ')') }, hasTracker: false }, summary: 'tracking add failed' };
+    } catch (e) {
+      return { data: { vaultId: entry.id, product: entry.product ? entry.product.name : null, tracking: { error: String((e && e.message) || e) }, hasTracker: false }, summary: 'tracking add failed' };
+    }
+  }
+  let status = null;
+  try {
+    const r = await fetch(ctx.baseUrl + '/api/tracking/status?vaultId=' + encodeURIComponent(entry.id) + '&lang=' + ctx.lang);
+    const j = await r.json();
+    status = r.ok ? j : { error: j.error || ('status failed (HTTP ' + r.status + ')') };
+  } catch (e) {
+    status = { error: String((e && e.message) || e) };
+  }
+  const bought = new Date((entry.paypal && entry.paypal.createTime) || entry.createdAt || Date.now()).getTime();
+  const days = Math.max(0, Math.floor((Date.now() - bought) / 86400000));
+  const st = (status && status.status) || 'UNKNOWN';
+  const overdue = st !== 'DELIVERED' && days >= 7;
+  let autoDraft = null;
+  if (overdue) {
+    const sim = await simulateDispute({ vaultId: entry.id, disputeType: 'not_received' }, ctx.lang);
+    if (sim && !sim.error) autoDraft = { winChance: sim.winChance, label: sim.label, missingProof: sim.missingProof };
+  }
+  return {
+    data: { vaultId: entry.id, product: entry.product ? entry.product.name : null, orderId: (entry.paypal && entry.paypal.orderId) || entry.id, tracking: status, days, overdue, autoDraft, hasTracker: true },
+    summary: 'delivery ' + st + ', ' + days + ' day(s) since purchase' + (overdue ? ', overdue' : ''),
+  };
+}
+
+// Build the agent reply for a delivery check, shared by the runAgentLoop
+// bypass, the model-loop early return, and the agentFallback branch.
+function deliveryCheckResult(out, lang, steps, aiUsed) {
+  if (out.data.error) {
+    return {
+      reply: lang === 'id'
+        ? 'Belum ada pesanan yang bisa dicek. Beli dulu sesuatu, lalu cek pengirimannya di sini.'
+        : 'No purchase to check yet. Buy something first, then check its delivery here.',
+      steps, aiUsed,
+    };
+  }
+  const d = out.data;
+  const tr = d.tracking || {};
+  const trackLine = tr.trackingNumber ? ' · ' + tr.trackingNumber + ' (' + (tr.carrier || '') + ')' : '';
+  return {
+    reply: lang === 'id'
+      ? 'Pengiriman ' + (d.product || d.vaultId) + ': ' + (tr.status || '-') + trackLine + ' · ' + d.days + ' hari sejak pembelian.' + (d.overdue ? ' Terlambat — draf sengketa sudah siap di bawah.' : '')
+      : 'Delivery for ' + (d.product || d.vaultId) + ': ' + (tr.status || '-') + trackLine + ' · ' + d.days + ' day(s) since purchase.' + (d.overdue ? ' Overdue — a dispute draft is ready below.' : ''),
+    steps, delivery: d, aiUsed,
+  };
+}
+
 async function agentSplitPaymentLink(args, ctx) {
   const p = productsById.get(String(args.productId || ''));
   if (!p) return { data: { error: 'Unknown productId.' }, summary: 'unknown product' };
@@ -1586,6 +1659,7 @@ async function agentExecuteTool(action, args, ctx) {
     case 'list_price_watches': return agentListPriceWatches();
     case 'split_payment_link': return agentSplitPaymentLink(a, ctx);
     case 'track_and_dispute': return agentTrackAndDispute(a, ctx);
+    case 'check_delivery': return agentCheckDelivery(a, ctx);
     default: return { data: { error: 'Unknown tool: ' + action }, summary: 'unknown tool' };
   }
 }
@@ -1597,6 +1671,15 @@ async function agentExecuteTool(action, args, ctx) {
 // never a generic catalog search. The frontend routes them to /api/agent
 // and sends the active product as context + lastSplit; the server never
 // guesses a product when there is no active one.
+// Delivery-status check ("cek pengiriman" / "check delivery" / "where is
+// my order"): a status verb + a shipment noun. Track/dispute verbs
+// (lacak/track/dispute/sengketa) are handled by track_and_dispute first.
+function isDeliveryCheck(message) {
+  const s = ' ' + String(message || '').toLowerCase() + ' ';
+  return /(cek|check|status|where|di mana|dimana|sampai mana|mana)/.test(s)
+    && /(pengiriman|delivery|kiriman|paket|pesanan|order|package|barang|shipment|shipping)/.test(s);
+}
+
 function isCheckoutContinuation(message) {
   const s = ' ' + String(message || '').toLowerCase().replace(/\s+/g, ' ').trim() + ' ';
   return (
@@ -1696,11 +1779,14 @@ async function agentFallback(message, lang, ctx) {
   // saya") also name no product - the product comes from the active split
   // session or the last search results (ctx), never from a fresh search.
   const isContinuation = isCheckoutContinuation(message);
+  // Delivery-status checks ("cek pengiriman") also name no product - the
+  // order comes from the latest vault entry.
+  const isDelivery = isDeliveryCheck(message);
   // No shopping intent at all (the frontend only routes buy goals here,
   // but a direct API call could send anything): do not guess a purchase.
   const hasIntent = intent.category || intent.maxPrice !== null || intent.minPrice !== null
     || intent.cheapest || intent.best || intent.seller || intent.needsReturn || intent.needsTracking
-    || isCheckWatches || isTrackDispute || isContinuation;
+    || isCheckWatches || isTrackDispute || isContinuation || isDelivery;
   if (!hasIntent) {
     return {
       reply: lang === 'id'
@@ -1732,6 +1818,12 @@ async function agentFallback(message, lang, ctx) {
         : 'Latest order (' + (out.data.product || out.data.vaultId) + ') tracked' + (out.data.tracking && out.data.tracking.status ? ' (' + out.data.tracking.status + ')' : '') + '. Dispute simulation: win chance ' + (d.winChance !== undefined ? d.winChance + '%' : '-') + ' (' + (d.label || '') + '). The dispute payload is below.',
       steps, tracking: out.data.tracking, dispute: d, aiUsed: false,
     };
+  }
+  // Delivery-status intent ("cek pengiriman"): check the latest purchase.
+  if (isDelivery) {
+    const out = await agentCheckDelivery({}, ctx);
+    steps.push({ action: 'check_delivery', summary: out.summary });
+    return deliveryCheckResult(out, lang, steps, false);
   }
   // Check watches intent ("cek pantauan harga"): list watches, check each,
   // and if one triggered, prepare the buy (guardrails still apply).
@@ -1970,6 +2062,15 @@ async function runAgentLoop(message, lang, ctx) {
       steps, tracking: out.data.tracking, dispute: d, aiUsed: false,
     };
   }
+  // Delivery-status checks ("cek pengiriman" / "check delivery" / "where
+  // is my order") are deterministic too: check the latest purchase
+  // directly instead of letting the model ask which order.
+  if (isDeliveryCheck(message)) {
+    const steps = [];
+    const out = await agentCheckDelivery({}, ctx);
+    steps.push({ action: 'check_delivery', summary: out.summary });
+    return deliveryCheckResult(out, lang, steps, false);
+  }
   // Checkout continuations are deterministic (like track & dispute): the
   // user is continuing an active split or search, so resolve the active
   // product and check out instead of letting the model ask "which product?"
@@ -2016,7 +2117,7 @@ async function runAgentLoop(message, lang, ctx) {
         aiUsed: true,
       };
     }
-    if (!['search_products', 'get_risk_score', 'get_total_cost', 'get_hold_risk', 'check_guardrails', 'create_order', 'get_vault', 'simulate_dispute', 'price_watch', 'check_price_watch', 'list_price_watches', 'split_payment_link', 'track_and_dispute'].includes(decision.action)) {
+    if (!['search_products', 'get_risk_score', 'get_total_cost', 'get_hold_risk', 'check_guardrails', 'create_order', 'get_vault', 'simulate_dispute', 'price_watch', 'check_price_watch', 'list_price_watches', 'split_payment_link', 'track_and_dispute', 'check_delivery'].includes(decision.action)) {
       messages.push({ role: 'assistant', content: JSON.stringify(decision) });
       messages.push({ role: 'user', content: 'Tool result: {"error": "Unknown tool: ' + decision.action + '"}' });
       continue;
@@ -2043,6 +2144,9 @@ async function runAgentLoop(message, lang, ctx) {
         pendingOrder: { productId: String(decision.args.productId || ''), totalUSD: result.data.totalUSD || 0, name: '', shareCheckout: !!result.data.shareCheckout },
         aiUsed: true,
       };
+    }
+    if (decision.action === 'check_delivery' && result.data && !result.data.error) {
+      return deliveryCheckResult(result, lang, steps, true);
     }
   }
   // Model stopped answering or ran out of steps: fall back to the rules.
