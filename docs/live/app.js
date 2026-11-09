@@ -1493,7 +1493,7 @@
   }
 
   var GUARDRAILS_KEY = 'shoppal-guardrails';
-  var CATEGORIES = ['Headphones', 'Smartwatch', 'Keyboard', 'Speaker', 'Charger'];
+  var CATEGORIES = ['Headphones', 'Smartwatch', 'Keyboard', 'Speaker', 'Charger', 'Mouse', 'Earbuds', 'Webcam', 'Power Bank'];
   function getGuardrails() {
     try {
       var g = JSON.parse(localStorage.getItem(GUARDRAILS_KEY) || 'null');
