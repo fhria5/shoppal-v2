@@ -106,14 +106,14 @@ test.describe('ShopPal v2 — core user flows', () => {
       await expect(chips).toHaveCount(4);
       await expect(chips.first()).toHaveAttribute('data-prompt', 'headphones under $60');
       await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toHaveCount(1);
-      await expect(page.locator('#chat .msg.agent[data-step="catalog"] .product-card')).toHaveCount(11);
+      await expect(page.locator('#chat .msg.agent[data-step="catalog"] .product-card')).toHaveCount(20);
     });
 
     await test.step('2. Quick Demo chip — skeleton shimmer, then product cards', async () => {
       await page.locator('.quick-demo .chip').first().click();
       // The results bubble is the agent bubble with no data-step (greeting,
       // catalog and vault all carry one). Its cards are the Ask results —
-      // not the greeting catalog (11 cards) and not the price-watch "Buy
+      // not the greeting catalog (20 cards) and not the price-watch "Buy
       // now" buttons in the vault bubble, which also carry data-product.
       const resultsBubble = page.locator('#chat .msg.agent:not([data-step])').last();
       const resultCards = resultsBubble.locator('.product-card');
