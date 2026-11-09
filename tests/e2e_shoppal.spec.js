@@ -298,5 +298,24 @@ test.describe('ShopPal v2 — core user flows', () => {
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
+  test('XSS: a chat message carrying HTML/JS renders as text, never executes', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+    // The payload must not run even if it reaches the page: userBubble
+    // escapes its text, so the <img> is inert text, not an element.
+    await page.fill('#ask', '<img src=x onerror=window.__xss=1> test');
+    await page.click('#ask-btn');
+    await expect(page.locator('#chat .msg.user').last()).toBeVisible({ timeout: 15000 });
+    const fired = await page.evaluate(() => window.__xss);
+    expect(fired).toBeUndefined();
+    const bubbleHtml = await page.locator('#chat .msg.user').last().evaluate((el) => el.innerHTML);
+    expect(bubbleHtml).toContain('&lt;img');
+    expect(bubbleHtml).not.toContain('<img');
+    const liveImg = await page.locator('#chat .msg.user img').count();
+    expect(liveImg).toBe(0);
+    expect(pageErrors).toEqual([]);
+  });
 });
 
