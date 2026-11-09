@@ -1921,6 +1921,15 @@ app.post('/api/agent', async (req, res) => {
       approvedOrder: b.approvedOrder || null,
     };
     const out = await runAgentLoop(message, lang, ctx);
+    // Guardrail contract: when the agent refuses a purchase because it is
+    // over the user's auto-approve limit, the endpoint answers 403 with a
+    // GUARDRAIL_TRIGGERED status (and the pending order), instead of a
+    // plain 200. The client treats this as "needs manual confirmation",
+    // not as an error: it shows the Approve / Reject callout, and a retry
+    // with approved:true + approvedOrder creates the order (HTTP 200).
+    if (out && out.needsApproval) {
+      return res.status(403).json({ ...out, status: 'GUARDRAIL_TRIGGERED', lang });
+    }
     res.json({ ...out, lang });
   } catch (err) {
     res.status(err.status || 502).json({ error: err.message, paypalName: err.paypalName || null });
