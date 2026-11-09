@@ -356,7 +356,7 @@ async function get(path) {
   r = await get('/api/marketplace/search?q=mug&source=amazon&lang=en');
   check('marketplace unknown source 400', r.status === 400 && /Unknown source/.test(r.data.error || ''), r.data);
   r = await get('/api/marketplace/search?q=mug&lang=en');
-  check('marketplace ebay default still works', r.status === 200 && r.data.configured === false && /eBay/.test(r.data.note || ''), r.data);
+  check('marketplace ebay default still works', r.status === 200 && r.data.configured === true && r.data.source === 'eBay' && Array.isArray(r.data.listings) && r.data.listings.length > 0 && r.data.listings[0].marketplace === 'eBay', r.data);
   // Etsy checkout: a sandbox PayPal order for the listing's simulated
   // total ($10 item, no intl/conversion -> total $10.84).
   r = await post('/api/paypal/create-order', {
