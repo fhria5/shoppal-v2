@@ -53,6 +53,7 @@
   var selected = null; // { product, seller, risk, cost }
   var lastResults = null; // products the last Ask reply showed, follow-ups ("yang termurah") refer to these
   var lastSplit = null; // the active split session {productId, share, initiatorShare, total, friends}, if any
+  var sending = false; // true while a request is in flight (replaces disabling the input, so it keeps focus)
 
   // Bilingual replies (Dwibahasa). The agent answers in the language the
   // buyer types: Indonesian when the message has Indonesian words, English
@@ -1500,7 +1501,8 @@
       var btn = $('ask-btn');
       var input = $('ask');
       if (btn) btn.disabled = false;
-      if (input) input.disabled = false;
+      if (input) { input.disabled = false; input.focus(); }
+      sending = false;
     }
   }
 
@@ -1611,7 +1613,24 @@
         }
         selectProduct(p);
       });
-      grid.appendChild(card);
+      // One-tap buy: a Buy button under each card goes straight to the
+      // agent ("buy <id>"), skipping the detail steps. It lives outside
+      // the card button (a button cannot contain a button).
+      var cell = document.createElement('div');
+      cell.className = 'product-cell';
+      cell.appendChild(card);
+      var buyBtn = document.createElement('button');
+      buyBtn.type = 'button';
+      buyBtn.className = 'card-buy';
+      buyBtn.setAttribute('data-buy', p.id);
+      buyBtn.textContent = t('pwBuyNow');
+      buyBtn._wired = true; // like card._wired: the delegated handler skips it
+      buyBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        buyProduct(p);
+      });
+      cell.appendChild(buyBtn);
+      grid.appendChild(cell);
     });
   }
 
@@ -1744,7 +1763,7 @@
     var watch = /(pantau|memantau|watch|awasi|snipe|cek pantauan|cek harga|check (my )?(price )?watch)/.test(s);
     var split = /(patungan|split|bagi rata|bagi-bagi)/.test(s);
     var track = /(lacak|track|dispute|sengketa)/.test(s);
-    var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d|pantauan|watch|pesanan|order|lacak|track|dispute|sengketa)/.test(s);
+    var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d|pantauan|watch|pesanan|order|lacak|track|dispute|sengketa|\bp\d{2}\b)/.test(s);
     // Checkout continuations ("lanjut checkout bagian saya", "beli bagian
     // saya") name no product, so they carry no target - they continue the
     // ACTIVE product (split session, then lastResults), resolved by the
@@ -1913,15 +1932,25 @@
     scrollChat();
   }
 
+  // One-tap buy from a product card: send "buy <id>" straight to the
+  // agent, which buys that exact product (deterministic server bypass).
+  function buyProduct(p) {
+    $('ask').value = 'buy ' + p.id;
+    sendAsk();
+  }
+
   function sendAsk() {
     var q = $('ask').value.trim();
-    if (!q) return;
-    // Disable the composer while the agent works (prevents double-submit);
-    // hideTyping re-enables it once the last typing indicator is gone.
+    if (!q || sending) return;
+    // Keep the keyboard open on mobile: focus the input synchronously,
+    // inside the tap/keypress gesture, before the async work starts.
+    $('ask').focus();
+    sending = true;
+    // Disable only the send button while the agent works (prevents
+    // double-submit); the input stays enabled so it keeps focus, and the
+    // cursor returns to it when the reply lands (see hideTyping).
     var btn = $('ask-btn');
-    var input = $('ask');
     btn.disabled = true;
-    input.disabled = true;
     $('ask').value = '';
     if (!langManual) lang = detectLang(q);
     userBubble(q);
@@ -2808,6 +2837,15 @@
     // property, not serialized) and keep their own listeners, so the
     // delegated handler skips them and nothing fires twice.
     chatEl.addEventListener('click', function (e) {
+      var buyBtn = e.target.closest('.card-buy');
+      if (buyBtn && !buyBtn._wired) {
+        var pid = buyBtn.getAttribute('data-buy');
+        if (pid && CATALOG) {
+          var bp = CATALOG.products.find(function (x) { return x.id === pid; });
+          if (bp) buyProduct(bp);
+        }
+        return;
+      }
       var card = e.target.closest('.product-card');
       if (!card || card._wired) return;
       var pid = card.getAttribute('data-product');
