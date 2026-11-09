@@ -1893,6 +1893,59 @@ async function agentCheckoutContinuation(message, lang, ctx) {
   };
 }
 
+// One-tap buy ("buy p12"): a buy verb + a catalog product ID. The product
+// comes from the ID, never from a fresh search - deterministic like the
+// checkout continuation.
+function isBuyProductId(message) {
+  const s = ' ' + String(message || '').toLowerCase() + ' ';
+  return /(beli|belikan|bayar|buy|purchase|order)/.test(s) && /\bp\d{2}\b/.test(s);
+}
+function buyProductId(message) {
+  const m = String(message || '').toLowerCase().match(/\bp(\d{2})\b/);
+  return m ? productsById.get('p' + m[1]) || null : null;
+}
+
+// Buy a named product by ID: full total, guardrails apply, order created
+// via createPayPalOrder (the total always matches, so no "Total mismatch").
+async function agentBuyProductId(message, lang, ctx) {
+  const steps = [{ action: 'buy_product', summary: 'buy: ' + String(message || '').slice(0, 60) }];
+  const p = buyProductId(message);
+  if (!p) {
+    return {
+      reply: lang === 'id'
+        ? 'Produk mana yang mau dibeli? Sebutkan nama atau ID produknya, misalnya "buy p01".'
+        : 'Which product do you want to buy? Name it or give its ID, for example "buy p01".',
+      steps, aiUsed: false,
+    };
+  }
+  const full = calculateTotalCost(p.priceUSD, true, true, lang);
+  const amount = full.total;
+  const saved = agentApplyGuardrails(ctx.clientGuardrails);
+  const g = checkGuardrails(amount, p.category, lang);
+  guardrails = saved;
+  steps.push({ action: 'check_guardrails', summary: g.needsApproval ? 'needs approval' : 'within limits' });
+  if (g.needsApproval && !ctx.userApproved) {
+    return {
+      reply: lang === 'id'
+        ? p.name + ' total ($' + amount.toFixed(2) + ') ' + g.reasons.join(' ') + ' Ketuk setujui untuk lanjut ke pembayaran PayPal.'
+        : p.name + ' total ($' + amount.toFixed(2) + ') ' + g.reasons.join(' ') + ' Tap approve to continue to PayPal payment.',
+      steps,
+      needsApproval: true,
+      pendingOrder: { productId: p.id, totalUSD: amount, name: p.name, shareCheckout: false },
+      aiUsed: false,
+    };
+  }
+  const raw = await createPayPalOrder(p, amount, ctx.baseUrl, null, true, true);
+  const order = { orderId: raw.orderId, status: raw.status, approveUrl: raw.approveUrl, totalUSD: amount, productId: p.id, shareCheckout: false };
+  steps.push({ action: 'create_order', summary: 'order ' + order.orderId + ' created, total $' + order.totalUSD });
+  return {
+    reply: lang === 'id'
+      ? 'Pesanan ' + p.name + ' sudah dibuat (total $' + amount.toFixed(2) + '). Silakan setujui pembayarannya di PayPal.'
+      : 'The order for ' + p.name + ' is ready (total $' + amount.toFixed(2) + '). Please approve the payment on PayPal.',
+    steps, order, aiUsed: false,
+  };
+}
+
 // Rule-based fallback when Vyce is not configured or stops answering.
 // Same tools, same guardrails, no model. Keeps the pay flow working.
 async function agentFallback(message, lang, ctx) {
@@ -1910,11 +1963,13 @@ async function agentFallback(message, lang, ctx) {
   // Delivery-status checks ("cek pengiriman") also name no product - the
   // order comes from the latest vault entry.
   const isDelivery = isDeliveryCheck(message);
+  // One-tap buy ("buy p12") names the product by ID, not by category.
+  const isBuyId = isBuyProductId(message);
   // No shopping intent at all (the frontend only routes buy goals here,
   // but a direct API call could send anything): do not guess a purchase.
   const hasIntent = intent.category || intent.maxPrice !== null || intent.minPrice !== null
     || intent.cheapest || intent.best || intent.seller || intent.needsReturn || intent.needsTracking
-    || isCheckWatches || isTrackDispute || isContinuation || isDelivery;
+    || isCheckWatches || isTrackDispute || isContinuation || isDelivery || isBuyId;
   if (!hasIntent) {
     return {
       reply: lang === 'id'
@@ -1952,6 +2007,10 @@ async function agentFallback(message, lang, ctx) {
     const out = await agentCheckDelivery({}, ctx);
     steps.push({ action: 'check_delivery', summary: out.summary });
     return deliveryCheckResult(out, lang, steps, false);
+  }
+  // One-tap buy intent ("buy p12"): buy the named product by ID.
+  if (isBuyId) {
+    return agentBuyProductId(message, lang, ctx);
   }
   // Check watches intent ("cek pantauan harga"): list watches, check each,
   // and if one triggered, prepare the buy (guardrails still apply).
@@ -2198,6 +2257,11 @@ async function runAgentLoop(message, lang, ctx) {
     const out = await agentCheckDelivery({}, ctx);
     steps.push({ action: 'check_delivery', summary: out.summary });
     return deliveryCheckResult(out, lang, steps, false);
+  }
+  // One-tap buy ("buy p12") is deterministic too: buy the named product
+  // directly instead of letting the model search the catalog for it.
+  if (isBuyProductId(message)) {
+    return agentBuyProductId(message, lang, ctx);
   }
   // Checkout continuations are deterministic (like track & dispute): the
   // user is continuing an active split or search, so resolve the active
