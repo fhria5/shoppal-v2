@@ -253,7 +253,7 @@
       setLang: 'Language', setLangAuto: 'Auto (follows your message)', setLangHint: 'The agent answers in this language. Buttons and labels switch too.',
       setData: 'Chat data', setClearChat: 'Clear chat history', setClearHint: 'Removes the conversation from this browser. Your Proof Vault stays saved.',
       setCleared: 'Chat history cleared.', setGrSummary: 'Guardrail: auto-approve up to {limit}.', budSaved: 'Budget saved.',
-      askPh: 'Ask ShopPal…', quickDemo: 'Quick Demo:',
+      askPh: 'Ask ShopPal…', quickDemo: 'Demo:',
       dwTitle: 'Delivery Watch', dwIntro: 'The agent watches every delivery. If a parcel stalls for 7 days or misses its estimate, it prepares a dispute draft before your 180-day filing window shrinks.',
       dwAddTracking: 'Add tracking', dwCheck: 'Check delivery', dwNoTracker: 'No tracking yet for this order.',
       dwStatus: 'Delivery: {status}', dwOverdue: 'Overdue {n} days: no delivery update. A dispute draft is ready below.',
@@ -459,7 +459,7 @@
       setLang: 'Bahasa', setLangAuto: 'Otomatis (ikut pesanmu)', setLangHint: 'Agen menjawab dalam bahasa ini. Tombol dan label ikut berganti.',
       setData: 'Data chat', setClearChat: 'Hapus riwayat chat', setClearHint: 'Menghapus percakapan dari browser ini. Proof Vault tetap tersimpan.',
       setCleared: 'Riwayat chat dihapus.', setGrSummary: 'Guardrail: setujui otomatis sampai {limit}.', budSaved: 'Budget tersimpan.',
-      askPh: 'Tanya ShopPal…', quickDemo: 'Demo Cepat:',
+      askPh: 'Tanya ShopPal…', quickDemo: 'Demo:',
       dwTitle: 'Delivery Watch', dwIntro: 'Agen memantau tiap pengiriman. Kalau paket macet 7 hari atau melewati estimasi, ia menyiapkan draf sengketa sebelum jendela pengajuan 180 harimu menyusut.',
       dwAddTracking: 'Tambah resi', dwCheck: 'Cek pengiriman', dwNoTracker: 'Belum ada resi untuk order ini.',
       dwStatus: 'Pengiriman: {status}', dwOverdue: 'Terlambat {n} hari: tidak ada update pengiriman. Draf sengketa sudah siap di bawah.',
@@ -1655,13 +1655,9 @@
       '<p>Hi, I’m ShopPal, your AI shopping agent. Tell me what you’re looking for, and I’ll check the seller, show you the real total (fees included), and keep your proof if you pay.</p>' +
       '<p class="hint">Try: \u201cFind noise-cancelling headphones under $50\u201d \u2014 or tap a demo below.</p>' +
       '<div class="chips">' +
-      '<button type="button" class="chip" data-q="headphones under $60">Headphones under $60</button>' +
-      '<button type="button" class="chip" data-q="smartwatch">Smartwatch</button>' +
-      '<button type="button" class="chip" data-q="keyboard">Keyboard</button>' +
       '<button type="button" class="chip" id="phish-chip">' + t('phChip') + '</button>' +
       '<button type="button" class="chip" id="compare-toggle">' + t('cmpToggle') + '</button>' +
-      '</div>' +
-      '<p class="hint">' + t('linkHint') + '</p>',
+      '</div>',
       'greeting');
     greeting.querySelector('#greet-dismiss').addEventListener('click', function () { greeting.remove(); });
     addBubble('agent',
@@ -1669,7 +1665,7 @@
       '<div class="cards" id="catalog"></div>',
       'catalog');
     renderCatalogInto($('catalog'), CATALOG.products);
-    var chips = chatEl.querySelectorAll('.chip');
+    var chips = chatEl.querySelectorAll('.chip[data-q]');
     for (var i = 0; i < chips.length; i++) {
       chips[i].addEventListener('click', function () {
         $('ask').value = this.getAttribute('data-q');
@@ -2897,15 +2893,6 @@
     // Quick Demo chips: one tap fills the prompt and sends it, so a demo
     // scenario runs without typing.
     document.querySelectorAll('.quick-chip').forEach(function (chip) {
-      chip.addEventListener('click', function () {
-        var prompt = chip.getAttribute('data-prompt') || '';
-        if (!prompt) return;
-        $('ask').value = prompt;
-        sendAsk();
-      });
-    });
-    // Demo scenario chips: same one-tap send as Quick Demo.
-    document.querySelectorAll('.scenario-chip').forEach(function (chip) {
       chip.addEventListener('click', function () {
         var prompt = chip.getAttribute('data-prompt') || '';
         if (!prompt) return;
