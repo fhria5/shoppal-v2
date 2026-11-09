@@ -762,6 +762,34 @@ button.product-card .seller {
     font-size: 0.75rem;
 }
 
+/* One-tap buy: each card sits in a cell with a Buy button under it
+   (a button cannot contain a button, so the Buy button is a sibling). */
+.product-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+.product-cell .product-card {
+    flex: 1;
+}
+.card-buy {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 10px;
+    background: var(--navy-primary);
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.88rem;
+    border: none;
+    cursor: pointer;
+}
+.card-buy:hover {
+    background: var(--navy-hover);
+}
+.card-buy:disabled {
+    opacity: 0.55;
+}
+
 /* 6. Bottom Composer & Quick Demo Chips */
 .quick-demo {
     width: 100%;
@@ -840,8 +868,8 @@ button.product-card .seller {
 }
 
 .send-btn {
-    width: 44px !important;
-    height: 44px !important;
+    width: 48px !important;
+    height: 48px !important;
     border-radius: 50% !important;
     background: var(--navy-primary) !important;
     color: #ffffff !important;
@@ -1189,7 +1217,7 @@ button.product-card .seller {
 body.modal-open { overflow: hidden; }
 .quick-chip { display: inline-flex; align-items: center; gap: 0.4rem; }
 .chip-ico { flex: none; }
-.send-btn svg { display: block; }
+.send-btn svg { display: block; transform: translate(-1px, 1.5px); }
 @media (max-width: 920px) {
   .modal-overlay { align-items: flex-end; padding: 0; }
   .modal { max-width: none; border-radius: 16px 16px 0 0; max-height: 85dvh; }
