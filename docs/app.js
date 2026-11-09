@@ -28,7 +28,16 @@
       { id: 'p08', name: 'Echo Bluetooth Speaker', priceUSD: 39.99, referencePriceUSD: 39.99, category: 'Speaker', sellerId: 'seller-safe' },
       { id: 'p09', name: 'Echo Bluetooth Speaker', priceUSD: 19.99, referencePriceUSD: 39.99, category: 'Speaker', sellerId: 'seller-risky' },
       { id: 'p10', name: 'Volt 65W GaN Charger', priceUSD: 24.99, referencePriceUSD: 24.99, category: 'Charger', sellerId: 'seller-caution' },
-      { id: 'p11', name: 'Echo Mini Bluetooth Speaker', priceUSD: 14.99, referencePriceUSD: 19.99, category: 'Speaker', sellerId: 'seller-safe' }
+      { id: 'p11', name: 'Echo Mini Bluetooth Speaker', priceUSD: 14.99, referencePriceUSD: 19.99, category: 'Speaker', sellerId: 'seller-safe' },
+      { id: 'p12', name: 'Aurora Wireless Mouse', priceUSD: 34.99, referencePriceUSD: 34.99, category: 'Mouse', sellerId: 'seller-safe' },
+      { id: 'p13', name: 'Aurora Wireless Mouse', priceUSD: 29.99, referencePriceUSD: 34.99, category: 'Mouse', sellerId: 'seller-caution' },
+      { id: 'p14', name: 'Aurora Wireless Mouse', priceUSD: 16.99, referencePriceUSD: 34.99, category: 'Mouse', sellerId: 'seller-risky' },
+      { id: 'p15', name: 'Aurora True Wireless Earbuds', priceUSD: 49.99, referencePriceUSD: 49.99, category: 'Earbuds', sellerId: 'seller-safe' },
+      { id: 'p16', name: 'Aurora True Wireless Earbuds', priceUSD: 19.99, referencePriceUSD: 49.99, category: 'Earbuds', sellerId: 'seller-risky' },
+      { id: 'p17', name: 'Aurora 1080p Webcam', priceUSD: 45.99, referencePriceUSD: 45.99, category: 'Webcam', sellerId: 'seller-safe' },
+      { id: 'p18', name: 'Aurora 1080p Webcam', priceUSD: 32.99, referencePriceUSD: 45.99, category: 'Webcam', sellerId: 'seller-caution' },
+      { id: 'p19', name: 'Echo 20000mAh Power Bank', priceUSD: 24.99, referencePriceUSD: 24.99, category: 'Power Bank', sellerId: 'seller-safe' },
+      { id: 'p20', name: 'Echo 20000mAh Power Bank', priceUSD: 18.99, referencePriceUSD: 24.99, category: 'Power Bank', sellerId: 'seller-caution' },
     ],
     sellers: [
       { id: 'seller-safe', name: 'TechHub Official', riskProfile: 'Safe', accountAgeYears: 4.2, profileComplete: true, totalTransactions: 12400, disputeRate: 0.4, hasTracking: true, hasReturnPolicy: true },
@@ -84,7 +93,7 @@
       under: 'under $', fromSeller: 'from {seller} only', withReturns: 'with returns', withTracking: 'with tracking',
       cheapestFirst: 'cheapest first', bestFirst: 'best match first',
       noteCheapest: 'Matches sorted cheapest first.', noteBest: 'Best match first (safest, then cheapest).',
-      noteSafest: 'Matches sorted safest first.', noteNoMatch: 'No exact match in the demo catalog, showing all 10 demo products.',
+      noteSafest: 'Matches sorted safest first.', noteNoMatch: 'No exact match in the demo catalog, showing all 20 demo products.',
       riskScore: 'Risk Score', labelSafe: 'Safe', labelCaution: 'Caution', labelRisky: 'Risky',
       recommendation: 'Recommendation:', watchOut: 'Watch out:', beforeYouPay: 'Before you pay:',
       riskProfileLow: 'This seller account is new or its profile is incomplete.',
@@ -521,7 +530,7 @@
 
   // ---------- Smart Guardrails (local mirror of the server rules) ----------
   var GUARDRAILS_KEY = 'shoppal-guardrails';
-  var CATEGORIES = ['Headphones', 'Smartwatch', 'Keyboard', 'Speaker', 'Charger'];
+  var CATEGORIES = ['Headphones', 'Smartwatch', 'Keyboard', 'Speaker', 'Charger', 'Mouse', 'Earbuds', 'Webcam', 'Power Bank'];
   function getGuardrails() {
     try {
       var g = JSON.parse(localStorage.getItem(GUARDRAILS_KEY) || 'null');
