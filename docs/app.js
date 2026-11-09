@@ -1736,7 +1736,7 @@
     return ((buy || watch || split || track) && target) || cont;
   }
 
-  // "Cek limit budget guardrail" is a settings question, not a product
+  // "Check my budget guardrail limit" is a settings question, not a product
   // search: answer it with the current guardrail state instead of
   // returning a product list.
   function isGuardrailStatus(q) {
@@ -1960,7 +1960,7 @@
         });
       return;
     }
-    // "Cek limit budget guardrail": a settings question, answered from
+    // "Check my budget guardrail limit": a settings question, answered from
     // local guardrail state - never a product search.
     if (isGuardrailStatus(q)) {
       hideTyping(typing);
