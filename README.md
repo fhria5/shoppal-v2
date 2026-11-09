@@ -1,52 +1,52 @@
-# ShopPal v2 — The safe PayPal shopping agent
+# ShopPal v2 - The safe PayPal shopping agent
 
 > **AI shopping agent that scores sellers, shows the real PayPal total before you pay, and auto-saves proof for disputes.**
 >
-> **PayPal AI Hackathon — Best Use of Agentic Commerce ($5,000)**
+> **PayPal AI Hackathon - Best Use of Agentic Commerce ($5,000)**
 > Deadline: Friday, 13 November 2026, 04:00 WITA (12 November 2026, 12:00 PT)
 
 **Live demo:** https://fhria5.github.io/shoppal-v2/ (static) · https://fhria5.github.io/shoppal-v2/live/ (live server)
-**Video:** see `video/shoppal-v2-demo.mp4` (72 s, vertical) — upload to YouTube and paste the link into Devpost.
+**Video:** see `video/shoppal-v2-demo.mp4` (72 s, vertical) - upload to YouTube and paste the link into Devpost.
 
 > **Sandbox only. No real money.** Every payment uses the PayPal Sandbox with sandbox buyer / seller test accounts. No live PayPal account, no real funds, and no real credentials are committed.
 
 ## The problem: three ways shopping agents hurt people
 
-Most shopping agents only buy things. That is exactly the danger. ShopPal v2 is built around the three failures that make an autonomous buyer unsafe — and each one is a feature, not a slogan.
+Most shopping agents only buy things. That is exactly the danger. ShopPal v2 is built around the three failures that make an autonomous buyer unsafe - and each one is a feature, not a slogan.
 
-### 1. Rogue AI Agent Safety — an agent that pays without asking
+### 1. Rogue AI Agent Safety - an agent that pays without asking
 
 An agent that can spend your money must never do it silently. ShopPal enforces **Smart Guardrails** server-side, never by the model:
 
-- **Auto-approve limit $20.** Any purchase whose honest total (item + PayPal fees) is at or below $20 goes through on its own. Above $20 the agent **stops, creates the order, and waits** — the UI shows **"Pending Human Approval (Guardrail Triggered)"** with an amber callout, the reason, and Approve / Reject buttons.
+- **Auto-approve limit $20.** Any purchase whose honest total (item + PayPal fees) is at or below $20 goes through on its own. Above $20 the agent **stops, creates the order, and waits** - the UI shows **"Pending Human Approval (Guardrail Triggered)"** with an amber callout, the reason, and Approve / Reject buttons.
 - The agent **never calls capture**. The buyer always approves the payment on PayPal's own site. The model only prepares the order and hands over the link.
 - The model cannot override the guardrail: `create_order` re-runs the guardrail check on the server before it creates anything, even if the model says otherwise.
 
-### 2. Social Split Checkout — splitting a bill should not need a new app
+### 2. Social Split Checkout - splitting a bill should not need a new app
 
-Friends split purchases all the time; PayPal's Invoicing API (the obvious tool for it) returns **403 NOT_AUTHORIZED** for this sandbox app, and the Payouts API 404s. So ShopPal splits the bill a different way — see [How we beat the 403](#how-we-beat-the-403-invoicing-api) below.
+Friends split purchases all the time; PayPal's Invoicing API (the obvious tool for it) returns **403 NOT_AUTHORIZED** for this sandbox app, and the Payouts API 404s. So ShopPal splits the bill a different way - see [How we beat the 403](#how-we-beat-the-403-invoicing-api) below.
 
-### 3. Post-Purchase Dispute — when the parcel never arrives, the proof is gone
+### 3. Post-Purchase Dispute - when the parcel never arrives, the proof is gone
 
-PayPal's own data shows the top complaint is holds and disputes with no evidence. ShopPal saves a **Proof Vault** entry automatically on every verified capture (order, capture ID, risk score, cost breakdown, timeline), predicts the **hold risk**, and can **track the parcel** (real PayPal Tracking API, HTTP 201) and **simulate a dispute** whose payload follows the official PayPal Disputes API shape (`dispute_id`, `reason: MERCHANDISE_OR_SERVICE_NOT_RECEIVED`, `status: OPEN`, `dispute_life_cycle_stage: INQUIRY`) — labelled as a simulation, because no real ticket is opened.
+PayPal's own data shows the top complaint is holds and disputes with no evidence. ShopPal saves a **Proof Vault** entry automatically on every verified capture (order, capture ID, risk score, cost breakdown, timeline), predicts the **hold risk**, and can **track the parcel** (real PayPal Tracking API, HTTP 201) and **simulate a dispute** whose payload follows the official PayPal Disputes API shape (`dispute_id`, `reason: MERCHANDISE_OR_SERVICE_NOT_RECEIVED`, `status: OPEN`, `dispute_life_cycle_stage: INQUIRY`) - labelled as a simulation, because no real ticket is opened.
 
 ## What ShopPal does
 
 1. **AI Seller Risk Score (0–100)**, before you pay, every seller is scored with auditable, rule-based weights and explained in plain language. Safe 80–100 · Caution 50–79 · Risky 0–49.
 2. **AI Total Cost**, before checkout starts, you see the full estimated cost: item price, PayPal Checkout fee, international fee, and currency conversion spread. No surprise total after checkout starts.
-3. **Pay Agent** — a server-driven agent loop (`POST /api/agent`, max 5 steps) that searches, scores, checks guardrails and prepares the order. Vyce (DeepSeek v4.1) decides the next action as strict JSON; a rule-based fallback does the same when AI is absent. **Vyce does not support native function calling** (tested twice), so the loop is server-driven, not tool-calling.
-4. **Price Watch (sniper)** — set a target price; the agent watches the (labelled, simulated) price feed and buys the moment it drops to the target.
-5. **Split Payment Link** — split a purchase with friends; each friend gets their own PayPal Sandbox order + payment link for their share.
-6. **AI Proof Vault** — after a successful PayPal capture, a snapshot of the product, seller score, cost breakdown, and PayPal order / capture IDs is saved automatically.
-7. **Hold Predictor + Hold Release Checklist** — hold risk (Low/Moderate/High) and the exact steps that release a hold early.
-8. **Dispute Win Simulator + One-Click Evidence Pack + Deadline Tracker** — win-chance estimate, a printable proof page, and the 180-day filing / 20-day escalation / 30-day return deadlines.
-9. **Check Any Link + PayPal Phishing Check + Import Cost + FX Optimizer + Expense Dashboard + Monthly Budget + Subscription Watcher** — paste any product URL to check it, paste a suspicious PayPal message to score it, estimate import duty/VAT, compare the PayPal FX markup (3.5%) against the live mid-market rate, and see spending by category.
+3. **Pay Agent** - a server-driven agent loop (`POST /api/agent`, max 5 steps) that searches, scores, checks guardrails and prepares the order. Vyce (DeepSeek v4.1) decides the next action as strict JSON; a rule-based fallback does the same when AI is absent. **Vyce does not support native function calling** (tested twice), so the loop is server-driven, not tool-calling.
+4. **Price Watch (sniper)** - set a target price; the agent watches the (labelled, simulated) price feed and buys the moment it drops to the target.
+5. **Split Payment Link** - split a purchase with friends; each friend gets their own PayPal Sandbox order + payment link for their share.
+6. **AI Proof Vault** - after a successful PayPal capture, a snapshot of the product, seller score, cost breakdown, and PayPal order / capture IDs is saved automatically.
+7. **Hold Predictor + Hold Release Checklist** - hold risk (Low/Moderate/High) and the exact steps that release a hold early.
+8. **Dispute Win Simulator + One-Click Evidence Pack + Deadline Tracker** - win-chance estimate, a printable proof page, and the 180-day filing / 20-day escalation / 30-day return deadlines.
+9. **Check Any Link + PayPal Phishing Check + Import Cost + FX Optimizer + Expense Dashboard + Monthly Budget + Subscription Watcher** - paste any product URL to check it, paste a suspicious PayPal message to score it, estimate import duty/VAT, compare the PayPal FX markup (3.5%) against the live mid-market rate, and see spending by category.
 
 **The agent never pays without your explicit approval.** That is responsible Agentic Commerce, and it is a deliberate design choice.
 
 ## Demo flow (7 steps)
 
-1. Ask for a product (for example, "headphones under $60 for a gift") or pick one from the demo catalog — or tap a **Quick Demo** chip above the chat input (cheap item, headphone p01, split with Budi & Sari, track & dispute).
+1. Ask for a product (for example, "headphones under $60 for a gift") or pick one from the demo catalog - or tap a **Quick Demo** chip above the chat input (cheap item, headphone p01, split with Budi & Sari, track & dispute).
 2. See the Risk Score for each seller option. A risky option is shown in red with reasons, never hidden.
 3. Pick a product and see the full Total Cost breakdown, plus a Hold Predictor warning when relevant.
 4. Check out with PayPal Sandbox: the server creates an order via Orders API v2, you approve as a sandbox buyer, then the server captures it.
@@ -101,7 +101,7 @@ ShopPal v2 (single repo)
 
 ## How we beat the 403 Invoicing API
 
-The PayPal **Invoicing API returns 403 NOT_AUTHORIZED** for this sandbox app (verified live with a sandbox OAuth token), and the Payouts API 404s. The Transaction Search API is 403 too, so the Expense Dashboard reads the Proof Vault instead. Rather than giving up on split bills, ShopPal uses the API that *does* work — **Orders API v2**:
+The PayPal **Invoicing API returns 403 NOT_AUTHORIZED** for this sandbox app (verified live with a sandbox OAuth token), and the Payouts API 404s. The Transaction Search API is 403 too, so the Expense Dashboard reads the Proof Vault instead. Rather than giving up on split bills, ShopPal uses the API that *does* work - **Orders API v2**:
 
 1. The user asks to split a purchase (e.g. p01, $59.99, with Budi and Sari).
 2. The server computes each person's share in **integer cents** (`Math.round(total * 100)`): $59.99 / 3 = **$20.00 per friend**. The initiator's own share absorbs the leftover cents (`initiatorShare: "19.99"`, so 2 × $20.00 + $19.99 = $59.99 exactly).
@@ -113,7 +113,7 @@ The same trick powers the agent's `split_payment_link` tool and the MCP `split_p
 ## Disputes: real tracking, simulated ticket
 
 - **Tracking is real.** `POST /api/tracking/add` calls the PayPal Tracking API (`POST /v1/shipping/trackers`, `trackers` array body) and returns **HTTP 201**; the tracker ID is `{transactionId}-{trackingNumber}`. The Delivery Watch flags orders that are not `DELIVERED` after 7 days.
-- **The dispute ticket is a simulation.** `POST /api/dispute/simulate` (and the agent's `track_and_dispute` tool) returns a `disputePayload` that follows the official PayPal Disputes API shape for `GET /v1/customer/disputes/{dispute_id}`: `dispute_id` (`PP-D-…`), `reason` (`MERCHANDISE_OR_SERVICE_NOT_RECEIVED`, `…_NOT_AS_DESCRIBED`, `UNAUTHORIZED_TRANSACTION`), `status: OPEN`, `dispute_life_cycle_stage: INQUIRY`, `dispute_amount`, `disputed_transactions` (buyer/seller transaction IDs = the capture ID), `seller`, `messages: []`, `outcome: null`. The UI labels it **simulated** and shows it in a dark code block with a Copy JSON button — no real Disputes API ticket is opened, because the sandbox app has no live dispute to file.
+- **The dispute ticket is a simulation.** `POST /api/dispute/simulate` (and the agent's `track_and_dispute` tool) returns a `disputePayload` that follows the official PayPal Disputes API shape for `GET /v1/customer/disputes/{dispute_id}`: `dispute_id` (`PP-D-…`), `reason` (`MERCHANDISE_OR_SERVICE_NOT_RECEIVED`, `…_NOT_AS_DESCRIBED`, `UNAUTHORIZED_TRANSACTION`), `status: OPEN`, `dispute_life_cycle_stage: INQUIRY`, `dispute_amount`, `disputed_transactions` (buyer/seller transaction IDs = the capture ID), `seller`, `messages: []`, `outcome: null`. The UI labels it **simulated** and shows it in a dark code block with a Copy JSON button - no real Disputes API ticket is opened, because the sandbox app has no live dispute to file.
 
 ## Quick Start
 
@@ -139,10 +139,10 @@ node test_mcp.js
 ```
 
 Open http://localhost:3000 and tap a **Quick Demo** chip above the chat input:
-- 🛒 **Beli Barang Murah (< $20)** — buys the cheapest item (p11, $14.99, total $16.74) and auto-checks out below the $20 guardrail.
-- 🛡️ **Beli Headphone p01 ($59.99)** — total $65.57, triggers "Pending Human Approval (Guardrail Triggered)".
-- 🤝 **Patungan p01 sama Budi & Sari** — split $59.99 three ways, $20.00 per friend, each with their own PayPal payment link.
-- 📦 **Lacak & Dispute Pesanan** — tracks the latest purchase (real Tracking API) and shows the dispute payload.
+- 🛒 **Beli Barang Murah (< $20)** - buys the cheapest item (p11, $14.99, total $16.74) and auto-checks out below the $20 guardrail.
+- 🛡️ **Beli Headphone p01 ($59.99)** - total $65.57, triggers "Pending Human Approval (Guardrail Triggered)".
+- 🤝 **Patungan p01 sama Budi & Sari** - split $59.99 three ways, $20.00 per friend, each with their own PayPal payment link.
+- 📦 **Lacak & Dispute Pesanan** - tracks the latest purchase (real Tracking API) and shows the dispute payload.
 
 ## Required environment variables
 
@@ -173,7 +173,7 @@ SHOPPAL_API_BASE=http://localhost:3000 node mcp-server.js
 # Test it: node test_mcp.js
 ```
 
-Tools — `paypal-sandbox-mcp`: `get_access_token` (status only, never the token value), `create_paypal_order`, `capture_order`, `split_payment_link`, `track_and_dispute`. `mock-store-guardrail-mcp`: `search_mock_products`, `check_budget_guardrail`, `simulate_price_change`. `create_sandbox_invoice` is deliberately not exposed: the PayPal Invoicing API returns 403 for this sandbox app, and `split_payment_link` (Orders API v2) is the replacement. The dispute in `track_and_dispute` is a simulation; its payload follows the official PayPal Disputes API shape and is labelled simulated.
+Tools - `paypal-sandbox-mcp`: `get_access_token` (status only, never the token value), `create_paypal_order`, `capture_order`, `split_payment_link`, `track_and_dispute`. `mock-store-guardrail-mcp`: `search_mock_products`, `check_budget_guardrail`, `simulate_price_change`. `create_sandbox_invoice` is deliberately not exposed: the PayPal Invoicing API returns 403 for this sandbox app, and `split_payment_link` (Orders API v2) is the replacement. The dispute in `track_and_dispute` is a simulation; its payload follows the official PayPal Disputes API shape and is labelled simulated.
 
 ## Real marketplace search (eBay)
 
