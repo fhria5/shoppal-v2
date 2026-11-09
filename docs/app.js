@@ -1778,7 +1778,9 @@
       }).then(function (res) { return res.json().then(function (ag) { return { ok: res.ok, ag: ag, status: res.status }; }); })
         .then(function (out) {
           hideTyping(typing);
-          if (!out.ok) {
+          // 403 + needsApproval is the guardrail contract, not an error:
+          // render the Approve / Reject callout instead of an error bubble.
+          if (!out.ok && !out.ag.needsApproval) {
             addBubble('agent', '<p>' + escapeHtml(out.ag.error || String(out.status)) + '</p>');
             return;
           }
