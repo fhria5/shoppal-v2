@@ -153,6 +153,47 @@ function paypalMode() { return ENV.PAYPAL_MODE || 'sandbox'; }
 function paypalApiBase() { return ENV.PAYPAL_API_BASE || 'https://api-m.sandbox.paypal.com'; }
 
 
+// ---- Simple per-IP rate limit (protects the public Worker) ----
+// In-memory counter per IP: 30 requests per rolling 60s window, applied
+// only to the costly routes (AI + PayPal writes + URL fetches). Cheap
+// reads (health, catalog, risk, total) are exempt so the demo stays
+// snappy. The store is per-isolate on Workers and per-process locally —
+// enough to stop a casual spam run, not a WAF. Loopback is exempt so
+// the test suites can run flat-out.
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const RATE_LIMIT_MAX = 30;
+const RATE_LIMITED_PATHS = new Set([
+  '/api/agent', '/api/ask',
+  '/api/paypal/token', '/api/paypal/create-order', '/api/paypal/capture-order', '/api/paypal/refund',
+  '/api/marketplace/search', '/api/check-link', '/api/phishing-check', '/api/tracking/add', '/api/fx-compare',
+]);
+const rateLimitStore = new Map(); // ip -> { count, resetAt }
+function rateLimitAllowed(ip, path) {
+  if (!RATE_LIMITED_PATHS.has(path)) return true;
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return true;
+  const now = Date.now();
+  let entry = rateLimitStore.get(ip);
+  if (!entry || now >= entry.resetAt) {
+    entry = { count: 0, resetAt: now + RATE_LIMIT_WINDOW_MS };
+    rateLimitStore.set(ip, entry);
+  }
+  entry.count += 1;
+  return entry.count <= RATE_LIMIT_MAX;
+}
+function rateLimitRetryAfter(ip) {
+  const entry = rateLimitStore.get(ip);
+  if (!entry) return 0;
+  return Math.max(0, Math.ceil((entry.resetAt - Date.now()) / 1000));
+}
+function rateLimitMiddleware(req, res, next) {
+  const ip = req.ip || '';
+  if (!rateLimitAllowed(ip, req.path)) {
+    res.set('Retry-After', String(rateLimitRetryAfter(ip)));
+    return res.status(429).json({ error: 'Too many requests. Please wait a moment and try again.' });
+  }
+  next();
+}
+
 // Demo catalog: 20 products, 3 sellers (bundled — Workers have no fs).
 const catalog = CATALOG;
 const sellersById = new Map(catalog.sellers.map((s) => [s.id, s]));
@@ -4111,6 +4152,14 @@ async function handleFetch(request) {
       (r) => r.method === request.method.toUpperCase() && r.path === url.pathname);
     if (!route) {
       return Response.json({ error: 'Not found.' }, { status: 404, headers: CORS });
+    }
+    // Simple per-IP rate limit on the costly routes (see rateLimitAllowed
+    // in server.js). Cloudflare always sets CF-Connecting-IP; fall back to
+    // X-Forwarded-For. Loopback is exempt in the limiter itself.
+    const clientIp = (request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown').split(',')[0].trim();
+    if (!rateLimitAllowed(clientIp, url.pathname)) {
+      return Response.json({ error: 'Too many requests. Please wait a moment and try again.' },
+        { status: 429, headers: { ...CORS, 'Retry-After': String(rateLimitRetryAfter(clientIp)) } });
     }
     let body = {};
     if (request.method !== 'GET' && request.method !== 'HEAD') {
