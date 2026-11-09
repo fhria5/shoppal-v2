@@ -489,10 +489,8 @@ const STR = {
     grLimit: 'Auto-approve up to (USD)',
     grSave: 'Save guardrails',
     grSaved: 'Guardrails saved.',
-    grCatCap: 'Monthly cap for {cat} (USD, empty = no cap)',
     grNeedApproval: 'Needs your approval',
     grAboveLimit: 'This purchase ({total}) is above your auto-approve limit ({limit}).',
-    grCatOver: 'This would take {cat} over its monthly cap ({spent} of {cap} spent).',
     grApprove: 'Approve and pay',
     grReject: 'Reject this purchase',
     grApproved: 'Approved, capturing payment...',
@@ -734,10 +732,8 @@ const STR = {
     grLimit: 'Setujui otomatis sampai (USD)',
     grSave: 'Simpan guardrails',
     grSaved: 'Guardrails tersimpan.',
-    grCatCap: 'Batas bulanan untuk {cat} (USD, kosong = tanpa batas)',
     grNeedApproval: 'Butuh persetujuanmu',
     grAboveLimit: 'Pembelian ini ({total}) di atas batas setujui otomatis ({limit}).',
-    grCatOver: 'Ini akan membuat {cat} melewati batas bulanannya ({spent} dari {cap} sudah terpakai).',
     grApprove: 'Setujui dan bayar',
     grReject: 'Tolak pembelian ini',
     grApproved: 'Disetujui, meng-capture pembayaran...',
@@ -1623,9 +1619,6 @@ function agentApplyGuardrails(clientGuardrails) {
   if (clientGuardrails && Number.isFinite(Number(clientGuardrails.autoApproveLimit))) {
     guardrails = {
       autoApproveLimit: Number(clientGuardrails.autoApproveLimit),
-      categoryCaps: (clientGuardrails.categoryCaps && typeof clientGuardrails.categoryCaps === 'object')
-        ? clientGuardrails.categoryCaps
-        : saved.categoryCaps,
     };
   }
   return saved;
@@ -2661,29 +2654,13 @@ const marketplaceOrders = new Map();
 // Smart Guardrails: human-in-the-loop for agentic purchases.
 // Memory-only (the Worker has no disk); the frontend also keeps a copy
 // in localStorage and sends it with the check. Default: auto-approve
-// up to $20, no per-category caps.
-let guardrails = { autoApproveLimit: 20, categoryCaps: {} };
-function categorySpendThisMonth(category) {
-  const ym = new Date().toISOString().slice(0, 7);
-  let spent = 0;
-  for (const e of vaultEntries.values()) {
-    const t = (e.paypal && e.paypal.createTime) || e.createdAt || '';
-    if (t.slice(0, 7) !== ym) continue;
-    if ((e.product && e.product.category) !== category) continue;
-    spent += Number((e.totalCost && e.totalCost.total) || e.product.priceUSD || 0);
-  }
-  return spent;
-}
+// up to $20.
+let guardrails = { autoApproveLimit: 20 };
 function checkGuardrails(totalUSD, category, lang) {
   const reasons = [];
   const total = Number(totalUSD) || 0;
   const limit = Number(guardrails.autoApproveLimit) || 0;
   if (total > limit) reasons.push(fmt(t(lang, 'grAboveLimit'), { total: '$' + total.toFixed(2), limit: '$' + limit.toFixed(2) }));
-  const cap = category && guardrails.categoryCaps ? Number(guardrails.categoryCaps[category]) : NaN;
-  if (category && Number.isFinite(cap) && cap > 0) {
-    const spent = categorySpendThisMonth(category);
-    if (spent + total > cap) reasons.push(fmt(t(lang, 'grCatOver'), { cat: category, spent: '$' + spent.toFixed(2), cap: '$' + cap.toFixed(2) }));
-  }
   return { needsApproval: reasons.length > 0, reasons };
 }
 
@@ -3855,27 +3832,19 @@ routes.push({ method: 'POST', path: '/api/dispute/simulate', handler: async (req
 
 // Smart Guardrails: read/update the rules, and check a purchase.
 routes.push({ method: 'GET', path: '/api/guardrails', handler: (req, res) => {
-  res.json({ autoApproveLimit: guardrails.autoApproveLimit, categoryCaps: guardrails.categoryCaps });
+  res.json({ autoApproveLimit: guardrails.autoApproveLimit });
 }});
 routes.push({ method: 'POST', path: '/api/guardrails', handler: (req, res) => {
   const b = req.body || {};
   const limit = Number(b.autoApproveLimit);
   if (Number.isFinite(limit) && limit >= 0) guardrails.autoApproveLimit = limit;
-  if (b.categoryCaps && typeof b.categoryCaps === 'object') {
-    const caps = {};
-    for (const [k, v] of Object.entries(b.categoryCaps)) {
-      const n = Number(v);
-      if (Number.isFinite(n) && n > 0) caps[k] = n;
-    }
-    guardrails.categoryCaps = caps;
-  }
-  res.json({ autoApproveLimit: guardrails.autoApproveLimit, categoryCaps: guardrails.categoryCaps });
+  res.json({ autoApproveLimit: guardrails.autoApproveLimit });
 }});
 routes.push({ method: 'POST', path: '/api/guardrails/check', handler: (req, res) => {
   const lang = (req.body || {}).lang === 'id' ? 'id' : 'en';
   const b = req.body || {};
   const saved = guardrails;
-  if (Number.isFinite(Number(b.autoApproveLimit))) guardrails = { autoApproveLimit: Number(b.autoApproveLimit), categoryCaps: (b.categoryCaps && typeof b.categoryCaps === 'object') ? b.categoryCaps : saved.categoryCaps };
+  if (Number.isFinite(Number(b.autoApproveLimit))) guardrails = { autoApproveLimit: Number(b.autoApproveLimit) };
   const out = checkGuardrails(b.totalUSD, b.category, lang);
   guardrails = saved;
   res.json(out);
