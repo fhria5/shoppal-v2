@@ -23,7 +23,7 @@ const PAYPAL_API_BASE =
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Demo catalog: 10 products, 3 sellers.
+// Demo catalog: 20 products, 3 sellers.
 const catalogPath = path.join(__dirname, 'data', 'catalog.json');
 const catalog = JSON.parse(fs.readFileSync(catalogPath, 'utf8'));
 const sellersById = new Map(catalog.sellers.map((s) => [s.id, s]));
@@ -55,7 +55,7 @@ const STR = {
     noteCheapest: 'Matches sorted cheapest first.',
     noteBest: 'Best match first (safest, then cheapest).',
     noteSafest: 'Matches sorted safest first.',
-    noteNoMatch: 'No exact match in the demo catalog, showing all 10 demo products.',
+    noteNoMatch: 'No exact match in the demo catalog, showing all 20 demo products.',
     riskProfileLow: 'This seller account is new or its profile is incomplete.',
     riskProfileHigh: 'This seller has an established, complete profile.',
     riskHistoryLow: 'This seller has a high dispute rate compared with other sellers.',
