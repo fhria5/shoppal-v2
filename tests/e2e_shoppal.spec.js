@@ -103,18 +103,26 @@ test.describe('ShopPal v2 — core user flows', () => {
       await expect(page.locator('#ask-btn')).toBeVisible();
       await expect(page.locator('.quick-demo')).toBeVisible();
       const chips = page.locator('.quick-demo .chip');
-      await expect(chips).toHaveCount(5);
+      await expect(chips).toHaveCount(8);
       await expect(chips.first()).toHaveAttribute('data-prompt', 'headphones under $60');
       await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toHaveCount(1);
       await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toContainText('Find noise-cancelling headphones under $50');
+      // Catalog starts collapsed behind a toggle: no cards rendered yet.
+      await expect(page.locator('#catalog-toggle')).toBeVisible();
+      await expect(page.locator('#catalog-toggle .cat-label')).toContainText('Browse catalog (20)');
+      await expect(page.locator('#chat .msg.agent[data-step="catalog"]')).toHaveClass(/hidden/);
+      await expect(page.locator('#chat .msg.agent[data-step="catalog"] .product-card')).toHaveCount(0);
+      await page.locator('#catalog-toggle').click();
+      await expect(page.locator('#chat .msg.agent[data-step="catalog"]')).not.toHaveClass(/hidden/);
       await expect(page.locator('#chat .msg.agent[data-step="catalog"] .product-card')).toHaveCount(20);
-      // Demo scenarios row: the three contrast cases (auto-approve,
-      // guardrail intercept, risky seller shield).
-      const scenarios = page.locator('.scenario-demo .scenario-chip');
-      await expect(scenarios).toHaveCount(3);
-      await expect(scenarios.nth(0)).toHaveAttribute('data-prompt', 'buy p11');
-      await expect(scenarios.nth(1)).toHaveAttribute('data-prompt', 'buy p12');
-      await expect(scenarios.nth(2)).toHaveAttribute('data-prompt', 'buy p14');
+      await expect(page.locator('#catalog-toggle .cat-label')).toContainText('Hide catalog (20)');
+      await page.locator('#catalog-toggle').click();
+      await expect(page.locator('#chat .msg.agent[data-step="catalog"]')).toHaveClass(/hidden/);
+      // The last three chips in the single Demo row are the contrast
+      // scenarios (auto-approve, guardrail intercept, risky seller shield).
+      await expect(chips.nth(5)).toHaveAttribute('data-prompt', 'buy p11');
+      await expect(chips.nth(6)).toHaveAttribute('data-prompt', 'buy p12');
+      await expect(chips.nth(7)).toHaveAttribute('data-prompt', 'buy p14');
       // Health badge shows the live latency once /api/health returns.
       await expect(page.locator('#health-badge')).toContainText('Latency:', { timeout: 15000 });
     });
@@ -228,7 +236,7 @@ test.describe('ShopPal v2 — core user flows', () => {
     expect(gearBox.height).toBeGreaterThanOrEqual(44);
     expect(gearBox.width).toBeGreaterThanOrEqual(44);
     // Quick Demo chips carry SVG icons, not emoji.
-    expect(await page.locator('.quick-chip svg').count()).toBe(5);
+    expect(await page.locator('.quick-chip svg').count()).toBe(8);
 
     // Open the modal: four sections, English active by default (the demo
     // is English-first; Auto/Indonesian stay available in Settings).
