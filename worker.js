@@ -10,7 +10,8 @@
 const ENV = {};
 for (const k of ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_MODE',
   'PAYPAL_API_BASE', 'VYCE_API_KEY', 'VYCE_API_BASE', 'VYCE_MODEL',
-  'EBAY_APP_ID', 'EBAY_CERT_ID', 'EBAY_API_BASE', 'EBAY_MARKETPLACE']) {
+  'EBAY_APP_ID', 'EBAY_CERT_ID', 'EBAY_API_BASE', 'EBAY_MARKETPLACE',
+  'ETSY_API_KEY', 'ETSY_API_BASE']) {
   const v = globalThis[k];
   if (v !== undefined) ENV[k] = v;
 }
@@ -135,6 +136,101 @@ async function searchEbay(query, { limit = 8 } = {}) {
 }
 
 const ebay = { isConfigured, searchEbay, normalize };
+
+// Etsy adapter — the second real marketplace for ShopPal v2.
+//
+// The Open API v3 listing search is free with an Etsy Developers app:
+// create an app at etsy.com/developers/register and put its keystring +
+// shared secret in .env as ETSY_API_KEY, in the form
+// "keystring:shared_secret" (the colon-joined pair the x-api-key header
+// expects). No key, no calls — searchEtsy returns null and the server
+// tells the UI to show the demo catalog instead.
+//
+// Only the public listing search is used (findAllListingsActive), which
+// needs just the API key — no OAuth user token. There is no cart or
+// checkout endpoint on Etsy's API, so buying an Etsy listing works the
+// same way as eBay here: the PayPal order is a SANDBOX SIMULATION of
+// paying that listing's total, it does not buy the item on Etsy. The
+// buyer is told this in the UI.
+//
+// Same normalized shape as marketplace/ebay.js, so the risk scorer,
+// the marketplace search route and the PayPal checkout mapping all work
+// unchanged. Two Etsy specifics: prices come as { amount, divisor,
+// currency_code } (priceUSD = amount / divisor), and the search is
+// global, so only USD listings are kept — totals and risk scores stay
+// comparable. Seller feedback % is not in the listing search response,
+// so it stays null (the scorer treats it as unknown, 50/100).
+function etsyApiBase() { return (ENV.ETSY_API_BASE || 'https://api.etsy.com').replace(/\/$/, ''); }
+
+function etsyIsConfigured() {
+  return Boolean(ENV.ETSY_API_KEY);
+}
+
+function etsyNormalize(item) {
+  const price = (item && item.price) || {};
+  const amount = Number(price.amount);
+  const divisor = Number(price.divisor) || 100;
+  const currency = price.currency_code || 'USD';
+  const images = Array.isArray(item && item.images) ? item.images : [];
+  const firstImage = images[0] || {};
+  const image = firstImage.url_570xN || firstImage.url_fullxfull || null;
+  const shopId = item && item.shop_id !== undefined ? item.shop_id : null;
+  const shop = (item && item.shop) || {};
+  return {
+    marketplace: 'Etsy',
+    itemId: (item && item.listing_id !== undefined) ? String(item.listing_id) : null,
+    title: (item && item.title) || 'Untitled listing',
+    priceUSD: Number.isFinite(amount) ? Math.round((amount / divisor) * 100) / 100 : null,
+    currency,
+    sellerName: shop.shop_name || (shopId !== null ? 'Shop ' + shopId : 'Unknown seller'),
+    sellerFeedbackPercentage: null,
+    sellerFeedbackScore: null,
+    image,
+    itemUrl: (item && item.url) || null,
+    condition: null,
+    returnsAccepted: false,
+    hasShipping: !item || item.type !== 'download',
+  };
+}
+
+// Returns normalized listings, or null when Etsy is not configured.
+async function searchEtsy(query, { limit = 8 } = {}) {
+  if (!isConfigured()) return null;
+  const url =
+    etsyApiBase() +
+    '/v3/application/listings/active?keywords=' +
+    encodeURIComponent(query) +
+    '&limit=' +
+    Math.min(Math.max(Number(limit) || 8, 1), 20) +
+    '&sort_on=score';
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'x-api-key': ENV.ETSY_API_KEY,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) {
+      if (res.status === 429) {
+        throw new Error('Etsy search rate-limited (HTTP 429). Try again in a moment.');
+      }
+      throw new Error('Etsy search failed (HTTP ' + res.status + ').');
+    }
+    const data = await res.json();
+    const items = Array.isArray(data.results) ? data.results : [];
+    return items
+      .map(etsyNormalize)
+      .filter((l) => l.priceUSD !== null && Number.isFinite(l.priceUSD) && l.currency === 'USD');
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+const etsy = { isConfigured: etsyIsConfigured, searchEtsy, normalize: etsyNormalize };
 
 const routes = [];
 
@@ -282,9 +378,11 @@ const STR = {
     mpHoldNoSignals: 'No hold-risk signals in this listing.',
     mpHoldTipLow: 'Funds usually clear on the normal schedule for this pattern.',
     mpHoldTipHigh: 'Ask the seller to upload tracking promptly, and keep the order total close to the seller’s usual range.',
-    mpAiNote: 'Marketplace scores use marketplace signals; account age is not shared by eBay, so it scores neutral.',
+    mpAiNote: 'Marketplace scores use marketplace signals; account age is not shared by the marketplace, so it scores neutral.',
     mpNote: 'Real eBay listings (Browse API). Prices in USD; risk scores use marketplace signals, feedback %, price vs this search’s median, returns and shipping.',
+    mpNoteEtsy: 'Real Etsy listings (Open API v3). Prices in USD; risk scores use marketplace signals, price vs this search’s median, and shipping. Etsy does not share seller feedback % or return policy in search, so those score neutral.',
     mpNotConfigured: 'Real marketplace search needs free eBay developer keys. Add EBAY_APP_ID and EBAY_CERT_ID to .env (developer.ebay.com), no keys, no real listings.',
+    mpNotConfiguredEtsy: 'Real Etsy search needs a free Etsy developer key. Add ETSY_API_KEY to .env as "keystring:shared_secret" (etsy.com/developers/register), no key, no real listings.',
     aiNoteFallback: 'AI explanation unavailable, showing rule-based reasons.',
     aiNoteVyce: 'Explanation rewritten by AI (Vyce); the numeric score is rule-based and unchanged.',
     disputeBody: 'Dispute response draft (simulated, factual only): Order {order} for {product} ({total}) was paid via PayPal Sandbox and captured as {status}. Seller: {seller} (risk score {score} at checkout). Proof is attached in the Proof Vault entry {id}.',
@@ -525,9 +623,11 @@ const STR = {
     mpHoldNoSignals: 'Tidak ada sinyal risiko hold pada listing ini.',
     mpHoldTipLow: 'Dana biasanya cair sesuai jadwal normal untuk pola ini.',
     mpHoldTipHigh: 'Minta seller segera mengunggah tracking, dan jaga total order tetap dekat dengan kisaran biasa seller.',
-    mpAiNote: 'Skor marketplace memakai sinyal marketplace; umur akun tidak dibagikan eBay, jadi dinilai netral.',
+    mpAiNote: 'Skor marketplace memakai sinyal marketplace; umur akun tidak dibagikan marketplace, jadi dinilai netral.',
     mpNote: 'Listing eBay asli (Browse API). Harga dalam USD; skor risiko memakai sinyal marketplace, feedback %, harga vs median pencarian ini, retur dan shipping.',
+    mpNoteEtsy: 'Listing Etsy asli (Open API v3). Harga dalam USD; skor risiko memakai sinyal marketplace, harga vs median pencarian ini, dan shipping. Etsy tidak membagikan feedback % seller atau kebijakan retur di pencarian, jadi keduanya dinilai netral.',
     mpNotConfigured: 'Pencarian marketplace asli butuh kunci developer eBay gratis. Tambahkan EBAY_APP_ID dan EBAY_CERT_ID ke .env (developer.ebay.com), tanpa kunci, tidak ada listing asli.',
+    mpNotConfiguredEtsy: 'Pencarian Etsy asli butuh kunci developer Etsy gratis. Tambahkan ETSY_API_KEY ke .env sebagai "keystring:shared_secret" (etsy.com/developers/register), tanpa kunci, tidak ada listing asli.',
     aiNoteFallback: 'Penjelasan AI tidak tersedia, menampilkan alasan berbasis aturan.',
     aiNoteVyce: 'Penjelasan ditulis ulang oleh AI (Vyce); skor angka berbasis aturan dan tidak berubah.',
     disputeBody: 'Draf jawaban sengketa (simulasi, hanya fakta): Order {order} untuk {product} ({total}) dibayar via PayPal Sandbox dan di-capture sebagai {status}. Seller: {seller} (skor risiko {score} saat checkout). Bukti terlampir di entri Proof Vault {id}.',
@@ -2431,24 +2531,32 @@ routes.push({ method: 'POST', path: '/api/agent', handler: async (req, res) => {
   }
 }});
 
-// Real marketplace search (eBay Browse API). Returns real listings with a
-// ShopPal risk score attached. Without eBay keys it says so plainly and
-// returns no listings, the UI then shows the demo catalog only.
+// Real marketplace search (eBay Browse API, Etsy Open API v3).
+// ?source=ebay (default) or ?source=etsy. Returns real listings with a
+// ShopPal risk score attached. Without that marketplace's keys it says so
+// plainly and returns no listings, the UI then shows the demo catalog only.
 routes.push({ method: 'GET', path: '/api/marketplace/search', handler: async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q) return res.status(400).json({ error: 'q is required.' });
   const lang = (req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : detectLang(q);
-  if (!ebay.isConfigured()) {
+  const source = String(req.query.source || 'ebay').toLowerCase();
+  const adapter = source === 'etsy' ? etsy : source === 'ebay' ? ebay : null;
+  if (!adapter) return res.status(400).json({ error: 'Unknown source: ' + source + '. Use ebay or etsy.' });
+  const sourceName = source === 'etsy' ? 'Etsy' : 'eBay';
+  const searchFn = source === 'etsy' ? etsy.searchEtsy : ebay.searchEbay;
+  const noteKey = source === 'etsy' ? 'mpNoteEtsy' : 'mpNote';
+  const notConfiguredKey = source === 'etsy' ? 'mpNotConfiguredEtsy' : 'mpNotConfigured';
+  if (!adapter.isConfigured()) {
     return res.json({
       configured: false,
       source: null,
       listings: [],
-      note: t(lang, 'mpNotConfigured'),
+      note: t(lang, notConfiguredKey),
     });
   }
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 8, 1), 20);
-    let listings = await ebay.searchEbay(q, { limit });
+    let listings = await searchFn(q, { limit });
     if (!listings) listings = [];
     const maxPrice = Number(req.query.maxPrice);
     if (Number.isFinite(maxPrice)) listings = listings.filter((l) => l.priceUSD <= maxPrice);
@@ -2462,12 +2570,12 @@ routes.push({ method: 'GET', path: '/api/marketplace/search', handler: async (re
     }));
     res.json({
       configured: true,
-      source: 'eBay',
+      source: sourceName,
       listings: scored,
-      note: t(lang, 'mpNote'),
+      note: t(lang, noteKey),
     });
   } catch (err) {
-    res.status(502).json({ configured: true, source: 'eBay', listings: [], error: err.message });
+    res.status(502).json({ configured: true, source: sourceName, listings: [], error: err.message });
   }
 }});
 
@@ -3402,7 +3510,7 @@ async function createPayPalOrder(product, totalUSD, baseUrl, marketplaceDetails,
       {
         reference_id: product.id,
         description: marketplaceDetails
-          ? `${product.name}, ShopPal v2 marketplace simulation (PayPal Sandbox, does not buy the eBay item)`
+          ? `${product.name}, ShopPal v2 marketplace simulation (PayPal Sandbox, does not buy the ${marketplaceDetails.marketplace} item)`
           : `${product.name}, ShopPal v2 demo (PayPal Sandbox)`,
         amount: {
           currency_code: 'USD',
@@ -3450,29 +3558,30 @@ async function createPayPalOrder(product, totalUSD, baseUrl, marketplaceDetails,
 routes.push({ method: 'POST', path: '/api/paypal/create-order', handler: async (req, res) => {
   try {
     const { productId, totalUSD, international, currencyConversion } = req.body || {};
-    // Marketplace checkout (e.g. a real eBay listing): the item comes from
-    // the search result, not the demo catalog. The PayPal order below is a
-    // SANDBOX SIMULATION of paying that listing's total, it does not buy
-    // the item on the marketplace. The buyer is told this in the UI.
+    // Marketplace checkout (e.g. a real eBay or Etsy listing): the item
+    // comes from the search result, not the demo catalog. The PayPal order
+    // below is a SANDBOX SIMULATION of paying that listing's total, it does
+    // not buy the item on the marketplace. The buyer is told this in the UI.
     const mp = (req.body || {}).marketplace || null;
     let product;
     let marketplaceDetails = null;
     if (mp) {
-      if (mp.marketplace !== 'eBay') {
+      if (mp.marketplace !== 'eBay' && mp.marketplace !== 'Etsy') {
         return res.status(400).json({ error: 'Unknown marketplace: ' + mp.marketplace });
       }
       const price = Number(mp.priceUSD);
       if (!mp.title || !mp.itemId || !Number.isFinite(price) || price <= 0 || price > 10000) {
         return res.status(400).json({ error: 'Invalid marketplace item.' });
       }
+      const mpPrefix = mp.marketplace === 'Etsy' ? 'etsy:' : 'ebay:';
       product = {
-        id: 'ebay:' + String(mp.itemId).slice(0, 60),
+        id: mpPrefix + String(mp.itemId).slice(0, 60),
         name: String(mp.title).slice(0, 120),
         priceUSD: Math.round(price * 100) / 100,
-        category: 'Marketplace · eBay',
+        category: 'Marketplace · ' + mp.marketplace,
       };
       marketplaceDetails = {
-        marketplace: 'eBay',
+        marketplace: mp.marketplace,
         itemId: String(mp.itemId),
         title: product.name,
         priceUSD: product.priceUSD,
