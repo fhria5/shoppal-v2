@@ -301,6 +301,16 @@ async function get(path) {
   const tdOk = r.status === 200 && ((r.data.dispute && r.data.dispute.disputePayload && r.data.dispute.disputePayload.status === 'OPEN' && r.data.dispute.disputePayload.reason === 'MERCHANDISE_OR_SERVICE_NOT_RECEIVED') || (typeof r.data.reply === 'string' && /Belum ada pesanan|No purchase/.test(r.data.reply)));
   check('agent track and dispute', tdOk, r.data);
   check('agent track and dispute step', Array.isArray(r.data.steps) && r.data.steps.some((s) => s.action === 'track_and_dispute'), r.data.steps);
+  // check_delivery: the agent answers "cek pengiriman" directly with the
+  // live tracking status (adds a tracker first when the entry has none).
+  // Works when a vault entry exists; otherwise a helpful reply.
+  r = await post('/api/agent', { message: 'cek pengiriman', lang: 'id' });
+  const cdOk = r.status === 200 && ((r.data.delivery && r.data.delivery.tracking && (r.data.delivery.tracking.status || r.data.delivery.tracking.trackingNumber) && typeof r.data.delivery.days === 'number') || (typeof r.data.reply === 'string' && /Belum ada pesanan|No purchase/.test(r.data.reply)));
+  check('agent check delivery id', cdOk, r.data);
+  check('agent check delivery step', Array.isArray(r.data.steps) && r.data.steps.some((s) => s.action === 'check_delivery'), r.data.steps);
+  r = await post('/api/agent', { message: 'where is my order', lang: 'en' });
+  const cdEnOk = r.status === 200 && ((r.data.delivery && r.data.delivery.tracking && (r.data.delivery.tracking.status || r.data.delivery.tracking.trackingNumber)) || (typeof r.data.reply === 'string' && /No purchase/.test(r.data.reply)));
+  check('agent check delivery en', cdEnOk, r.data);
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
