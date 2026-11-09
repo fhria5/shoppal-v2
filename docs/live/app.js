@@ -166,9 +166,7 @@
       budNoBudget: 'No monthly budget set.',
       grTitle: 'Smart Guardrails', grIntro: 'The agent auto-pays only under your limit. Above it, it asks you first, so a hallucination can never buy something expensive.',
       grLimit: 'Auto-approve up to (USD)', grSave: 'Save guardrails', grSaved: 'Guardrails saved.', grHint: 'Orders above the limit wait for your approval first. Change it anytime in Settings.',
-      grCatCap: 'Monthly cap for {cat} (USD, empty = no cap)',
       grNeedApproval: 'Needs your approval', grAboveLimit: 'This purchase ({total}) is above your auto-approve limit ({limit}).',
-      grCatOver: 'This would take {cat} over its monthly cap ({spent} of {cap} spent).',
       grApprove: 'Approve and pay', grReject: 'Reject this purchase',
       grApproved: 'Approved, capturing payment...', grRejected: 'Purchase rejected. The PayPal order was not captured and will expire.',
       grAutoOk: 'Under your auto-approve limit, capturing...',
@@ -308,9 +306,7 @@
       budNoBudget: 'Belum ada budget bulanan.',
       grTitle: 'Smart Guardrails', grIntro: 'Agen hanya bayar otomatis di bawah batasmu. Di atas itu, ia bertanya dulu, jadi halusinasi tidak bisa membeli barang mahal.',
       grLimit: 'Setujui otomatis sampai (USD)', grSave: 'Simpan guardrails', grSaved: 'Guardrails tersimpan.', grHint: 'Pesanan di atas batas menunggu persetujuanmu dulu. Ubah kapan saja di Pengaturan.',
-      grCatCap: 'Batas bulanan untuk {cat} (USD, kosong = tanpa batas)',
       grNeedApproval: 'Butuh persetujuanmu', grAboveLimit: 'Pembelian ini ({total}) di atas batas setujui otomatis ({limit}).',
-      grCatOver: 'Ini akan membuat {cat} melewati batas bulanannya ({spent} dari {cap} sudah terpakai).',
       grApprove: 'Setujui dan bayar', grReject: 'Tolak pembelian ini',
       grApproved: 'Disetujui, meng-capture pembayaran...', grRejected: 'Pembelian ditolak. Order PayPal tidak di-capture dan akan kedaluwarsa.',
       grAutoOk: 'Di bawah batas setujui otomatis, meng-capture...',
@@ -927,16 +923,11 @@
     var g = getGuardrails();
     var budget = null;
     try { budget = localStorage.getItem(BUDGET_KEY); } catch (e) { /* private mode */ }
-    var caps = g.categoryCaps || {};
-    var capLines = Object.keys(caps).filter(function (c) { return caps[c] !== '' && caps[c] !== null && caps[c] !== undefined; }).map(function (c) {
-      return '<li>' + fmt(t('grCatCap'), { cat: c }) + ': <strong>' + money(Number(caps[c]) || 0) + '</strong></li>';
-    }).join('');
     var html = '<p><strong>' + t('grTitle') + '</strong></p>' +
       '<p>' + t('grIntro') + '</p>' +
       '<ul>' +
       '<li>' + t('grLimit') + ': <strong>' + money(g.autoApproveLimit) + '</strong></li>' +
       '<li>' + t('budTitle') + ': <strong>' + (budget ? money(Number(budget)) : t('budNoBudget')) + '</strong></li>' +
-      capLines +
       '</ul>' +
       '<p class="hint">' + t('grHint') + '</p>';
     addBubble('agent', html);
@@ -1573,9 +1564,9 @@
   function getGuardrails() {
     try {
       var g = JSON.parse(localStorage.getItem(GUARDRAILS_KEY) || 'null');
-      if (g && typeof g === 'object') return { autoApproveLimit: Number(g.autoApproveLimit) || 20, categoryCaps: (g.categoryCaps && typeof g.categoryCaps === 'object') ? g.categoryCaps : {} };
+      if (g && typeof g === 'object') return { autoApproveLimit: Number(g.autoApproveLimit) || 20 };
     } catch (e) { /* fall through to defaults */ }
-    return { autoApproveLimit: 20, categoryCaps: {} };
+    return { autoApproveLimit: 20 };
   }
   function saveGuardrailsLocal(g) {
     try { localStorage.setItem(GUARDRAILS_KEY, JSON.stringify(g)); } catch (e) { /* private mode */ }
@@ -1606,9 +1597,6 @@
       '<section class="set-section"><h3>' + t('grTitle') + '</h3>' +
       '<p class="hint">' + t('grIntro') + '</p>' +
       '<p><input id="set-gr-limit" type="number" min="0" step="1" value="' + gr.autoApproveLimit + '"> ' + t('grLimit') + '</p>' +
-      CATEGORIES.map(function (c) {
-        return '<p><input class="set-gr-cap" data-cat="' + c + '" type="number" min="0" step="1" value="' + (gr.categoryCaps[c] || '') + '"> ' + fmt(t('grCatCap'), { cat: c }) + '</p>';
-      }).join('') +
       '<p><button id="set-gr-save" type="button">' + t('grSave') + '</button> <span id="set-gr-status"></span></p></section>' +
       '<section class="set-section"><h3>' + t('setData') + '</h3>' +
       '<p><button id="set-clear-chat" type="button" class="btn-secondary">' + t('setClearChat') + '</button> <span id="set-clear-status"></span></p>' +
@@ -1629,12 +1617,7 @@
     });
     body.querySelector('#set-gr-save').addEventListener('click', async function () {
       var limit = Number(body.querySelector('#set-gr-limit').value);
-      var caps = {};
-      body.querySelectorAll('.set-gr-cap').forEach(function (inp) {
-        var n = Number(inp.value);
-        if (n > 0) caps[inp.getAttribute('data-cat')] = n;
-      });
-      var g = { autoApproveLimit: (Number.isFinite(limit) && limit >= 0) ? limit : 20, categoryCaps: caps };
+      var g = { autoApproveLimit: (Number.isFinite(limit) && limit >= 0) ? limit : 20 };
       saveGuardrailsLocal(g);
       try {
         await fetch(API_BASE + '/api/guardrails', {
@@ -1660,8 +1643,7 @@
       var bi = body.querySelector('#set-budget-input');
       var gl = body.querySelector('#set-gr-limit');
       if (bi || gl) {
-        keep = { budget: bi ? bi.value : null, limit: gl ? gl.value : null, caps: {} };
-        body.querySelectorAll('.set-gr-cap').forEach(function (inp) { keep.caps[inp.getAttribute('data-cat')] = inp.value; });
+        keep = { budget: bi ? bi.value : null, limit: gl ? gl.value : null };
       }
     }
     try {
@@ -1676,10 +1658,6 @@
       if (bi2 && keep.budget !== null) bi2.value = keep.budget;
       var gl2 = $('set-gr-limit');
       if (gl2 && keep.limit !== null) gl2.value = keep.limit;
-      document.querySelectorAll('.set-gr-cap').forEach(function (inp) {
-        var c = inp.getAttribute('data-cat');
-        if (keep.caps[c] !== undefined) inp.value = keep.caps[c];
-      });
     }
     refreshVaultSummary();
   }
@@ -1742,7 +1720,7 @@
       var res = await fetch(API_BASE + '/api/guardrails/check', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ totalUSD: totalUSD, category: category, lang: lang, autoApproveLimit: g.autoApproveLimit, categoryCaps: g.categoryCaps }),
+        body: JSON.stringify({ totalUSD: totalUSD, category: category, lang: lang, autoApproveLimit: g.autoApproveLimit }),
       });
       if (res.ok) return await res.json();
     } catch (e) { /* fall through to local check */ }
