@@ -163,7 +163,7 @@ test.describe('ShopPal v2 — core user flows', () => {
       const linksBefore = await page.locator('#chat a[href*="paypal.com"]').count();
       await page.fill('#ask', 'lanjut checkout bagian saya');
       await page.click('#ask-btn');
-      await expect(page.locator('#chat')).toContainText('Bagianmu Aurora Wireless Headphones sudah disiapkan: $19.99', { timeout: 60000 });
+      await expect(page.locator('#chat')).toContainText('Your share of Aurora Wireless Headphones is ready: $19.99', { timeout: 60000 });
       const linksAfter = await page.locator('#chat a[href*="paypal.com"]').count();
       expect(linksAfter).toBe(linksBefore + 1);
     });
@@ -220,12 +220,13 @@ test.describe('ShopPal v2 — core user flows', () => {
     // Quick Demo chips carry SVG icons, not emoji.
     expect(await page.locator('.quick-chip svg').count()).toBe(4);
 
-    // Open the modal: four sections, Auto language active by default.
+    // Open the modal: four sections, English active by default (the demo
+    // is English-first; Auto/Indonesian stay available in Settings).
     await gear.click();
     await expect(page.locator('#settings-overlay')).not.toHaveClass(/hidden/);
     const sections = await page.locator('#settings-body h3').allInnerTexts();
     expect(sections).toEqual(['Language', 'Monthly budget', 'Smart Guardrails', 'Chat data']);
-    await expect(page.locator('.seg-btn[data-lang-choice="auto"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('.seg-btn[data-lang-choice="en"]')).toHaveAttribute('aria-pressed', 'true');
 
     // Switch to Bahasa Indonesia: modal + composer follow, choice persists.
     await page.locator('.seg-btn[data-lang-choice="id"]').click();
