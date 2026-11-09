@@ -809,23 +809,6 @@ button.product-card .seller {
 .quick-demo::-webkit-scrollbar {
     display: none;
 }
-/* Demo scenarios row: same horizontal-scroll layout as Quick Demo, but a
-   separate row so judges can tap the three contrast cases in one go. */
-.scenario-demo {
-  width: 100%;
-  max-width: 840px;
-  margin: 0 auto;
-  padding: 0.35rem 1rem;
-  display: flex;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  gap: 0.45rem;
-  scrollbar-width: none;
-  flex-shrink: 0;
-}
-.scenario-demo::-webkit-scrollbar { display: none; }
-.scenario-chip { padding: 0.7rem 0.9rem; min-height: 48px; font-size: 0.85rem; }
-
 .chip {
     white-space: nowrap;
     background: #ffffff !important;
@@ -1237,6 +1220,16 @@ body.modal-open { overflow: hidden; }
 /* Proof Vault button + count badge (header). The vault lives in a modal
    now, not in the chat, so the button shows how many proofs are saved. */
 #vault-btn { position: relative; }
+/* Header declutter (mobile): the "Live · Sandbox" pill shrinks to just
+   "Live", and the status line truncates instead of colliding with it. */
+.agent-id > div { min-width: 0; }
+.agent-status { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 920px) {
+  .live-badge-extra { display: none; }
+}
+@media (max-width: 920px) {
+  .agent-status-text { display: none; }
+}
 .vault-count {
   position: absolute;
   top: -5px;
