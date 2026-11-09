@@ -409,6 +409,25 @@
     return typeof url === 'string' && url.startsWith('https://') ? url : null;
   }
 
+  // Session id: one random id per browser, kept in localStorage. It is
+  // sent with every vault read/write so the server only returns this
+  // browser's own purchases (the shared Worker isolate must not leak one
+  // user's Proof Vault to another).
+  function getSessionId() {
+    try {
+      var s = localStorage.getItem('shoppal-session');
+      if (!s) {
+        s = (window.crypto && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : ('s-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10));
+        localStorage.setItem('shoppal-session', s);
+      }
+      return s;
+    } catch (e) {
+      return 's-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
+  }
+
   // Chat helpers. Every step is a message; picking a new product clears
   // the old step messages so element IDs stay unique.
   // Smooth-scroll the chat to the newest message. Respects
@@ -527,7 +546,7 @@
     new MutationObserver(function () { scheduleSaveChatHistory(); }).observe(chatEl, { childList: true, subtree: true });
   }
   function userBubble(text) {
-    return addBubble('user', '<p>' + text + '</p>');
+    return addBubble('user', '<p>' + escapeHtml(text) + '</p>');
   }
   function clearSteps() {
     // Only the checkout flow is cleared (risk/hold/cost/checkout). The
@@ -984,7 +1003,7 @@
           var r2 = await fetch(API_BASE + '/api/agent', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: q, lang: lang, guardrails: getGuardrails(), approved: true, approvedOrder: ag.pendingOrder }),
+            body: JSON.stringify({ message: q, lang: lang, guardrails: getGuardrails(), session: getSessionId(), approved: true, approvedOrder: ag.pendingOrder }),
           });
           var ag2 = await r2.json();
           hideTyping(typing2);
@@ -1168,7 +1187,7 @@
         // bagian saya") against the active product: the split session
         // first, then the last search results. Both are sent here; the
         // server validates the IDs against the catalog before use.
-        var agBody = { message: q, lang: lang, guardrails: getGuardrails() };
+        var agBody = { message: q, lang: lang, guardrails: getGuardrails(), session: getSessionId() };
         if (lastResults && lastResults.length) agBody.context = lastResults.map(function (p) { return p.id; });
         if (lastSplit && lastSplit.productId) agBody.lastSplit = lastSplit;
         var agRes = await fetch(API_BASE + '/api/agent', {
@@ -1374,7 +1393,7 @@
         var res = await fetch(API_BASE + '/api/dispute/simulate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sellerId: selected.seller.id, productId: selected.product.id, lang }),
+          body: JSON.stringify({ sellerId: selected.seller.id, productId: selected.product.id, lang, session: getSessionId() }),
         });
         var d = await res.json();
         if (!res.ok) {
@@ -1744,7 +1763,7 @@
     // Monthly budget warning (background, never blocks the checkout UI).
     var budget = getBudget();
     if (budget) {
-      fetch(API_BASE + '/api/vault').then(function (r) { return r.json(); }).then(function (vData) {
+      fetch(API_BASE + '/api/vault?session=' + encodeURIComponent(getSessionId())).then(function (r) { return r.json(); }).then(function (vData) {
         var warn = $('budget-warn');
         if (!warn) return;
         var spent = monthSpend(vData.entries || []);
@@ -1853,7 +1872,7 @@
     // badge in sync.
     var box = $('vault-body');
     if (!box) return;
-    var res = await fetch(API_BASE + '/api/vault');
+    var res = await fetch(API_BASE + '/api/vault?session=' + encodeURIComponent(getSessionId()));
     var data = await res.json();
     var body = '';
     if (!data.entries || data.entries.length === 0) {
@@ -1861,9 +1880,9 @@
     } else {
       lastVaultId = data.entries[0].id;
       body = data.entries.map((e) =>
-        '<p><strong>' + (e.product?.name || e.id) + '</strong>, ' +
-        (e.paypal?.status || 'unknown') + ' · Order ' + (e.paypal?.orderId || 'n/a') +
-        (e.marketplace ? ' · ' + e.marketplace.name + ' (simulation)' : '') + '</p>'
+        '<p><strong>' + escapeHtml(e.product?.name || e.id) + '</strong>, ' +
+        escapeHtml(e.paypal?.status || 'unknown') + ' · Order ' + escapeHtml(e.paypal?.orderId || 'n/a') +
+        (e.marketplace ? ' · ' + escapeHtml(e.marketplace.name) + ' (simulation)' : '') + '</p>'
       ).join('');
     }
     var vc = $('vault-count');
@@ -1874,14 +1893,14 @@
     }
     var subs = '';
     try {
-      var sres = await fetch(API_BASE + '/api/subscriptions');
+      var sres = await fetch(API_BASE + '/api/subscriptions?session=' + encodeURIComponent(getSessionId()));
       var sdata = await sres.json();
       if (!sdata.patterns || !sdata.patterns.length) {
         subs = '<p><strong>' + t('subsTitle') + '</strong></p><p>' + t('subsEmpty') + '</p>';
       } else {
         subs = '<p><strong>' + t('subsTitle') + '</strong>, ' + t('subsFound') + '</p>' +
           sdata.patterns.map((p) =>
-            '<p>' + fmt(t('subsLine'), { name: p.productName, n: p.purchases, total: money(p.totalSpent), date: p.lastPurchase ? p.lastPurchase.slice(0, 10) : 'n/a' }) + '</p>'
+            '<p>' + fmt(t('subsLine'), { name: escapeHtml(p.productName), n: p.purchases, total: money(p.totalSpent), date: p.lastPurchase ? p.lastPurchase.slice(0, 10) : 'n/a' }) + '</p>'
           ).join('');
       }
     } catch (e) {
@@ -1939,7 +1958,7 @@
       var box = $('dw-body');
       if (!box) return;
       try {
-        var dres = await fetch(API_BASE + '/api/delivery-watch?lang=' + lang);
+        var dres = await fetch(API_BASE + '/api/delivery-watch?lang=' + lang + '&session=' + encodeURIComponent(getSessionId()));
         var ddata = await dres.json();
         if (!ddata.items || !ddata.items.length) { box.innerHTML = '<p>' + t('dwNoOrders') + '</p>'; return; }
         box.innerHTML = ddata.items.slice(0, 3).map(function (it) {
@@ -1960,7 +1979,7 @@
       var box = $('ex-body');
       if (!box) return;
       try {
-        var eres = await fetch(API_BASE + '/api/expenses');
+        var eres = await fetch(API_BASE + '/api/expenses?session=' + encodeURIComponent(getSessionId()));
         var edata = await eres.json();
         if (!edata.count) { box.innerHTML = '<p>' + t('exEmpty') + '</p>'; return; }
         var max = Math.max.apply(null, edata.byCategory.map(function (r) { return r.total; }).concat([1]));
@@ -2084,7 +2103,7 @@
       var res = await fetch(API_BASE + '/api/dispute/simulate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vaultId: lastVaultId, lang }),
+        body: JSON.stringify({ vaultId: lastVaultId, lang, session: getSessionId() }),
       });
       var d = await res.json();
       if (!res.ok) {
@@ -2099,7 +2118,7 @@
     // risk, timeline) as a file the buyer can attach to a PayPal dispute.
     $('evidence-btn').addEventListener('click', async function () {
       if (!lastVaultId) return;
-      var res = await fetch(API_BASE + '/api/evidence?vaultId=' + encodeURIComponent(lastVaultId) + '&lang=' + lang);
+      var res = await fetch(API_BASE + '/api/evidence?vaultId=' + encodeURIComponent(lastVaultId) + '&lang=' + lang + '&session=' + encodeURIComponent(getSessionId()));
       var d = await res.json();
       if (!res.ok) {
         var box = $('vault-tools');
@@ -2194,7 +2213,7 @@
       var res = await fetch(API_BASE + '/api/dispute/draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vaultId: lastVaultId, lang }),
+        body: JSON.stringify({ vaultId: lastVaultId, lang, session: getSessionId() }),
       });
       var d = await res.json();
       var box = $('dispute-draft');
@@ -2338,7 +2357,7 @@
         var res = await fetch(API_BASE + '/api/paypal/capture-order', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: orderId }),
+          body: JSON.stringify({ orderId: orderId, session: getSessionId() }),
         });
         var data = await res.json();
         if (!res.ok) {
