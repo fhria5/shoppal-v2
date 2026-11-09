@@ -1297,7 +1297,7 @@ function agentToolList(lang) {
     '- get_total_cost {"productId": string}: honest PayPal total with fees.\n' +
     '- get_hold_risk {"productId": string}: hold risk Low/Moderate/High.\n' +
     '- check_guardrails {"totalUSD": number, "category": string}: whether the agent may pay without asking first.\n' +
-    '- create_order {"productId": string}: create the PayPal order, returns approveUrl. Only after check_guardrails passed for this purchase, or the user approved it.\n' +
+    '- create_order {"productId": string, "amountUSD": number|null}: create the PayPal order, returns approveUrl. amountUSD is only for checking out the user\'s own share of a split (smaller than the full total); omit it for a normal full-total purchase. Only after check_guardrails passed for this purchase, or the user approved it.\n' +
     '- get_vault {}: past purchases from the Proof Vault.\n' +
     '- simulate_dispute {"vaultId": string, "reason": "not_received"|"not_as_described"|"unauthorized"}: dispute win chance for a vault entry.\n' +
     '- price_watch {"productId": string, "targetPrice": number}: watch a product and snipe it when the price drops to the target. The demo price feed is simulated and labelled.\n' +
@@ -1309,7 +1309,7 @@ function agentToolList(lang) {
     '{"action": "<tool>", "args": {...}, "reason": "<one short sentence>"} or ' +
     '{"action": "reply", "text": "<final message to the user>"} or ' +
     '{"action": "ask_approval", "productId": "<id>", "totalUSD": <number>, "text": "<why approval is needed>"}.\n' +
-    'Rules: always search first. Check risk, total, and hold before buying. Never pick a Risky seller when a Safe one fits the budget. Never pay above the user-stated budget. Always check guardrails before create_order. The buyer approves the payment on PayPal, you only prepare the order and hand them the link. Reply in ' + (lang === 'id' ? 'Indonesian' : 'English') + '.'
+    'Rules: always search first. Check risk, total, and hold before buying. Never pick a Risky seller when a Safe one fits the budget. Never pay above the user-stated budget. Always check guardrails before create_order. If the user asks to continue or check out their share after a split or a search (for example "lanjut checkout bagian saya", "beli bagian saya", "lanjut checkout"), use the active product from the session note below — call create_order for it (with amountUSD = the share when one is given) — and never re-search the catalog for it. The buyer approves the payment on PayPal, you only prepare the order and hand them the link. Reply in ' + (lang === 'id' ? 'Indonesian' : 'English') + '.'
   );
 }
 
@@ -1528,7 +1528,7 @@ async function agentSplitPaymentLink(args, ctx) {
     }
   }
   return {
-    data: { product: p.name, total: totalPrice, people, share, initiatorShare, exactTotalVerified, friends, links },
+    data: { productId: p.id, product: p.name, total: totalPrice, people, share, initiatorShare, exactTotalVerified, friends, links },
     summary: 'split ' + p.name + ' ' + people + ' ways, $' + share + ' each, ' + links.filter((l) => l.approveUrl).length + ' payment link(s)',
   };
 }
@@ -1551,19 +1551,32 @@ async function agentExecuteTool(action, args, ctx) {
     case 'create_order': {
       const p = productsById.get(String(a.productId || ''));
       if (!p) return { data: { error: 'Unknown productId.' }, summary: 'unknown product' };
-      const total = calculateTotalCost(p.priceUSD, true, true, ctx.lang);
+      const full = calculateTotalCost(p.priceUSD, true, true, ctx.lang);
+      // Optional amountUSD: a split share checkout (the user's own share,
+      // smaller than the full total). It must be positive and no larger
+      // than the full total; anything else uses the full total.
+      const want = Number(a.amountUSD);
+      const amount = Number.isFinite(want) && want > 0 && want <= full.total + 0.01
+        ? Math.round(want * 100) / 100 : full.total;
+      const isShare = amount < full.total - 0.01;
       if (!ctx.userApproved) {
         const saved = agentApplyGuardrails(ctx.clientGuardrails);
-        const g = checkGuardrails(total.total, p.category, ctx.lang);
+        const g = checkGuardrails(amount, p.category, ctx.lang);
         guardrails = saved;
         if (g.needsApproval) {
           return {
-            data: { error: g.reasons.join(' '), totalUSD: total.total, needsApproval: true },
+            data: { error: g.reasons.join(' '), totalUSD: amount, needsApproval: true, shareCheckout: isShare },
             summary: 'blocked by guardrails, approval needed',
           };
         }
       }
-      const order = await createPayPalOrder(p, total.total, ctx.baseUrl, null, true, true);
+      // A share amount goes through createSplitPaymentOrder (arbitrary
+      // amount); createPayPalOrder rejects any total that does not match
+      // the computed full total.
+      const raw = isShare
+        ? await createSplitPaymentOrder(amount, p.name + ' (your share)', ctx.baseUrl)
+        : await createPayPalOrder(p, amount, ctx.baseUrl, null, true, true);
+      const order = { orderId: raw.orderId, status: raw.status, approveUrl: raw.approveUrl, totalUSD: amount, productId: p.id, shareCheckout: isShare };
       return { data: order, summary: 'order ' + order.orderId + ' created, total $' + order.totalUSD };
     }
     case 'get_vault': return agentGetVault();
@@ -1577,6 +1590,98 @@ async function agentExecuteTool(action, args, ctx) {
   }
 }
 
+// Checkout continuations: after a split (or a product search), the user
+// often follows up with a short phrase that names no product — "lanjut
+// checkout bagian saya", "beli bagian saya", "lanjut checkout". Those
+// phrases must resolve to the ACTIVE product and run the checkout flow,
+// never a generic catalog search. The frontend routes them to /api/agent
+// and sends the active product as context + lastSplit; the server never
+// guesses a product when there is no active one.
+function isCheckoutContinuation(message) {
+  const s = ' ' + String(message || '').toLowerCase().replace(/\s+/g, ' ').trim() + ' ';
+  return (
+    /\blanjut\b/.test(s) ||
+    /\blanjutkan\b/.test(s) ||
+    /\bbagian\s+(saya|ku|gue|gw)\b/.test(s) ||
+    /\bmy\s+share\b/.test(s) ||
+    /\b(bayar|beli|checkout)\s+(bagian|saya|sekarang|now)\b/.test(s)
+  );
+}
+
+// Resolve the active product for a continuation. Priority: (1) the active
+// split session — the user split THIS product, so "bagian saya" is its
+// share; (2) the first product of the last search results the chat showed
+// (frontend `lastResults`, sent as `context`). IDs are validated against
+// the catalog, so a forged ID resolves to nothing, never to a purchase.
+function resolveContinuationProduct(ctx) {
+  const splitId = ctx && ctx.lastSplit ? String(ctx.lastSplit.productId || '') : '';
+  if (splitId && productsById.get(splitId)) return productsById.get(splitId);
+  const ids = ctx && Array.isArray(ctx.context) ? ctx.context : [];
+  for (const id of ids) {
+    const p = productsById.get(String(id || ''));
+    if (p) return p;
+  }
+  return null;
+}
+
+// Shared by the runAgentLoop bypass and the agentFallback branch: resolve
+// the continuation to the active product and check out. Returns the full
+// agent result object (an order, or needsApproval, or a clarification
+// reply when there is no active product — never a catalog dump).
+async function agentCheckoutContinuation(message, lang, ctx) {
+  const steps = [{ action: 'checkout_continuation', summary: 'continuation: ' + String(message || '').slice(0, 60) }];
+  const p = resolveContinuationProduct(ctx);
+  if (!p) {
+    return {
+      reply: lang === 'id'
+        ? 'Produk mana yang mau kamu checkout? Sebutkan produknya, misalnya "beli headphone p01", atau cari dulu lalu lanjut checkout.'
+        : 'Which product do you want to check out? Name it, for example "buy headphones p01", or search first and then continue to checkout.',
+      steps, aiUsed: false,
+    };
+  }
+  // The user's own share of an active split: the initiator's share absorbs
+  // the leftover cents (see agentSplitPaymentLink). Anything else is the
+  // normal full-total checkout for this product.
+  const split = ctx && ctx.lastSplit && String(ctx.lastSplit.productId || '') === p.id ? ctx.lastSplit : null;
+  const shareAmount = split ? Number(split.initiatorShare ?? split.share) : NaN;
+  const isShare = Number.isFinite(shareAmount) && shareAmount > 0;
+  const full = calculateTotalCost(p.priceUSD, true, true, lang);
+  const amount = isShare ? Math.round(shareAmount * 100) / 100 : full.total;
+  // Guardrails apply to the amount actually being paid (the share, or the
+  // full total). A share under $20 auto-passes; an over-limit amount still
+  // needs the user's approval, like any other purchase.
+  const saved = agentApplyGuardrails(ctx.clientGuardrails);
+  const g = checkGuardrails(amount, p.category, lang);
+  guardrails = saved;
+  steps.push({ action: 'check_guardrails', summary: g.needsApproval ? 'needs approval' : 'within limits' });
+  if (g.needsApproval && !ctx.userApproved) {
+    return {
+      reply: lang === 'id'
+        ? (isShare ? 'Bagianmu ' + p.name + ' ($' + amount.toFixed(2) + ') ' : 'Total ' + p.name + ' ($' + amount.toFixed(2) + ') ') + g.reasons.join(' ') + ' Ketuk setujui untuk lanjut ke pembayaran PayPal.'
+        : (isShare ? 'Your share of ' + p.name + ' ($' + amount.toFixed(2) + ') ' : p.name + ' total ($' + amount.toFixed(2) + ') ') + g.reasons.join(' ') + ' Tap approve to continue to PayPal payment.',
+      steps,
+      needsApproval: true,
+      pendingOrder: { productId: p.id, totalUSD: amount, name: p.name, shareCheckout: isShare },
+      aiUsed: false,
+    };
+  }
+  // The share is an arbitrary amount (not the catalog total), so it goes
+  // through createSplitPaymentOrder — createPayPalOrder rejects any total
+  // that does not match the computed full total. The full-total path uses
+  // createPayPalOrder as usual.
+  const raw = isShare
+    ? await createSplitPaymentOrder(amount, p.name + ' (your share)', ctx.baseUrl)
+    : await createPayPalOrder(p, amount, ctx.baseUrl, null, true, true);
+  const order = { orderId: raw.orderId, status: raw.status, approveUrl: raw.approveUrl, totalUSD: amount, productId: p.id, shareCheckout: isShare };
+  steps.push({ action: 'create_order', summary: 'order ' + order.orderId + ' created, total $' + order.totalUSD });
+  return {
+    reply: lang === 'id'
+      ? (isShare ? 'Bagianmu ' + p.name + ' sudah disiapkan: $' + amount.toFixed(2) + '. ' : 'Pesanan ' + p.name + ' sudah dibuat (total $' + amount.toFixed(2) + '). ') + 'Silakan setujui pembayarannya di PayPal.'
+      : (isShare ? 'Your share of ' + p.name + ' is ready: $' + amount.toFixed(2) + '. ' : 'The order for ' + p.name + ' is ready (total $' + amount.toFixed(2) + '). ') + 'Please approve the payment on PayPal.',
+    steps, order, aiUsed: false,
+  };
+}
+
 // Rule-based fallback when Vyce is not configured or stops answering.
 // Same tools, same guardrails, no model. Keeps the pay flow working.
 async function agentFallback(message, lang, ctx) {
@@ -1587,11 +1692,15 @@ async function agentFallback(message, lang, ctx) {
   const isCheckWatches = /cek (pantau|harga|watch)|check (my )?(price )?(watch|watches)|lihat pantauan/.test(message.toLowerCase());
   // "Lacak & dispute pesanan" also carries no product/price intent.
   const isTrackDispute = /(lacak|track|dispute|sengketa)/.test(message.toLowerCase());
+  // Checkout continuations ("lanjut checkout bagian saya", "beli bagian
+  // saya") also name no product — the product comes from the active split
+  // session or the last search results (ctx), never from a fresh search.
+  const isContinuation = isCheckoutContinuation(message);
   // No shopping intent at all (the frontend only routes buy goals here,
   // but a direct API call could send anything): do not guess a purchase.
   const hasIntent = intent.category || intent.maxPrice !== null || intent.minPrice !== null
     || intent.cheapest || intent.best || intent.seller || intent.needsReturn || intent.needsTracking
-    || isCheckWatches || isTrackDispute;
+    || isCheckWatches || isTrackDispute || isContinuation;
   if (!hasIntent) {
     return {
       reply: lang === 'id'
@@ -1676,6 +1785,12 @@ async function agentFallback(message, lang, ctx) {
       triggeredWatch: { watchId: triggered.id, productId: triggered.productId, productName: triggered.productName, targetPrice: triggered.targetPrice, currentPrice: triggered.currentPrice, status: triggered.status },
       aiUsed: false,
     };
+  }
+  // Checkout continuation ("lanjut checkout bagian saya", "beli bagian
+  // saya"): resolve the active product (split first, then the last search
+  // results) and check out. Never a generic catalog search.
+  if (isContinuation) {
+    return agentCheckoutContinuation(message, lang, ctx);
   }
   // Watch intent ("pantau ... $25"): create a price watch, do not buy.
   // The target is a future price, so the product is found by category only
@@ -1812,12 +1927,23 @@ async function runAgentLoop(message, lang, ctx) {
     if (!p) {
       return { reply: lang === 'id' ? 'Produk itu tidak ditemukan.' : 'That product was not found.', steps: [], aiUsed: false };
     }
-    const total = calculateTotalCost(p.priceUSD, true, true, lang);
-    const order = await createPayPalOrder(p, total.total, ctx.baseUrl, null, true, true);
+    const full = calculateTotalCost(p.priceUSD, true, true, lang);
+    // Honor an explicit total when the pending order carried one (a split
+    // share checkout: the amount is the share, not the full total). It
+    // must be positive and no larger than the full total; anything else
+    // falls back to the computed full total.
+    const want = Number(ctx.approvedOrder.totalUSD);
+    const amount = Number.isFinite(want) && want > 0 && want <= full.total + 0.01
+      ? Math.round(want * 100) / 100 : full.total;
+    const isShare = amount < full.total - 0.01;
+    const raw = isShare
+      ? await createSplitPaymentOrder(amount, p.name + ' (your share)', ctx.baseUrl)
+      : await createPayPalOrder(p, amount, ctx.baseUrl, null, true, true);
+    const order = { orderId: raw.orderId, status: raw.status, approveUrl: raw.approveUrl, totalUSD: amount, productId: p.id, shareCheckout: isShare };
     return {
       reply: lang === 'id'
-        ? 'Baik, pesanan PayPal untuk ' + p.name + ' sudah dibuat (total $' + total.total + '). Silakan setujui pembayarannya di PayPal.'
-        : 'Done, the PayPal order for ' + p.name + ' is ready (total $' + total.total + '). Please approve the payment on PayPal.',
+        ? 'Baik, pesanan PayPal untuk ' + p.name + ' sudah dibuat (total $' + amount.toFixed(2) + '). Silakan setujui pembayarannya di PayPal.'
+        : 'Done, the PayPal order for ' + p.name + ' is ready (total $' + amount.toFixed(2) + '). Please approve the payment on PayPal.',
       steps: [{ action: 'create_order', summary: 'order ' + order.orderId + ' created' }],
       order, aiUsed: false,
     };
@@ -1844,7 +1970,26 @@ async function runAgentLoop(message, lang, ctx) {
       steps, tracking: out.data.tracking, dispute: d, aiUsed: false,
     };
   }
-  const system = 'You are ShopPal, a PayPal shopping agent. You act for the user: you search, check, and prepare PayPal payments. ' + agentToolList(lang);
+  // Checkout continuations are deterministic (like track & dispute): the
+  // user is continuing an active split or search, so resolve the active
+  // product and check out instead of letting the model ask "which product?"
+  if (isCheckoutContinuation(message)) {
+    return agentCheckoutContinuation(message, lang, ctx);
+  }
+  // Tell the model about the active session, so even the model path (when
+  // the bypass above does not apply) never re-searches the catalog for a
+  // product the user is already working on.
+  let sessionNote = '';
+  const active = resolveContinuationProduct(ctx);
+  if (active) {
+    const split = ctx.lastSplit && String(ctx.lastSplit.productId || '') === active.id ? ctx.lastSplit : null;
+    const share = split ? Number(split.initiatorShare ?? split.share) : NaN;
+    sessionNote = '\nActive session: the user is working on ' + active.name + ' (' + active.id + ', $' + active.priceUSD + ')' +
+      (Number.isFinite(share) && share > 0
+        ? ', split with friends, their own share is $' + share.toFixed(2) + '. If the user asks to continue, check out, or pay their share (for example "lanjut checkout bagian saya", "beli bagian saya", "lanjut checkout"), call create_order for ' + active.id + ' with amountUSD ' + share.toFixed(2) + ' — do not search the catalog again.'
+        : '. If the user asks to continue or check out (for example "lanjut checkout", "beli bagian saya"), call create_order for ' + active.id + ' — do not search the catalog again.');
+  }
+  const system = 'You are ShopPal, a PayPal shopping agent. You act for the user: you search, check, and prepare PayPal payments. ' + agentToolList(lang) + sessionNote;
   const messages = [
     { role: 'system', content: system },
     { role: 'user', content: message },
@@ -1895,7 +2040,7 @@ async function runAgentLoop(message, lang, ctx) {
           : 'This purchase needs your approval first: ' + (result.data.error || '') + ' Tap approve to continue.',
         steps,
         needsApproval: true,
-        pendingOrder: { productId: String(decision.args.productId || ''), totalUSD: result.data.totalUSD || 0, name: '' },
+        pendingOrder: { productId: String(decision.args.productId || ''), totalUSD: result.data.totalUSD || 0, name: '', shareCheckout: !!result.data.shareCheckout },
         aiUsed: true,
       };
     }
@@ -1919,6 +2064,12 @@ app.post('/api/agent', async (req, res) => {
       clientGuardrails: b.guardrails || null,
       userApproved: !!b.approved,
       approvedOrder: b.approvedOrder || null,
+      // Conversation state the client owns: the product IDs the chat last
+      // showed (lastResults) and the active split session, if any. Both
+      // are validated against the catalog before use — a forged ID
+      // resolves to nothing, never to a purchase.
+      context: Array.isArray(b.context) ? b.context.map((x) => String(x)) : [],
+      lastSplit: (b.lastSplit && typeof b.lastSplit === 'object') ? b.lastSplit : null,
     };
     const out = await runAgentLoop(message, lang, ctx);
     // Guardrail contract: when the agent refuses a purchase because it is
@@ -3537,6 +3688,7 @@ app.post('/api/split-payment-link', async (req, res) => {
     }
   }
   res.json({
+    productId: product ? product.id : null,
     product: name,
     total: Math.round(total * 100) / 100,
     people,
