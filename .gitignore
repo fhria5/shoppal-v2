@@ -13,3 +13,7 @@ data/vault/*.json
 # Build output
 dist/
 build/
+
+# Playwright test output
+test-results/
+playwright-report/
