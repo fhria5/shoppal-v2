@@ -200,4 +200,74 @@ test.describe('ShopPal v2 — core user flows', () => {
       expect(unexpectedConsoleErrors).toEqual([]);
     });
   });
+
+  test('settings modal: gear opens it, language/budget/guardrails save, clear chat works', async ({ page }) => {
+    const consoleErrors = [];
+    const pageErrors = [];
+    page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+    page.on('pageerror', (err) => pageErrors.push(String(err)));
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'networkidle' });
+    await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toHaveCount(1);
+
+    // Gear button: visible, 44px tap target.
+    const gear = page.locator('#settings-btn');
+    await expect(gear).toBeVisible();
+    const gearBox = await gear.boundingBox();
+    expect(gearBox.height).toBeGreaterThanOrEqual(44);
+    expect(gearBox.width).toBeGreaterThanOrEqual(44);
+    // Quick Demo chips carry SVG icons, not emoji.
+    expect(await page.locator('.quick-chip svg').count()).toBe(4);
+
+    // Open the modal: four sections, Auto language active by default.
+    await gear.click();
+    await expect(page.locator('#settings-overlay')).not.toHaveClass(/hidden/);
+    const sections = await page.locator('#settings-body h3').allInnerTexts();
+    expect(sections).toEqual(['Language', 'Monthly budget', 'Smart Guardrails', 'Chat data']);
+    await expect(page.locator('.seg-btn[data-lang-choice="auto"]')).toHaveAttribute('aria-pressed', 'true');
+
+    // Switch to Bahasa Indonesia: modal + composer follow, choice persists.
+    await page.locator('.seg-btn[data-lang-choice="id"]').click();
+    await expect(page.locator('#settings-title')).toHaveText('Pengaturan');
+    await expect(page.locator('#ask')).toHaveAttribute('placeholder', 'Tanya ShopPal…');
+    expect(await page.evaluate(() => localStorage.getItem('shoppal-lang'))).toBe('id');
+
+    // Budget + guardrails save to localStorage; vault summary follows.
+    await page.fill('#set-budget-input', '60');
+    await page.locator('#set-budget-save').click();
+    await page.fill('#set-gr-limit', '25');
+    await page.locator('#set-gr-save').click();
+    await expect(page.locator('#set-budget-status')).toHaveText('Budget tersimpan.');
+    await expect(page.locator('#set-gr-status')).toHaveText('Guardrails tersimpan.');
+    expect(await page.evaluate(() => localStorage.getItem('shoppal-budget-usd'))).toBe('60');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('shoppal-guardrails')).autoApproveLimit)).toBe(25);
+    await expect(page.locator('#chat [data-step="vault"]')).toContainText('$25');
+
+    // Escape closes; the vault summary button reopens the modal.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#settings-overlay')).toHaveClass(/hidden/);
+    await page.locator('#vault-settings').click();
+    await expect(page.locator('#settings-overlay')).not.toHaveClass(/hidden/);
+
+    // Clear chat history: fresh greeting, no saved user history.
+    await page.locator('#set-clear-chat').click();
+    await expect(page.locator('#set-clear-status')).toHaveText('Riwayat chat dihapus.');
+    await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toHaveCount(1);
+    const saved = await page.evaluate(() => localStorage.getItem('shoppal-chat-v1') || '');
+    expect(saved).toBe('');
+
+    // Restore the server guardrail to the $20 default so other tests
+    // (and the demo) keep the documented limit.
+    await page.evaluate(async () => {
+      await fetch('/api/guardrails', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ autoApproveLimit: 20, categoryCaps: {} }),
+      });
+    });
+    expect(pageErrors).toEqual([]);
+    expect(consoleErrors).toEqual([]);
+  });
 });
+
