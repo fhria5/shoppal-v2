@@ -352,6 +352,23 @@ async function get(path) {
   r = await get('/api/health');
   check('rate limit health exempt', r.status === 200, r.data);
 
+  // ---------- 12. Etsy marketplace adapter ----------
+  // No Etsy key in the local .env, so search says so plainly (no
+  // listings, no crash) and names Etsy, not eBay.
+  r = await get('/api/marketplace/search?q=mug&source=etsy&lang=en');
+  check('marketplace etsy unconfigured', r.status === 200 && r.data.configured === false && Array.isArray(r.data.listings) && r.data.listings.length === 0 && /Etsy/.test(r.data.note || ''), r.data);
+  r = await get('/api/marketplace/search?q=mug&source=amazon&lang=en');
+  check('marketplace unknown source 400', r.status === 400 && /Unknown source/.test(r.data.error || ''), r.data);
+  r = await get('/api/marketplace/search?q=mug&lang=en');
+  check('marketplace ebay default still works', r.status === 200 && r.data.configured === false && /eBay/.test(r.data.note || ''), r.data);
+  // Etsy checkout: a sandbox PayPal order for the listing's simulated
+  // total ($10 item, no intl/conversion -> total $10.84).
+  r = await post('/api/paypal/create-order', {
+    marketplace: { marketplace: 'Etsy', itemId: '123456', title: 'Handmade ceramic mug', priceUSD: 10 },
+    international: false, currencyConversion: false, totalUSD: 10.84,
+  });
+  check('marketplace etsy checkout creates sandbox order', r.status === 201 && !!r.data.orderId && !!r.data.approveUrl, r.data);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => {
