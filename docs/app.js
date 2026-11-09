@@ -127,7 +127,7 @@
       tickFirst: 'Please tick the approval checkbox first.', creatingOrder: 'Creating PayPal order…',
       agentSteps: 'What the agent did', agentApprove: 'Approve and pay with PayPal', agentPendingApproval: 'Pending Human Approval (Guardrail Triggered)', agentReject: 'Reject',
       calloutWhy: 'This order is above the $20.00 auto-approve limit, so the agent stopped here for your approval.',
-      toastCopyLink: 'Payment link for {name} copied', toastCopyJson: 'Dispute JSON copied', toastApproved: 'Order approved', toastRejected: 'Order rejected — left unpaid',
+      toastCopyLink: 'Payment link for {name} copied', toastCopyJson: 'Dispute JSON copied', toastApproved: 'Order approved', toastRejected: 'Order rejected - left unpaid',
       openPayPal: 'Open PayPal Sandbox', copyLink: 'Copy link', copied: '✓ Copied!', copyJson: 'Copy JSON',
       loadingAgent: 'Agent is working…', trackingAdded: 'Tracking added',
       agentFailed: 'The agent could not finish that. Please try again.',
@@ -328,7 +328,7 @@
       tickFirst: 'Centang kotak persetujuan dulu.', creatingOrder: 'Membuat order PayPal…',
       agentSteps: 'Yang agen lakukan', agentApprove: 'Setujui dan bayar dengan PayPal', agentPendingApproval: 'Pending Human Approval (Guardrail Triggered)', agentReject: 'Tolak',
       calloutWhy: 'Pesanan ini di atas batas setujui otomatis $20.00, jadi agen berhenti di sini menunggu persetujuanmu.',
-      toastCopyLink: 'Link pembayaran {name} berhasil disalin', toastCopyJson: 'JSON sengketa disalin', toastApproved: 'Order disetujui', toastRejected: 'Order ditolak — dibiarkan belum dibayar',
+      toastCopyLink: 'Link pembayaran {name} berhasil disalin', toastCopyJson: 'JSON sengketa disalin', toastApproved: 'Order disetujui', toastRejected: 'Order ditolak - dibiarkan belum dibayar',
       openPayPal: 'Buka PayPal Sandbox', copyLink: 'Salin link', copied: '✓ Tersalin!', copyJson: 'Salin JSON',
       loadingAgent: 'Agen sedang bekerja…', trackingAdded: 'Resi ditambahkan',
       agentFailed: 'Agen tidak bisa menyelesaikan itu. Coba lagi.',
@@ -805,7 +805,7 @@
       : chance >= 40 ? t('simRecModerate')
       : t('simRecWeak');
     // Local mirror of the server's disputePayload (same PayPal Disputes API
-    // shape, clearly a simulation — no real ticket is opened).
+    // shape, clearly a simulation - no real ticket is opened).
     var reasonMap = {
       not_received: 'MERCHANDISE_OR_SERVICE_NOT_RECEIVED',
       not_as_described: 'MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED',
@@ -1232,7 +1232,7 @@
   // checkout with its live PayPal button) and the typing indicator. On
   // load, the saved bubbles are restored before the fresh greeting, so the
   // user sees their history and can keep chatting. Restored bubbles are
-  // static records — their buttons don't work — except product cards,
+  // static records - their buttons don't work - except product cards,
   // which are re-wired by the delegated handler in init. The follow-up
   // context (last Ask results, so "yang termurah" still refers to the
   // products shown before the refresh) is saved alongside.
@@ -1250,7 +1250,7 @@
         html = clone.innerHTML;
       }
       localStorage.setItem(CHAT_HISTORY_KEY, html);
-    } catch (e) { /* storage unavailable or full — history just doesn't persist */ }
+    } catch (e) { /* storage unavailable or full - history just doesn't persist */ }
   }
   function restoreChatHistory() {
     try {
@@ -1267,7 +1267,7 @@
         }
         return true;
       }
-    } catch (e) { /* corrupted storage — start fresh */ }
+    } catch (e) { /* corrupted storage - start fresh */ }
     return false;
   }
   function saveChatContext() {
@@ -1290,7 +1290,7 @@
       } else {
         localStorage.removeItem(CHAT_HISTORY_KEY + '-split');
       }
-    } catch (e) { /* storage unavailable — the split session just doesn't persist */ }
+    } catch (e) { /* storage unavailable - the split session just doesn't persist */ }
   }
   function restoreLastSplit() {
     try {
@@ -1299,7 +1299,7 @@
         var s = JSON.parse(raw);
         if (s && s.productId) lastSplit = s;
       }
-    } catch (e) { /* corrupted storage — start with no split session */ }
+    } catch (e) { /* corrupted storage - start with no split session */ }
   }
   // Persist on any chat change (debounced): addBubble saves immediately,
   // but result cards are rendered into an existing bubble afterwards, so
@@ -1437,7 +1437,7 @@
       var wrap = document.createElement('div');
       wrap.innerHTML = productCardHtml(p);
       var card = wrap.firstChild;
-      card._wired = true; // JS property only — lost on HTML serialization, so the delegated handler can tell restored cards apart
+      card._wired = true; // JS property only - lost on HTML serialization, so the delegated handler can tell restored cards apart
       card.addEventListener('click', function () {
         if (compareMode) {
           var idx = compareList.findIndex(function (x) { return x.id === p.id; });
@@ -1577,7 +1577,7 @@
     var track = /(lacak|track|dispute|sengketa)/.test(s);
     var target = /(headphone|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|\$\s*\d|pantauan|watch|pesanan|order|lacak|track|dispute|sengketa)/.test(s);
     // Checkout continuations ("lanjut checkout bagian saya", "beli bagian
-    // saya") name no product, so they carry no target — they continue the
+    // saya") name no product, so they carry no target - they continue the
     // ACTIVE product (split session, then lastResults), resolved by the
     // agent from the context + lastSplit sent with the request. They must
     // go to /api/agent, never to the generic Ask search.
@@ -1644,7 +1644,7 @@
       callout.setAttribute('role', 'alert');
       callout.setAttribute('aria-live', 'polite');
       callout.innerHTML =
-        '<div class="callout-head"><span class="shield" aria-hidden="true">🛡️</span><span>' + t('agentPendingApproval') + '</span></div>' +
+        '<div class="callout-head"><svg class="shield" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M12 2l8 3v6c0 5.5-3.5 9.5-8 11-4.5-1.5-8-5.5-8-11V5l8-3z" fill="currentColor"/><path d="M8.5 12l2.5 2.5 4.5-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span>' + t('agentPendingApproval') + '</span></div>' +
         '<p>' + t('calloutWhy') + '</p>' +
         '<p class="hint num">' + escapeHtml(ag.pendingOrder.name || '') + ' · ' + money(ag.pendingOrder.totalUSD) + '</p>' +
         '<div class="callout-actions">' +
@@ -1810,7 +1810,7 @@
       return;
     }
     // "Cek limit budget guardrail": a settings question, answered from
-    // local guardrail state — never a product search.
+    // local guardrail state - never a product search.
     if (isGuardrailStatus(q)) {
       hideTyping(typing);
       showGuardrailStatus();
