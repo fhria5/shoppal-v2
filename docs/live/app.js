@@ -155,7 +155,7 @@
       budWarn: 'This purchase would take you over your monthly budget ({spent} of {budget} spent).',
       budNoBudget: 'No monthly budget set.',
       grTitle: 'Smart Guardrails', grIntro: 'The agent auto-pays only under your limit. Above it, it asks you first, so a hallucination can never buy something expensive.',
-      grLimit: 'Auto-approve up to (USD)', grSave: 'Save guardrails', grSaved: 'Guardrails saved.',
+      grLimit: 'Auto-approve up to (USD)', grSave: 'Save guardrails', grSaved: 'Guardrails saved.', grHint: 'Orders above the limit wait for your approval first. Change the limit anytime in the Proof Vault.',
       grCatCap: 'Monthly cap for {cat} (USD, empty = no cap)',
       grNeedApproval: 'Needs your approval', grAboveLimit: 'This purchase ({total}) is above your auto-approve limit ({limit}).',
       grCatOver: 'This would take {cat} over its monthly cap ({spent} of {cap} spent).',
@@ -291,7 +291,7 @@
       budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
       budNoBudget: 'Belum ada budget bulanan.',
       grTitle: 'Smart Guardrails', grIntro: 'Agen hanya bayar otomatis di bawah batasmu. Di atas itu, ia bertanya dulu, jadi halusinasi tidak bisa membeli barang mahal.',
-      grLimit: 'Setujui otomatis sampai (USD)', grSave: 'Simpan guardrails', grSaved: 'Guardrails tersimpan.',
+      grLimit: 'Setujui otomatis sampai (USD)', grSave: 'Simpan guardrails', grSaved: 'Guardrails tersimpan.', grHint: 'Pesanan di atas batas menunggu persetujuanmu dulu. Ubah batasnya kapan saja di Proof Vault.',
       grCatCap: 'Batas bulanan untuk {cat} (USD, kosong = tanpa batas)',
       grNeedApproval: 'Butuh persetujuanmu', grAboveLimit: 'Pembelian ini ({total}) di atas batas setujui otomatis ({limit}).',
       grCatOver: 'Ini akan membuat {cat} melewati batas bulanannya ({spent} dari {cap} sudah terpakai).',
@@ -435,7 +435,7 @@
   function saveChatHistory() {
     try {
       var clone = chatEl.cloneNode(true);
-      clone.querySelectorAll('[data-step="greeting"], [data-step="catalog"], [data-step="vault"], [data-step="checkout"], .typing').forEach(function (el) { el.remove(); });
+      clone.querySelectorAll('[data-step="greeting"], [data-step="catalog"], [data-step="vault"], [data-step="checkout"], .typing, .skeleton-msg').forEach(function (el) { el.remove(); });
       var html = clone.innerHTML;
       while (html.length > CHAT_HISTORY_MAX_BYTES) {
         var first = clone.firstElementChild;
@@ -506,6 +506,36 @@
     return div;
   }
   function hideTyping(el) {
+    if (el && el.remove) el.remove();
+  }
+
+  // Skeleton loader: shimmer placeholder shown while the agent searches
+  // for products. It previews the results layout (title + card grid) so
+  // the wait feels shorter than bare typing dots. The bubble is
+  // aria-hidden and excluded from chat history (see saveChatHistory).
+  var skelCounter = 0;
+  function showSkeletonLoader(container) {
+    var host = container || chatEl;
+    if (!host) return null;
+    var id = 'skel-' + (++skelCounter) + '-' + Date.now().toString(36);
+    var div = document.createElement('div');
+    div.className = 'msg agent skeleton-msg';
+    div.id = id;
+    div.setAttribute('aria-hidden', 'true');
+    div.innerHTML =
+      '<div class="skeleton-line skeleton-title"></div>' +
+      '<div class="cards">' +
+      '<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line"></div><div class="skeleton-line skeleton-short"></div></div>' +
+      '<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line"></div><div class="skeleton-line skeleton-short"></div></div>' +
+      '<div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line"></div><div class="skeleton-line skeleton-short"></div></div>' +
+      '</div>';
+    host.appendChild(div);
+    scrollChat();
+    return id;
+  }
+  function removeSkeletonLoader(id) {
+    if (!id) return;
+    var el = document.getElementById(id);
     if (el && el.remove) el.remove();
   }
 
@@ -779,6 +809,32 @@
     return (buy || watch || split || track) && target;
   }
 
+  // "Cek limit budget guardrail" is a settings question, not a product
+  // search: answer it with the current guardrail state instead of
+  // returning a product list.
+  function isGuardrailStatus(q) {
+    var s = ' ' + q.toLowerCase() + ' ';
+    return /guardrail/.test(s) && /(cek|check|lihat|show|berapa|batas|limit|status|budget)/.test(s);
+  }
+  function showGuardrailStatus() {
+    var g = getGuardrails();
+    var budget = null;
+    try { budget = localStorage.getItem(BUDGET_KEY); } catch (e) { /* private mode */ }
+    var caps = g.categoryCaps || {};
+    var capLines = Object.keys(caps).filter(function (c) { return caps[c] !== '' && caps[c] !== null && caps[c] !== undefined; }).map(function (c) {
+      return '<li>' + fmt(t('grCatCap'), { cat: c }) + ': <strong>' + money(Number(caps[c]) || 0) + '</strong></li>';
+    }).join('');
+    var html = '<p><strong>' + t('grTitle') + '</strong></p>' +
+      '<p>' + t('grIntro') + '</p>' +
+      '<ul>' +
+      '<li>' + t('grLimit') + ': <strong>' + money(g.autoApproveLimit) + '</strong></li>' +
+      '<li>' + t('budTitle') + ': <strong>' + (budget ? money(Number(budget)) : t('budNoBudget')) + '</strong></li>' +
+      capLines +
+      '</ul>' +
+      '<p class="hint">' + t('grHint') + '</p>';
+    addBubble('agent', html);
+  }
+
   function renderAgentResult(ag, q) {
     var html = '';
     if (ag.steps && ag.steps.length) {
@@ -967,6 +1023,13 @@
       addBubble('agent', clBody);
       return;
     }
+    // "Cek limit budget guardrail": a settings question, answered from
+    // local guardrail state — never a product search.
+    if (isGuardrailStatus(q)) {
+      hideTyping(typing);
+      showGuardrailStatus();
+      return;
+    }
     // Pay Agent: buying goals go to the agent, everything else to Ask.
     if (isBuyGoal(q)) {
       try {
@@ -988,12 +1051,26 @@
       }
       return;
     }
+    // Ask path: show the skeleton loader while the search runs (it
+    // replaces the typing dots here, since it previews the results
+    // layout). It is removed as soon as the reply arrives, success or
+    // failure, so it can never linger in the chat.
+    hideTyping(typing);
+    var skelId = showSkeletonLoader(chatEl);
     var askParams = new URLSearchParams({ q, lang });
     if (lastResults && lastResults.length) {
       askParams.set('context', lastResults.map((p) => p.id).join(','));
     }
-    var res = await fetch(API_BASE + '/api/ask?' + askParams.toString());
-    var data = await res.json();
+    var res, data;
+    try {
+      res = await fetch(API_BASE + '/api/ask?' + askParams.toString());
+      data = await res.json();
+    } catch (e) {
+      removeSkeletonLoader(skelId);
+      addBubble('agent', '<p>' + t('agentFailed') + '</p>');
+      return;
+    }
+    removeSkeletonLoader(skelId);
     var products = data.products || catalog.products;
     lastResults = products;
     saveChatContext();
