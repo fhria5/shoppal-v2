@@ -1920,15 +1920,22 @@ async function agentBuyProductId(message, lang, ctx) {
   }
   const full = calculateTotalCost(p.priceUSD, true, true, lang);
   const amount = full.total;
+  const risk = riskScoreOf(p);
+  steps.push({ action: 'check_risk', summary: 'seller risk ' + risk + '/100' });
+  const riskWarn = risk < 50
+    ? (lang === 'id'
+      ? 'Peringatan: penjual ini berisiko (skor ' + risk + '/100). Bukti pembelianmu tetap tersimpan otomatis ke Proof Vault, jadi kamu bisa sengketa bila ada masalah. '
+      : 'Warning: this seller is risky (score ' + risk + '/100). Your proof is still saved to the Proof Vault automatically, so you can dispute if anything goes wrong. ')
+    : '';
   const saved = agentApplyGuardrails(ctx.clientGuardrails);
   const g = checkGuardrails(amount, p.category, lang);
   guardrails = saved;
   steps.push({ action: 'check_guardrails', summary: g.needsApproval ? 'needs approval' : 'within limits' });
   if (g.needsApproval && !ctx.userApproved) {
     return {
-      reply: lang === 'id'
+      reply: riskWarn + (lang === 'id'
         ? p.name + ' total ($' + amount.toFixed(2) + ') ' + g.reasons.join(' ') + ' Ketuk setujui untuk lanjut ke pembayaran PayPal.'
-        : p.name + ' total ($' + amount.toFixed(2) + ') ' + g.reasons.join(' ') + ' Tap approve to continue to PayPal payment.',
+        : p.name + ' total ($' + amount.toFixed(2) + ') ' + g.reasons.join(' ') + ' Tap approve to continue to PayPal payment.'),
       steps,
       needsApproval: true,
       pendingOrder: { productId: p.id, totalUSD: amount, name: p.name, shareCheckout: false },
@@ -1939,9 +1946,9 @@ async function agentBuyProductId(message, lang, ctx) {
   const order = { orderId: raw.orderId, status: raw.status, approveUrl: raw.approveUrl, totalUSD: amount, productId: p.id, shareCheckout: false };
   steps.push({ action: 'create_order', summary: 'order ' + order.orderId + ' created, total $' + order.totalUSD });
   return {
-    reply: lang === 'id'
+    reply: riskWarn + (lang === 'id'
       ? 'Pesanan ' + p.name + ' sudah dibuat (total $' + amount.toFixed(2) + '). Silakan setujui pembayarannya di PayPal.'
-      : 'The order for ' + p.name + ' is ready (total $' + amount.toFixed(2) + '). Please approve the payment on PayPal.',
+      : 'The order for ' + p.name + ' is ready (total $' + amount.toFixed(2) + '). Please approve the payment on PayPal.'),
     steps, order, aiUsed: false,
   };
 }
