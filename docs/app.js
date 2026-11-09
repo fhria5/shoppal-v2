@@ -50,6 +50,12 @@
   // otherwise (English is the demo's default, Devpost requires English
   // materials). The greeting stays English (it renders before any input).
   var lang = 'en';
+  var LANG_KEY = 'shoppal-lang';
+  var langManual = null;
+  try {
+    var savedLang = localStorage.getItem(LANG_KEY);
+    if (savedLang === 'id' || savedLang === 'en') { lang = savedLang; langManual = savedLang; }
+  } catch (e) { /* storage unavailable - auto-detect per message */ }
   function detectLang(text) {
     return /\b(di|yang|mau|aku|saya|murah|termurah|terbaik|paling|bawah|dari|ada|garansi|pertama|berapa|cari|beli|baru|dan|untuk|dengan|ini|itu|aja|saja|tolong|dong)\b/i.test(String(text || ''))
       ? 'id'
@@ -225,13 +231,18 @@
       budWarn: 'This purchase would take you over your monthly budget ({spent} of {budget} spent).',
       budNoBudget: 'No monthly budget set.',
       grTitle: 'Smart Guardrails', grIntro: 'The agent auto-pays only under your limit. Above it, it asks you first, so a hallucination can never buy something expensive.',
-      grLimit: 'Auto-approve up to (USD)', grSave: 'Save guardrails', grSaved: 'Guardrails saved.', grHint: 'Orders above the limit wait for your approval first. Change the limit anytime in the Proof Vault.',
+      grLimit: 'Auto-approve up to (USD)', grSave: 'Save guardrails', grSaved: 'Guardrails saved.', grHint: 'Orders above the limit wait for your approval first. Change it anytime in Settings.',
       grCatCap: 'Monthly cap for {cat} (USD, empty = no cap)',
       grNeedApproval: 'Needs your approval', grAboveLimit: 'This purchase ({total}) is above your auto-approve limit ({limit}).',
       grCatOver: 'This would take {cat} over its monthly cap ({spent} of {cap} spent).',
       grApprove: 'Approve and pay', grReject: 'Reject this purchase',
       grApproved: 'Approved, capturing payment...', grRejected: 'Purchase rejected. The PayPal order was not captured and will expire.',
       grAutoOk: 'Under your auto-approve limit, capturing...',
+      setTitle: 'Settings', setClose: 'Close settings', setOpen: 'Open settings',
+      setLang: 'Language', setLangAuto: 'Auto (follows your message)', setLangHint: 'The agent answers in this language. Buttons and labels switch too.',
+      setData: 'Chat data', setClearChat: 'Clear chat history', setClearHint: 'Removes the conversation from this browser. Your Proof Vault stays saved.',
+      setCleared: 'Chat history cleared.', setGrSummary: 'Guardrail: auto-approve up to {limit}.', budSaved: 'Budget saved.',
+      askPh: 'Ask ShopPal…', quickDemo: 'Quick Demo:',
       dwTitle: 'Delivery Watch', dwIntro: 'The agent watches every delivery. If a parcel stalls for 7 days or misses its estimate, it prepares a dispute draft before your 180-day filing window shrinks.',
       dwAddTracking: 'Add tracking', dwCheck: 'Check delivery', dwNoTracker: 'No tracking yet for this order.',
       dwStatus: 'Delivery: {status}', dwOverdue: 'Overdue {n} days: no delivery update. A dispute draft is ready below.',
@@ -426,13 +437,18 @@
       budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
       budNoBudget: 'Belum ada budget bulanan.',
       grTitle: 'Smart Guardrails', grIntro: 'Agen hanya bayar otomatis di bawah batasmu. Di atas itu, ia bertanya dulu, jadi halusinasi tidak bisa membeli barang mahal.',
-      grLimit: 'Setujui otomatis sampai (USD)', grSave: 'Simpan guardrails', grSaved: 'Guardrails tersimpan.', grHint: 'Pesanan di atas batas menunggu persetujuanmu dulu. Ubah batasnya kapan saja di Proof Vault.',
+      grLimit: 'Setujui otomatis sampai (USD)', grSave: 'Simpan guardrails', grSaved: 'Guardrails tersimpan.', grHint: 'Pesanan di atas batas menunggu persetujuanmu dulu. Ubah kapan saja di Pengaturan.',
       grCatCap: 'Batas bulanan untuk {cat} (USD, kosong = tanpa batas)',
       grNeedApproval: 'Butuh persetujuanmu', grAboveLimit: 'Pembelian ini ({total}) di atas batas setujui otomatis ({limit}).',
       grCatOver: 'Ini akan membuat {cat} melewati batas bulanannya ({spent} dari {cap} sudah terpakai).',
       grApprove: 'Setujui dan bayar', grReject: 'Tolak pembelian ini',
       grApproved: 'Disetujui, meng-capture pembayaran...', grRejected: 'Pembelian ditolak. Order PayPal tidak di-capture dan akan kedaluwarsa.',
       grAutoOk: 'Di bawah batas setujui otomatis, meng-capture...',
+      setTitle: 'Pengaturan', setClose: 'Tutup pengaturan', setOpen: 'Buka pengaturan',
+      setLang: 'Bahasa', setLangAuto: 'Otomatis (ikut pesanmu)', setLangHint: 'Agen menjawab dalam bahasa ini. Tombol dan label ikut berganti.',
+      setData: 'Data chat', setClearChat: 'Hapus riwayat chat', setClearHint: 'Menghapus percakapan dari browser ini. Proof Vault tetap tersimpan.',
+      setCleared: 'Riwayat chat dihapus.', setGrSummary: 'Guardrail: setujui otomatis sampai {limit}.', budSaved: 'Budget tersimpan.',
+      askPh: 'Tanya ShopPal…', quickDemo: 'Demo Cepat:',
       dwTitle: 'Delivery Watch', dwIntro: 'Agen memantau tiap pengiriman. Kalau paket macet 7 hari atau melewati estimasi, ia menyiapkan draf sengketa sebelum jendela pengajuan 180 harimu menyusut.',
       dwAddTracking: 'Tambah resi', dwCheck: 'Cek pengiriman', dwNoTracker: 'Belum ada resi untuk order ini.',
       dwStatus: 'Pengiriman: {status}', dwOverdue: 'Terlambat {n} hari: tidak ada update pengiriman. Draf sengketa sudah siap di bawah.',
@@ -514,6 +530,139 @@
   }
   function saveGuardrailsLocal(g) {
     try { localStorage.setItem(GUARDRAILS_KEY, JSON.stringify(g)); } catch (e) { /* private mode */ }
+  }
+
+  // Settings modal (gear in the header): language, monthly budget, smart
+  // guardrails, chat data. Budget + guardrails moved here from the Proof
+  // Vault bubble (the vault keeps a summary + an "Open settings" button),
+  // so every preference lives in one place.
+  function renderSettings() {
+    var body = $('settings-body');
+    if (!body) return;
+    var budget = getBudget();
+    var gr = getGuardrails();
+    $('settings-title').textContent = t('setTitle');
+    $('settings-close').setAttribute('aria-label', t('setClose'));
+    $('settings-btn').setAttribute('aria-label', t('setTitle'));
+    body.innerHTML =
+      '<section class="set-section"><h3>' + t('setLang') + '</h3>' +
+      '<div class="seg" role="group" aria-label="' + t('setLang') + '">' +
+      '<button type="button" class="seg-btn" data-lang-choice="auto">' + t('setLangAuto') + '</button>' +
+      '<button type="button" class="seg-btn" data-lang-choice="en">English</button>' +
+      '<button type="button" class="seg-btn" data-lang-choice="id">Bahasa Indonesia</button>' +
+      '</div><p class="hint">' + t('setLangHint') + '</p></section>' +
+      '<section class="set-section"><h3>' + t('budTitle') + '</h3>' +
+      '<p><input id="set-budget-input" type="number" min="1" step="1" placeholder="' + t('budSet') + '" value="' + (budget || '') + '"> ' +
+      '<button id="set-budget-save" type="button">' + t('budSave') + '</button> <span id="set-budget-status"></span></p></section>' +
+      '<section class="set-section"><h3>' + t('grTitle') + '</h3>' +
+      '<p class="hint">' + t('grIntro') + '</p>' +
+      '<p><input id="set-gr-limit" type="number" min="0" step="1" value="' + gr.autoApproveLimit + '"> ' + t('grLimit') + '</p>' +
+      CATEGORIES.map(function (c) {
+        return '<p><input class="set-gr-cap" data-cat="' + c + '" type="number" min="0" step="1" value="' + (gr.categoryCaps[c] || '') + '"> ' + fmt(t('grCatCap'), { cat: c }) + '</p>';
+      }).join('') +
+      '<p><button id="set-gr-save" type="button">' + t('grSave') + '</button> <span id="set-gr-status"></span></p></section>' +
+      '<section class="set-section"><h3>' + t('setData') + '</h3>' +
+      '<p><button id="set-clear-chat" type="button" class="btn-secondary">' + t('setClearChat') + '</button> <span id="set-clear-status"></span></p>' +
+      '<p class="hint">' + t('setClearHint') + '</p></section>';
+    body.querySelectorAll('.seg-btn').forEach(function (b) {
+      var choice = b.getAttribute('data-lang-choice');
+      var active = (choice === 'auto' && !langManual) || langManual === choice;
+      b.setAttribute('aria-pressed', active ? 'true' : 'false');
+      b.classList.toggle('seg-active', active);
+      b.addEventListener('click', function () { applyLangChoice(choice); });
+    });
+    body.querySelector('#set-budget-save').addEventListener('click', function () {
+      var v = Number(body.querySelector('#set-budget-input').value);
+      if (v > 0) setBudget(v);
+      var st = $('set-budget-status');
+      if (st) st.textContent = t('budSaved');
+      refreshVaultSummary();
+    });
+    body.querySelector('#set-gr-save').addEventListener('click', async function () {
+      var limit = Number(body.querySelector('#set-gr-limit').value);
+      var caps = {};
+      body.querySelectorAll('.set-gr-cap').forEach(function (inp) {
+        var n = Number(inp.value);
+        if (n > 0) caps[inp.getAttribute('data-cat')] = n;
+      });
+      var g = { autoApproveLimit: (Number.isFinite(limit) && limit >= 0) ? limit : 20, categoryCaps: caps };
+      saveGuardrailsLocal(g);
+      var st = $('set-gr-status');
+      if (st) st.textContent = t('grSaved');
+      refreshVaultSummary();
+    });
+    body.querySelector('#set-clear-chat').addEventListener('click', function () {
+      clearChatHistory();
+      var st = $('set-clear-status');
+      if (st) st.textContent = t('setCleared');
+    });
+  }
+  function applyLangChoice(choice) {
+    var keep = null;
+    var body = $('settings-body');
+    if (body) {
+      var bi = body.querySelector('#set-budget-input');
+      var gl = body.querySelector('#set-gr-limit');
+      if (bi || gl) {
+        keep = { budget: bi ? bi.value : null, limit: gl ? gl.value : null, caps: {} };
+        body.querySelectorAll('.set-gr-cap').forEach(function (inp) { keep.caps[inp.getAttribute('data-cat')] = inp.value; });
+      }
+    }
+    try {
+      if (choice === 'auto') { localStorage.removeItem(LANG_KEY); langManual = null; lang = 'en'; }
+      else { localStorage.setItem(LANG_KEY, choice); langManual = choice; lang = choice; }
+    } catch (e) { langManual = choice === 'auto' ? null : choice; if (langManual) lang = langManual; else lang = 'en'; }
+    applyStaticLang();
+    renderSettings();
+    if (keep) {
+      var bi2 = $('set-budget-input');
+      if (bi2 && keep.budget !== null) bi2.value = keep.budget;
+      var gl2 = $('set-gr-limit');
+      if (gl2 && keep.limit !== null) gl2.value = keep.limit;
+      document.querySelectorAll('.set-gr-cap').forEach(function (inp) {
+        var c = inp.getAttribute('data-cat');
+        if (keep.caps[c] !== undefined) inp.value = keep.caps[c];
+      });
+    }
+    refreshVaultSummary();
+  }
+  function applyStaticLang() {
+    var ask = $('ask');
+    if (ask) ask.setAttribute('placeholder', t('askPh'));
+    var lbl = document.querySelector('.quick-demo-label');
+    if (lbl) lbl.textContent = t('quickDemo');
+  }
+  function openSettings() {
+    renderSettings();
+    var ov = $('settings-overlay');
+    if (!ov) return;
+    ov.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    var closeBtn = $('settings-close');
+    if (closeBtn) closeBtn.focus();
+  }
+  function closeSettings() {
+    var ov = $('settings-overlay');
+    if (ov) ov.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+    var btn = $('settings-btn');
+    if (btn) btn.focus();
+  }
+  function refreshVaultSummary() {
+    var vault = chatEl ? chatEl.querySelector('[data-step="vault"]') : null;
+    if (vault) showVault();
+  }
+  function clearChatHistory() {
+    try {
+      localStorage.removeItem(CHAT_HISTORY_KEY);
+      localStorage.removeItem(CHAT_HISTORY_KEY + '-context');
+      localStorage.removeItem(CHAT_HISTORY_KEY + '-split');
+    } catch (e) { /* ignore */ }
+    lastResults = null;
+    lastSplit = null;
+    if (chatEl) chatEl.innerHTML = '';
+    greet();
+    showVault();
   }
   function checkGuardrailsLocal(totalUSD, category) {
     var g = getGuardrails();
@@ -1742,7 +1891,7 @@
     btn.disabled = true;
     input.disabled = true;
     $('ask').value = '';
-    lang = detectLang(q);
+    if (!langManual) lang = detectLang(q);
     userBubble(q);
     clearSteps();
     var typing = showTyping();
@@ -2232,27 +2381,19 @@
     }
     var budget = getBudget();
     var spent = monthSpend(entries);
-    var budHtml = '<div class="card"><p><strong>' + t('budTitle') + '</strong></p>' +
-      '<p><input id="budget-input" type="number" min="1" step="1" placeholder="' + t('budSet') + '" value="' + (budget || '') + '" style="width:130px"> ' +
-      '<button id="budget-save" type="button">' + t('budSave') + '</button></p>' +
-      '<p id="budget-status">' + (budget
+    var gr = getGuardrails();
+    var setHtml = '<div class="card"><p><strong>' + t('setTitle') + '</strong></p>' +
+      '<p>' + (budget
         ? fmt(t('budSpent'), { spent: money(spent), budget: money(budget), pct: Math.round(spent / budget * 100) }) + ' ' +
           (spent > budget ? fmt(t('budOver'), { over: money(spent - budget) }) : fmt(t('budLeft'), { left: money(Math.round((budget - spent) * 100) / 100) }))
-        : t('budNoBudget')) + '</p></div>';
-    var gr = getGuardrails();
-    var grHtml = '<div class="card"><p><strong>' + t('grTitle') + '</strong></p>' +
-      '<p class="hint">' + t('grIntro') + '</p>' +
-      '<p><input id="gr-limit" type="number" min="0" step="1" value="' + gr.autoApproveLimit + '" style="width:90px"> ' + t('grLimit') + '</p>' +
-      CATEGORIES.map(function (c) {
-        return '<p><input class="gr-cap" data-cat="' + c + '" type="number" min="0" step="1" value="' + (gr.categoryCaps[c] || '') + '" style="width:90px"> ' + fmt(t('grCatCap'), { cat: c }) + '</p>';
-      }).join('') +
-      '<p><button id="gr-save" type="button">' + t('grSave') + '</button> <span id="gr-status"></span></p></div>';
+        : t('budNoBudget')) + '</p>' +
+      '<p>' + fmt(t('setGrSummary'), { limit: money(gr.autoApproveLimit) }) + '</p>' +
+      '<p><button id="vault-settings" type="button" class="btn-secondary">' + t('setOpen') + '</button></p></div>';
     var dwHtml = '<div class="card" id="dw-card"><p><strong>' + t('dwTitle') + '</strong></p><p class="hint">' + t('dwIntro') + '</p><p id="dw-body">…</p></div>';
     var bubble = addBubble('agent',
       '<p><strong>Proof Vault</strong></p>' + body +
       '<div class="card">' + subs + '</div>' +
-      budHtml +
-      grHtml +
+      setHtml +
       dwHtml +
       '<div class="card" id="ex-card"><p><strong>' + t('exTitle') + '</strong></p><p id="ex-body">…</p></div>' +
       '<div class="card" id="pw-card"><p><strong>' + t('pwTitle') + '</strong></p><p class="hint">' + t('pwIntro') + '</p><p id="pw-body">…</p></div>' +
@@ -2283,24 +2424,9 @@
     bubble.insertBefore(vaultToggle, bubble.children[1] || null);
     setVaultCollapsed(vaultCollapsed);
     bubble.querySelector('#vault-refresh').addEventListener('click', function () { showVault(); });
-    // Monthly budget (stored in this browser).
-    bubble.querySelector('#budget-save').addEventListener('click', function () {
-      var v = Number(bubble.querySelector('#budget-input').value);
-      if (v > 0) setBudget(v);
-      showVault();
-    });
-    // Smart Guardrails (stored in this browser).
-    bubble.querySelector('#gr-save').addEventListener('click', function () {
-      var limit = Number(bubble.querySelector('#gr-limit').value);
-      var caps = {};
-      bubble.querySelectorAll('.gr-cap').forEach(function (inp) {
-        var n = Number(inp.value);
-        if (n > 0) caps[inp.getAttribute('data-cat')] = n;
-      });
-      saveGuardrailsLocal({ autoApproveLimit: (Number.isFinite(limit) && limit >= 0) ? limit : 20, categoryCaps: caps });
-      var st = $('gr-status');
-      if (st) st.textContent = t('grSaved');
-    });
+    // Budget + guardrails live in the Settings modal now; the vault keeps
+    // a summary card with a button that opens it.
+    bubble.querySelector('#vault-settings').addEventListener('click', function () { openSettings(); });
     // Delivery Watch (local mirror: overdue = 7+ days, no DELIVERED update).
     (function renderDwLocal() {
       var box = $('dw-body');
@@ -2616,6 +2742,19 @@
       if (card || chip) {
         setTimeout(scrollChat, 120);
       }
+    });
+    // Settings modal: gear in the header opens it, Escape or a tap on
+    // the backdrop closes it. The saved language applies to the static
+    // chrome (composer placeholder, Quick Demo label) at startup.
+    applyStaticLang();
+    var settingsBtn = $('settings-btn');
+    if (settingsBtn) settingsBtn.addEventListener('click', function () { openSettings(); });
+    var settingsClose = $('settings-close');
+    if (settingsClose) settingsClose.addEventListener('click', function () { closeSettings(); });
+    var settingsOverlay = $('settings-overlay');
+    if (settingsOverlay) settingsOverlay.addEventListener('click', function (e) { if (e.target === settingsOverlay) closeSettings(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && settingsOverlay && !settingsOverlay.classList.contains('hidden')) closeSettings();
     });
     // Quick Demo chips: one tap fills the prompt and sends it, so a demo
     // scenario runs without typing.
