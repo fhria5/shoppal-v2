@@ -74,6 +74,7 @@ const productsById = new Map(catalog.products.map((p) => [p.id, p]));
 // Real marketplaces, one adapter each. eBay is first (free Browse API);
 // see marketplace/ebay.js for how the next one plugs in.
 const ebay = require('./marketplace/ebay');
+const etsy = require('./marketplace/etsy');
 
 // Bilingual replies (Dwibahasa). The agent answers in the language the
 // buyer types: Indonesian when the message has Indonesian words, English
@@ -155,9 +156,11 @@ const STR = {
     mpHoldNoSignals: 'No hold-risk signals in this listing.',
     mpHoldTipLow: 'Funds usually clear on the normal schedule for this pattern.',
     mpHoldTipHigh: 'Ask the seller to upload tracking promptly, and keep the order total close to the seller’s usual range.',
-    mpAiNote: 'Marketplace scores use marketplace signals; account age is not shared by eBay, so it scores neutral.',
+    mpAiNote: 'Marketplace scores use marketplace signals; account age is not shared by the marketplace, so it scores neutral.',
     mpNote: 'Real eBay listings (Browse API). Prices in USD; risk scores use marketplace signals, feedback %, price vs this search’s median, returns and shipping.',
+    mpNoteEtsy: 'Real Etsy listings (Open API v3). Prices in USD; risk scores use marketplace signals, price vs this search’s median, and shipping. Etsy does not share seller feedback % or return policy in search, so those score neutral.',
     mpNotConfigured: 'Real marketplace search needs free eBay developer keys. Add EBAY_APP_ID and EBAY_CERT_ID to .env (developer.ebay.com), no keys, no real listings.',
+    mpNotConfiguredEtsy: 'Real Etsy search needs a free Etsy developer key. Add ETSY_API_KEY to .env as "keystring:shared_secret" (etsy.com/developers/register), no key, no real listings.',
     aiNoteFallback: 'AI explanation unavailable, showing rule-based reasons.',
     aiNoteVyce: 'Explanation rewritten by AI (Vyce); the numeric score is rule-based and unchanged.',
     disputeBody: 'Dispute response draft (simulated, factual only): Order {order} for {product} ({total}) was paid via PayPal Sandbox and captured as {status}. Seller: {seller} (risk score {score} at checkout). Proof is attached in the Proof Vault entry {id}.',
@@ -398,9 +401,11 @@ const STR = {
     mpHoldNoSignals: 'Tidak ada sinyal risiko hold pada listing ini.',
     mpHoldTipLow: 'Dana biasanya cair sesuai jadwal normal untuk pola ini.',
     mpHoldTipHigh: 'Minta seller segera mengunggah tracking, dan jaga total order tetap dekat dengan kisaran biasa seller.',
-    mpAiNote: 'Skor marketplace memakai sinyal marketplace; umur akun tidak dibagikan eBay, jadi dinilai netral.',
+    mpAiNote: 'Skor marketplace memakai sinyal marketplace; umur akun tidak dibagikan marketplace, jadi dinilai netral.',
     mpNote: 'Listing eBay asli (Browse API). Harga dalam USD; skor risiko memakai sinyal marketplace, feedback %, harga vs median pencarian ini, retur dan shipping.',
+    mpNoteEtsy: 'Listing Etsy asli (Open API v3). Harga dalam USD; skor risiko memakai sinyal marketplace, harga vs median pencarian ini, dan shipping. Etsy tidak membagikan feedback % seller atau kebijakan retur di pencarian, jadi keduanya dinilai netral.',
     mpNotConfigured: 'Pencarian marketplace asli butuh kunci developer eBay gratis. Tambahkan EBAY_APP_ID dan EBAY_CERT_ID ke .env (developer.ebay.com), tanpa kunci, tidak ada listing asli.',
+    mpNotConfiguredEtsy: 'Pencarian Etsy asli butuh kunci developer Etsy gratis. Tambahkan ETSY_API_KEY ke .env sebagai "keystring:shared_secret" (etsy.com/developers/register), tanpa kunci, tidak ada listing asli.',
     aiNoteFallback: 'Penjelasan AI tidak tersedia, menampilkan alasan berbasis aturan.',
     aiNoteVyce: 'Penjelasan ditulis ulang oleh AI (Vyce); skor angka berbasis aturan dan tidak berubah.',
     disputeBody: 'Draf jawaban sengketa (simulasi, hanya fakta): Order {order} untuk {product} ({total}) dibayar via PayPal Sandbox dan di-capture sebagai {status}. Seller: {seller} (skor risiko {score} saat checkout). Bukti terlampir di entri Proof Vault {id}.',
@@ -2304,24 +2309,32 @@ app.post('/api/agent', async (req, res) => {
   }
 });
 
-// Real marketplace search (eBay Browse API). Returns real listings with a
-// ShopPal risk score attached. Without eBay keys it says so plainly and
-// returns no listings, the UI then shows the demo catalog only.
+// Real marketplace search (eBay Browse API, Etsy Open API v3).
+// ?source=ebay (default) or ?source=etsy. Returns real listings with a
+// ShopPal risk score attached. Without that marketplace's keys it says so
+// plainly and returns no listings, the UI then shows the demo catalog only.
 app.get('/api/marketplace/search', async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q) return res.status(400).json({ error: 'q is required.' });
   const lang = (req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : detectLang(q);
-  if (!ebay.isConfigured()) {
+  const source = String(req.query.source || 'ebay').toLowerCase();
+  const adapter = source === 'etsy' ? etsy : source === 'ebay' ? ebay : null;
+  if (!adapter) return res.status(400).json({ error: 'Unknown source: ' + source + '. Use ebay or etsy.' });
+  const sourceName = source === 'etsy' ? 'Etsy' : 'eBay';
+  const searchFn = source === 'etsy' ? etsy.searchEtsy : ebay.searchEbay;
+  const noteKey = source === 'etsy' ? 'mpNoteEtsy' : 'mpNote';
+  const notConfiguredKey = source === 'etsy' ? 'mpNotConfiguredEtsy' : 'mpNotConfigured';
+  if (!adapter.isConfigured()) {
     return res.json({
       configured: false,
       source: null,
       listings: [],
-      note: t(lang, 'mpNotConfigured'),
+      note: t(lang, notConfiguredKey),
     });
   }
   try {
     const limit = Math.min(Math.max(Number(req.query.limit) || 8, 1), 20);
-    let listings = await ebay.searchEbay(q, { limit });
+    let listings = await searchFn(q, { limit });
     if (!listings) listings = [];
     const maxPrice = Number(req.query.maxPrice);
     if (Number.isFinite(maxPrice)) listings = listings.filter((l) => l.priceUSD <= maxPrice);
@@ -2335,12 +2348,12 @@ app.get('/api/marketplace/search', async (req, res) => {
     }));
     res.json({
       configured: true,
-      source: 'eBay',
+      source: sourceName,
       listings: scored,
-      note: t(lang, 'mpNote'),
+      note: t(lang, noteKey),
     });
   } catch (err) {
-    res.status(502).json({ configured: true, source: 'eBay', listings: [], error: err.message });
+    res.status(502).json({ configured: true, source: sourceName, listings: [], error: err.message });
   }
 });
 
@@ -3299,7 +3312,7 @@ async function createPayPalOrder(product, totalUSD, baseUrl, marketplaceDetails,
       {
         reference_id: product.id,
         description: marketplaceDetails
-          ? `${product.name}, ShopPal v2 marketplace simulation (PayPal Sandbox, does not buy the eBay item)`
+          ? `${product.name}, ShopPal v2 marketplace simulation (PayPal Sandbox, does not buy the ${marketplaceDetails.marketplace} item)`
           : `${product.name}, ShopPal v2 demo (PayPal Sandbox)`,
         amount: {
           currency_code: 'USD',
@@ -3347,29 +3360,30 @@ async function createPayPalOrder(product, totalUSD, baseUrl, marketplaceDetails,
 app.post('/api/paypal/create-order', async (req, res) => {
   try {
     const { productId, totalUSD, international, currencyConversion } = req.body || {};
-    // Marketplace checkout (e.g. a real eBay listing): the item comes from
-    // the search result, not the demo catalog. The PayPal order below is a
-    // SANDBOX SIMULATION of paying that listing's total, it does not buy
-    // the item on the marketplace. The buyer is told this in the UI.
+    // Marketplace checkout (e.g. a real eBay or Etsy listing): the item
+    // comes from the search result, not the demo catalog. The PayPal order
+    // below is a SANDBOX SIMULATION of paying that listing's total, it does
+    // not buy the item on the marketplace. The buyer is told this in the UI.
     const mp = (req.body || {}).marketplace || null;
     let product;
     let marketplaceDetails = null;
     if (mp) {
-      if (mp.marketplace !== 'eBay') {
+      if (mp.marketplace !== 'eBay' && mp.marketplace !== 'Etsy') {
         return res.status(400).json({ error: 'Unknown marketplace: ' + mp.marketplace });
       }
       const price = Number(mp.priceUSD);
       if (!mp.title || !mp.itemId || !Number.isFinite(price) || price <= 0 || price > 10000) {
         return res.status(400).json({ error: 'Invalid marketplace item.' });
       }
+      const mpPrefix = mp.marketplace === 'Etsy' ? 'etsy:' : 'ebay:';
       product = {
-        id: 'ebay:' + String(mp.itemId).slice(0, 60),
+        id: mpPrefix + String(mp.itemId).slice(0, 60),
         name: String(mp.title).slice(0, 120),
         priceUSD: Math.round(price * 100) / 100,
-        category: 'Marketplace · eBay',
+        category: 'Marketplace · ' + mp.marketplace,
       };
       marketplaceDetails = {
-        marketplace: 'eBay',
+        marketplace: mp.marketplace,
         itemId: String(mp.itemId),
         title: product.name,
         priceUSD: product.priceUSD,
