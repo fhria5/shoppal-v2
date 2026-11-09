@@ -292,7 +292,7 @@ test.describe('ShopPal v2 — core user flows', () => {
       await fetch('/api/guardrails', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ autoApproveLimit: 20, categoryCaps: {} }),
+        body: JSON.stringify({ autoApproveLimit: 20 }),
       });
     });
     expect(pageErrors).toEqual([]);
