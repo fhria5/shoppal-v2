@@ -809,6 +809,22 @@ button.product-card .seller {
 .quick-demo::-webkit-scrollbar {
     display: none;
 }
+/* Demo scenarios row: same horizontal-scroll layout as Quick Demo, but a
+   separate row so judges can tap the three contrast cases in one go. */
+.scenario-demo {
+  width: 100%;
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 0.35rem 1rem;
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  gap: 0.45rem;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+.scenario-demo::-webkit-scrollbar { display: none; }
+.scenario-chip { padding: 0.7rem 0.9rem; min-height: 48px; font-size: 0.85rem; }
 
 .chip {
     white-space: nowrap;
@@ -1218,6 +1234,24 @@ body.modal-open { overflow: hidden; }
 .quick-chip { display: inline-flex; align-items: center; gap: 0.4rem; }
 .chip-ico { flex: none; }
 .send-btn svg { display: block; transform: translate(-1px, 1.5px); }
+/* Proof Vault button + count badge (header). The vault lives in a modal
+   now, not in the chat, so the button shows how many proofs are saved. */
+#vault-btn { position: relative; }
+.vault-count {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--navy-primary);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}
 @media (max-width: 920px) {
   .modal-overlay { align-items: flex-end; padding: 0; }
   .modal { max-width: none; border-radius: 16px 16px 0 0; max-height: 85dvh; }
