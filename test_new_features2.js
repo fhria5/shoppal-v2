@@ -309,6 +309,11 @@ async function get(path) {
   check('agent buy by id p11 step', Array.isArray(r.data.steps) && r.data.steps.some((s) => s.action === 'buy_product'), r.data.steps);
   r = await post('/api/agent', { message: 'buy p12', lang: 'en' });
   check('agent buy by id p12 guardrail 403', r.status === 403 && r.data.status === 'GUARDRAIL_TRIGGERED' && r.data.pendingOrder && r.data.pendingOrder.productId === 'p12', r.data);
+  // Risky seller (p14, DealHunter88, score 1): the buy still completes
+  // under $20, but the reply warns and the steps show check_risk.
+  r = await post('/api/agent', { message: 'buy p14', lang: 'en' });
+  check('agent buy by id p14 risky warning', r.status === 200 && /risky \(score 1\/100\)/.test(r.data.reply || '') && r.data.order && r.data.order.productId === 'p14', r.data);
+  check('agent buy by id p14 check_risk step', Array.isArray(r.data.steps) && r.data.steps.some((s) => s.action === 'check_risk'), r.data.steps);
   // check_delivery: the agent answers "cek pengiriman" directly with the
   // live tracking status (adds a tracker first when the entry has none).
   // Works when a vault entry exists; otherwise a helpful reply.
