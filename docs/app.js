@@ -145,6 +145,7 @@
       subsFound: 'recurring purchases found',
       subsLine: '{name}, bought {n}×, total spent {total}, last purchase {date}',
       refreshVault: 'Refresh Vault', disputeBtn: 'Draft a dispute',
+      vaultShow: 'Show vault tools ▾', vaultHide: 'Hide vault tools ▴',
       disputeNotFound: 'Proof Vault entry not found. Save a successful checkout first.',
       refundBtn: 'Refund (Sandbox)', refundConfirm: 'Confirm refund?', refundTitle: 'Refund',
       refundSuccess: 'Refund {id}, {status}, {amount}.', refundFailed: 'Refund failed: {msg}',
@@ -345,6 +346,7 @@
       subsFound: 'pembelian berulang ditemukan',
       subsLine: '{name}, dibeli {n}×, total belanja {total}, pembelian terakhir {date}',
       refreshVault: 'Muat Ulang Vault', disputeBtn: 'Buat draf sengketa',
+      vaultShow: 'Tampilkan alat vault ▾', vaultHide: 'Sembunyikan alat vault ▴',
       disputeNotFound: 'Entri Proof Vault tidak ditemukan. Simpan checkout yang berhasil dulu.',
       refundBtn: 'Refund (Sandbox)', refundConfirm: 'Konfirmasi refund?', refundTitle: 'Refund',
       refundSuccess: 'Refund {id}, {status}, {amount}.', refundFailed: 'Refund gagal: {msg}',
@@ -2071,6 +2073,20 @@
       '<div id="vault-tools" class="card hidden"></div>' +
       '<div id="paypal-actions" class="card hidden"></div>',
       'vault');
+    // Mobile: the vault tools card is long; collapse it by default on a
+    // phone and let the user expand it with a tap (drawer-style).
+    var vaultToggle = document.createElement('button');
+    vaultToggle.type = 'button';
+    vaultToggle.className = 'vault-toggle';
+    var vaultCollapsed = window.matchMedia('(max-width: 920px)').matches;
+    var setVaultCollapsed = function (c) {
+      vaultCollapsed = c;
+      bubble.classList.toggle('vault-collapsed', c);
+      vaultToggle.textContent = c ? t('vaultShow') : t('vaultHide');
+    };
+    vaultToggle.addEventListener('click', function () { setVaultCollapsed(!vaultCollapsed); });
+    bubble.insertBefore(vaultToggle, bubble.children[1] || null);
+    setVaultCollapsed(vaultCollapsed);
     bubble.querySelector('#vault-refresh').addEventListener('click', function () { showVault(); });
     // Monthly budget (stored in this browser).
     bubble.querySelector('#budget-save').addEventListener('click', function () {
