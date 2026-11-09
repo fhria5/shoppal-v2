@@ -298,6 +298,37 @@ test.describe('ShopPal v2 — core user flows', () => {
     expect(pageErrors).toEqual([]);
     expect(consoleErrors).toEqual([]);
   });
+  test('marketplace source toggle: eBay/Etsy switch re-runs the search', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+    // Run a product Ask so the marketplace bubble (with the toggle)
+    // appears. Neither source is configured in this sandbox, so the
+    // bubble shows the "needs a key" note instead of listings.
+    await page.fill('#ask', 'headphones under $60');
+    await page.click('#ask-btn');
+    const mpBubble = page.locator('#chat .msg.agent', { has: page.locator('.mp-source-toggle') });
+    await expect(mpBubble.first()).toBeVisible({ timeout: 30000 });
+    const toggle = mpBubble.first().locator('.mp-source-toggle');
+    await expect(toggle.locator('[data-mp-source="ebay"]')).toHaveCount(1);
+    await expect(toggle.locator('[data-mp-source="etsy"]')).toHaveCount(1);
+    await expect(toggle.locator('[data-mp-source="ebay"].active')).toHaveCount(1);
+    const noteBefore = await mpBubble.first().locator('.mp-note').innerText();
+    expect(noteBefore).toContain('eBay');
+    // Switch to Etsy: the active pill moves and the note becomes the
+    // Etsy one (still "not configured" here, no key set).
+    await toggle.locator('[data-mp-source="etsy"]').click();
+    await expect(toggle.locator('[data-mp-source="etsy"].active')).toHaveCount(1, { timeout: 15000 });
+    const noteAfter = await mpBubble.first().locator('.mp-note').innerText();
+    expect(noteAfter).toContain('Etsy');
+    // The choice persists across a reload.
+    await page.reload({ waitUntil: 'networkidle' });
+    const saved = await page.evaluate(() => localStorage.getItem('shoppal-mp-source'));
+    expect(saved).toBe('etsy');
+    expect(pageErrors).toEqual([]);
+  });
+
   test('XSS: a chat message carrying HTML/JS renders as text, never executes', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', (err) => pageErrors.push(String(err)));
