@@ -1468,7 +1468,7 @@
     new MutationObserver(function () { scheduleSaveChatHistory(); }).observe(chatEl, { childList: true, subtree: true });
   }
   function userBubble(text) {
-    return addBubble('user', '<p>' + text + '</p>');
+    return addBubble('user', '<p>' + escapeHtml(text) + '</p>');
   }
   function clearSteps() {
     // Only the checkout flow is cleared (risk/hold/cost/checkout). The
@@ -2482,8 +2482,8 @@
     } else {
       lastVaultId = entries[0].id;
       body = entries.map(function (e) {
-        return '<p><strong>' + (e.product && e.product.name || e.id) + '</strong>, ' +
-          (e.paypal && e.paypal.status || 'unknown') + ' · Order ' + (e.paypal && e.paypal.orderId || 'n/a') + '</p>';
+        return '<p><strong>' + escapeHtml(e.product && e.product.name || e.id) + '</strong>, ' +
+          escapeHtml(e.paypal && e.paypal.status || 'unknown') + ' · Order ' + escapeHtml(e.paypal && e.paypal.orderId || 'n/a') + '</p>';
       }).join('');
     }
     var vc = $('vault-count');
