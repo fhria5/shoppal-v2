@@ -12,15 +12,18 @@
 //     Chromium binary from the Python Playwright install when it exists,
 //     and otherwise falls back to Playwright's bundled Chromium.
 //
-// What is covered (one test, four steps, in order — step 4 depends on
-// the state built by steps 2–3):
+// What is covered (one test, five steps, in order — later steps depend on
+// the state built by earlier ones):
 //   1. Load page: the chat interface and the Quick Demo chips bar render.
 //   2. Quick Demo chips: clicking "headphones under $60" shows the skeleton
 //      loader shimmer briefly, then renders the product cards.
 //   3. Guardrail enforcement: an over-limit agent buy ("beli headphone p01",
 //      total $65.57 > the $20 auto-approve limit) shows the Human Approval
 //      Callout with Approve / Reject buttons; Approve creates the order.
-//   4. Persistence & refresh: after page.reload(), the chat history and the
+//   4. Split + continuation: splitting p01 with Budi and Sari, then
+//      "lanjut checkout bagian saya" checks out the user's own share
+//      ($19.99) instead of a generic search.
+//   5. Persistence & refresh: after page.reload(), the chat history and the
 //      lastResults context are recovered from localStorage, with no
 //      JavaScript console errors and no uncaught page errors.
 //
@@ -57,7 +60,7 @@ test.use({
 test.setTimeout(120000);
 
 test.describe('ShopPal v2 — core user flows', () => {
-  test('load, chips + skeleton, guardrail callout, persistence across reload', async ({ page }) => {
+  test('load, chips + skeleton, guardrail callout, split + continuation, persistence across reload', async ({ page }) => {
     const consoleErrors = [];
     const pageErrors = [];
     page.on('console', (msg) => {
@@ -146,7 +149,26 @@ test.describe('ShopPal v2 — core user flows', () => {
       await expect(page.locator('#chat a[href*="paypal.com"]')).toBeVisible({ timeout: 60000 });
     });
 
-    await test.step('4. Persistence — reload restores history and lastResults context', async () => {
+    await test.step('4. Split + continuation — "lanjut checkout bagian saya" checks out the share', async () => {
+      await page.fill('#ask', 'patungan headphone p01 sama Budi dan Sari');
+      await page.click('#ask-btn');
+      const splitCard = page.locator('#chat .split-card');
+      await expect(splitCard).toBeVisible({ timeout: 60000 });
+      await expect(splitCard).toContainText('$20.00');
+      await expect(splitCard.locator('.split-link-row')).toHaveCount(2);
+      // The continuation names no product — it must resolve to the split
+      // product (p01) and create an order for the user's own share
+      // ($19.99), not a generic search. The share order adds exactly one
+      // more PayPal link to the chat.
+      const linksBefore = await page.locator('#chat a[href*="paypal.com"]').count();
+      await page.fill('#ask', 'lanjut checkout bagian saya');
+      await page.click('#ask-btn');
+      await expect(page.locator('#chat')).toContainText('Bagianmu Aurora Wireless Headphones sudah disiapkan: $19.99', { timeout: 60000 });
+      const linksAfter = await page.locator('#chat a[href*="paypal.com"]').count();
+      expect(linksAfter).toBe(linksBefore + 1);
+    });
+
+    await test.step('5. Persistence — reload restores history and lastResults context', async () => {
       const before = await page.evaluate(() => ({
         history: localStorage.getItem('shoppal-chat-v1'),
         context: localStorage.getItem('shoppal-chat-v1-context'),
