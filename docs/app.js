@@ -14,7 +14,11 @@
     Smartwatch: './images/smartwatch.jpg',
     Keyboard: './images/keyboard.jpg',
     Speaker: './images/speaker.jpg',
-    Charger: './images/charger.jpg'
+    Charger: './images/charger.jpg',
+    Mouse: './images/mouse.jpg',
+    Earbuds: './images/earbuds.jpg',
+    Webcam: './images/webcam.jpg',
+    'Power Bank': './images/powerbank.jpg'
   };
   var CATALOG = {
     products: [
