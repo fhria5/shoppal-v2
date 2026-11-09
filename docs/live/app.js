@@ -722,6 +722,21 @@
     mpSource = next === 'etsy' ? 'etsy' : 'ebay';
     try { localStorage.setItem(MP_SOURCE_KEY, mpSource); } catch (e) { /* ignore */ }
   }
+  // Marketplace keyword: eBay searches by keyword, so the user's full
+  // sentence ("headphones under $60", "find a mug") returns nothing
+  // while the bare word ("headphones", "mug") returns listings. Prefer
+  // the parsed catalog category (already a clean keyword); otherwise
+  // strip price expressions and filler words from the raw message.
+  function marketplaceKeyword(raw, category) {
+    if (category) return category;
+    var k = String(raw || '');
+    k = k.replace(/\b(under|below|less than|max|up to|budget|di bawah|dibawah|bawah|kurang dari|maksimal|maks|dana)\s*\$?\s*\d+(?:\.\d{1,2})?/gi, ' ');
+    k = k.replace(/\$\s*\d+(?:\.\d{1,2})?/g, ' ');
+    k = k.replace(/\b(find|show|search|buy|beli|cari|carikan|tolong|please|mau|mencari|a|an|the|me|yang|untuk|dong)\b/gi, ' ');
+    k = k.replace(/[^a-z0-9\s]/gi, ' ').replace(/\s+/g, ' ').trim();
+    return k || raw;
+  }
+
   async function fetchMarketplace() {
     var mq = lastMpQuery || { q: '', lang: 'en', maxPrice: null, cheapest: false };
     var mpParams = new URLSearchParams({ q: mq.q, lang: mq.lang, source: mpSource });
@@ -1332,7 +1347,7 @@
     // source choice is visible even when a source is not configured
     // yet (its note explains the missing key).
     lastMpQuery = {
-      q: q, lang: lang,
+      q: marketplaceKeyword(q, data.understood && data.understood.category), lang: lang,
       maxPrice: (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) ? data.understood.maxPrice : null,
       cheapest: !!(data.understood && data.understood.cheapest),
     };
