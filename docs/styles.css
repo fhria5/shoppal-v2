@@ -1034,10 +1034,13 @@ button.product-card .seller {
         -webkit-overflow-scrolling: touch;
     }
 
-    #catalog.cards button.product-card {
+    #catalog.cards .product-cell {
         flex: 0 0 235px !important;
         width: 235px !important;
         scroll-snap-align: start;
+    }
+
+    #catalog.cards button.product-card {
         padding: 0.65rem !important;
     }
 
