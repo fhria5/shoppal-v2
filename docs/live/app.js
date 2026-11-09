@@ -153,6 +153,7 @@
       phNote: 'Rule-based check + AI review. When in doubt, never click, open paypal.com yourself.',
       phPlaceholder: 'Paste the suspicious message…',
       cmpToggle: 'Compare products', cmpTitle: 'Compare products',
+      browseCatalog: 'Browse catalog', hideCatalog: 'Hide catalog',
       cmpSafer: 'Safer pick', cmpCheaper: 'Cheapest',
       cmpVerdictBoth: 'Safer and cheapest: {safer} ({score}/100).',
       cmpVerdictSplit: 'Safer: {safer} ({score}/100). Cheapest: {cheaper} ({price}, saves {saves}).',
@@ -294,6 +295,7 @@
       phNote: 'Pemeriksaan berbasis aturan + tinjauan AI. Kalau ragu, jangan klik, buka paypal.com sendiri.',
       phPlaceholder: 'Tempel pesan yang mencurigakan…',
       cmpToggle: 'Bandingkan produk', cmpTitle: 'Bandingkan produk',
+      browseCatalog: 'Lihat katalog', hideCatalog: 'Sembunyikan katalog',
       cmpSafer: 'Paling aman', cmpCheaper: 'Termurah',
       cmpVerdictBoth: 'Paling aman dan termurah: {safer} ({score}/100).',
       cmpVerdictSplit: 'Paling aman: {safer} ({score}/100). Termurah: {cheaper} ({price}, hemat {saves}).',
@@ -456,7 +458,7 @@
   function saveChatHistory() {
     try {
       var clone = chatEl.cloneNode(true);
-      clone.querySelectorAll('[data-step="greeting"], [data-step="catalog"], [data-step="vault"], [data-step="checkout"], .typing, .skeleton-msg').forEach(function (el) { el.remove(); });
+      clone.querySelectorAll('[data-step="greeting"], [data-step="catalog"], [data-step="vault"], [data-step="checkout"], .typing, .skeleton-msg, .catalog-toggle').forEach(function (el) { el.remove(); });
       var html = clone.innerHTML;
       while (html.length > CHAT_HISTORY_MAX_BYTES) {
         var first = clone.firstElementChild;
@@ -750,11 +752,35 @@
       '</div>',
       'greeting');
     greeting.querySelector('#greet-dismiss').addEventListener('click', function () { greeting.remove(); });
-    addBubble('agent',
+    // Catalog starts collapsed behind a toggle (the greeting used to show
+    // all 20 cards at once). Cards render lazily on first expand, so the
+    // photos don't load until the user actually wants to browse.
+    var catalogBubble = addBubble('agent',
       '<div id="compare-bar" class="card hidden"></div>' +
       '<div class="cards" id="catalog"></div>',
       'catalog');
-    renderCatalogInto($('catalog'), catalog.products);
+    catalogBubble.classList.add('hidden');
+    var catalogToggle = document.createElement('button');
+    catalogToggle.type = 'button';
+    catalogToggle.id = 'catalog-toggle';
+    catalogToggle.className = 'catalog-toggle';
+    catalogToggle.innerHTML = '<span class="cat-label">' + t('browseCatalog') + ' (' + catalog.products.length + ')</span>' +
+      '<svg class="chev" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+    chatEl.insertBefore(catalogToggle, catalogBubble);
+    var catalogRendered = false;
+    var setCatalogOpen = function (open) {
+      if (open && !catalogRendered) {
+        renderCatalogInto($('catalog'), catalog.products);
+        catalogRendered = true;
+      }
+      catalogBubble.classList.toggle('hidden', !open);
+      catalogToggle.classList.toggle('open', open);
+      catalogToggle.querySelector('.cat-label').textContent = (open ? t('hideCatalog') : t('browseCatalog')) + ' (' + catalog.products.length + ')';
+      if (open) scrollChat();
+    };
+    catalogToggle.addEventListener('click', function () {
+      setCatalogOpen(catalogBubble.classList.contains('hidden'));
+    });
     var chips = chatEl.querySelectorAll('.chip[data-q]');
     for (var i = 0; i < chips.length; i++) {
       chips[i].addEventListener('click', function () {
@@ -772,6 +798,7 @@
       compareList = [];
       this.textContent = compareMode ? t('cmpToggle') + ' ✓' : t('cmpToggle');
       this.classList.toggle('active', compareMode);
+      if (compareMode) setCatalogOpen(true);
       updateCompareBar();
     });
   }
