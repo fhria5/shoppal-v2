@@ -772,6 +772,20 @@ button.product-card .seller {
 .product-cell .product-card {
     flex: 1;
 }
+/* Catalog toggle: the product list starts collapsed behind a button, so
+   the greeting stays short and the photos only load when browsed. */
+.catalog-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 0.4rem;
+  width: 100%; max-width: 840px; margin: 0.5rem auto 0;
+  padding: 0.6rem 1rem; border: 1px solid var(--border);
+  border-radius: var(--radius); background: var(--surface); color: var(--ink);
+  font: inherit; font-weight: 600; cursor: pointer;
+}
+.catalog-toggle .chev { transition: transform 0.2s ease; flex: none; }
+.catalog-toggle.open .chev { transform: rotate(180deg); }
+.catalog-toggle:hover { background: var(--bg); }
+.catalog-toggle:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
 .card-buy {
     width: 100%;
     min-height: 44px;
