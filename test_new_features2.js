@@ -365,6 +365,47 @@ async function get(path) {
   });
   check('marketplace etsy checkout creates sandbox order', r.status === 201 && !!r.data.orderId && !!r.data.approveUrl, r.data);
 
+  // ---------- 13. Security audit fixes (10 Nov 2026) ----------
+  // Vault isolation: a seeded entry (data/vault/TEST-SESSION-A-001.json,
+  // sessionId 'test-session-a', loaded at server start) must be visible
+  // only to its own session.
+  r = await get('/api/vault?session=test-session-a');
+  check('vault session A sees seeded entry', r.status === 200 && Array.isArray(r.data.entries) && r.data.entries.some((e) => e.id === 'TEST-SESSION-A-001'), r.data);
+  r = await get('/api/vault?session=test-session-b');
+  check('vault session B does not see A entry', r.status === 200 && Array.isArray(r.data.entries) && !r.data.entries.some((e) => e.id === 'TEST-SESSION-A-001'), r.data);
+  r = await get('/api/vault');
+  check('vault no session does not see A entry', r.status === 200 && Array.isArray(r.data.entries) && !r.data.entries.some((e) => e.id === 'TEST-SESSION-A-001'), r.data);
+  r = await get('/api/evidence?vaultId=TEST-SESSION-A-001&session=test-session-a&lang=en');
+  check('evidence session A is 200', r.status === 200 && typeof r.data.html === 'string' && r.data.html.includes('TEST-SESSION-A-001'), r.data);
+  r = await get('/api/evidence?vaultId=TEST-SESSION-A-001&session=test-session-b&lang=en');
+  check('evidence session B is 404', r.status === 404, r.data);
+  r = await post('/api/dispute/draft', { vaultId: 'TEST-SESSION-A-001', lang: 'en', session: 'test-session-b' });
+  check('dispute draft session B is 404', r.status === 404, r.data);
+  r = await post('/api/dispute/simulate', { vaultId: 'TEST-SESSION-A-001', lang: 'en', session: 'test-session-b' });
+  check('dispute simulate session B is 404', r.status === 404, r.data);
+  r = await get('/api/subscriptions?session=test-session-b');
+  check('subscriptions session B has no A pattern', r.status === 200 && Array.isArray(r.data.patterns) && !r.data.patterns.some((p) => /Test Headphones/.test(p.productName || '')), r.data);
+  r = await get('/api/delivery-watch?session=test-session-b&lang=en');
+  check('delivery-watch session B has no A item', r.status === 200 && Array.isArray(r.data.items) && !r.data.items.some((i) => i.vaultId === 'TEST-SESSION-A-001'), r.data);
+  r = await get('/api/expenses?session=test-session-b');
+  check('expenses session B is empty', r.status === 200 && r.data.count === 0 && r.data.total === 0, r.data);
+  r = await get('/api/expenses?session=test-session-a');
+  check('expenses session A counts seeded entry', r.status === 200 && r.data.count === 1 && r.data.total === 65.57, r.data);
+
+  // SSRF: check-link must refuse link-local metadata, 0.0.0.0 and
+  // localhost without ever fetching them.
+  r = await post('/api/check-link', { url: 'http://169.254.169.254/latest/meta-data/', lang: 'en' });
+  check('check-link blocks 169.254.169.254', r.status === 400 && !!r.data.error, r.data);
+  r = await post('/api/check-link', { url: 'http://0.0.0.0/admin', lang: 'en' });
+  check('check-link blocks 0.0.0.0', r.status === 400 && !!r.data.error, r.data);
+  r = await post('/api/check-link', { url: 'http://localhost:3000/', lang: 'en' });
+  check('check-link blocks localhost', r.status === 400 && !!r.data.error, r.data);
+
+  // CORS: the built Worker must only allow the Pages origin, never '*'.
+  const fs = require('fs');
+  const workerSrc = fs.readFileSync('worker.js', 'utf8');
+  check('worker CORS restricted to Pages origin', workerSrc.includes("'Access-Control-Allow-Origin': 'https://fhria5.github.io'") && !workerSrc.includes("'Access-Control-Allow-Origin': '*'"), null);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => {
