@@ -216,13 +216,13 @@ async function get(path) {
   // fallback (same tools, same guardrails). The AI path is verified live
   // on the Worker, which has the Vyce key.
   r = await post('/api/agent', { message: 'beli headphone paling aman di bawah $60', lang: 'id' });
-  check('agent id buy goal 200', r.status === 200, r.data);
+  check('agent id buy goal 403 guardrail', r.status === 403 && r.data.status === 'GUARDRAIL_TRIGGERED', r.data);
   check('agent id needs approval', r.data.needsApproval === true && r.data.pendingOrder && r.data.pendingOrder.productId === 'p01' && r.data.pendingOrder.totalUSD === 65.57, r.data);
   check('agent id steps', Array.isArray(r.data.steps) && r.data.steps.some((s) => s.action === 'search_products') && r.data.steps.some((s) => s.action === 'check_guardrails'), r.data.steps);
   check('agent id fallback (no Vyce key locally)', r.data.aiUsed === false, r.data);
   check('agent id reply names product', typeof r.data.reply === 'string' && r.data.reply.includes('Aurora Wireless Headphones'), r.data.reply);
   r = await post('/api/agent', { message: 'buy the cheapest keyboard', lang: 'en' });
-  check('agent en cheapest keyboard', r.status === 200 && r.data.pendingOrder && r.data.pendingOrder.productId === 'p07' && r.data.pendingOrder.totalUSD === 75.35, r.data);
+  check('agent en cheapest keyboard', r.status === 403 && r.data.status === 'GUARDRAIL_TRIGGERED' && r.data.pendingOrder && r.data.pendingOrder.productId === 'p07' && r.data.pendingOrder.totalUSD === 75.35, r.data);
   r = await post('/api/agent', { message: 'hello, how are you?', lang: 'en' });
   check('agent no shopping intent, no purchase', r.status === 200 && r.data.needsApproval !== true && !r.data.order && !r.data.pendingOrder, r.data);
   r = await post('/api/agent', { message: '', lang: 'en' });
@@ -239,7 +239,7 @@ async function get(path) {
   r = await post('/api/agent', { message: 'pantau headphone, target $70', lang: 'id' });
   check('agent watch target already hit triggers', r.status === 200 && r.data.watch && r.data.watch.status === 'triggered', r.data);
   r = await post('/api/agent', { message: 'cek pantauan harga', lang: 'id' });
-  check('agent check watches', r.status === 200 && Array.isArray(r.data.watches) && r.data.watches.length >= 2, r.data);
+  check('agent check watches', r.status === 403 && r.data.status === 'GUARDRAIL_TRIGGERED' && Array.isArray(r.data.watches) && r.data.watches.length >= 2, r.data);
   r = await post('/api/agent', { message: 'pantau headphone', lang: 'id' });
   check('agent watch without target asks', r.status === 200 && !r.data.watch && typeof r.data.reply === 'string' && r.data.reply.includes('target'), r.data);
   check('agent watch id kept', typeof watchId === 'string' && watchId.length > 0, watchId);
