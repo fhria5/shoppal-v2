@@ -1461,10 +1461,8 @@ function agentCheckGuardrails(args, lang, clientGuardrails) {
   return { data: out, summary: out.needsApproval ? 'needs approval: ' + out.reasons.join(' ') : 'within limits' };
 }
 
-function agentGetVault() {
-  const entries = [...vaultEntries.values()]
-    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''))
-    .slice(0, 5);
+function agentGetVault(session) {
+  const entries = vaultEntriesFor(session).slice(0, 5);
   const data = entries.map((e) => ({
     id: e.id,
     product: e.product ? e.product.name : null,
@@ -1475,9 +1473,10 @@ function agentGetVault() {
   return { data: { entries: data }, summary: data.length + ' past purchase(s)' };
 }
 
-async function agentSimulateDispute(args, lang) {
+async function agentSimulateDispute(args, ctx) {
+  const lang = ctx.lang;
   const result = await simulateDispute(
-    { vaultId: String(args.vaultId || ''), disputeType: String(args.reason || 'not_received') },
+    { vaultId: String(args.vaultId || ''), disputeType: String(args.reason || 'not_received'), session: ctx.session },
     lang
   );
   if (result.error) return { data: { error: result.error }, summary: 'dispute check failed' };
@@ -1520,7 +1519,7 @@ async function agentTrackAndDispute(args, ctx) {
   const reason = ['not_received', 'not_as_described', 'unauthorized'].includes(String(args.reason || ''))
     ? String(args.reason)
     : 'not_received';
-  const entries = [...vaultEntries.values()].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  const entries = vaultEntriesFor(ctx.session);
   const entry = entries[0];
   if (!entry) return { data: { error: 'No purchase yet. Buy something first, then track and dispute it.' }, summary: 'no purchase to track' };
   let tracking = null;
@@ -1535,7 +1534,7 @@ async function agentTrackAndDispute(args, ctx) {
   } catch (e) {
     tracking = { error: String((e && e.message) || e) };
   }
-  const dispute = await simulateDispute({ vaultId: entry.id, disputeType: reason }, ctx.lang);
+  const dispute = await simulateDispute({ vaultId: entry.id, disputeType: reason, session: ctx.session }, ctx.lang);
   return {
     data: { vaultId: entry.id, product: entry.product ? entry.product.name : null, tracking, dispute },
     summary: 'tracked ' + (entry.product ? entry.product.name : entry.id) + ', dispute win chance ' + (dispute.winChance !== undefined ? dispute.winChance + '%' : 'n/a'),
@@ -1549,7 +1548,7 @@ async function agentTrackAndDispute(args, ctx) {
 // truth. Overdue (not DELIVERED and 7+ days) also prepares a dispute draft.
 async function agentCheckDelivery(args, ctx) {
   const a = args && typeof args === 'object' ? args : {};
-  const entries = [...vaultEntries.values()].sort((x, y) => (y.createdAt || '').localeCompare(x.createdAt || ''));
+  const entries = vaultEntriesFor(ctx.session);
   let entry = null;
   const want = String(a.vaultId || a.orderId || '');
   if (want) entry = entries.find((e) => e.id === want || (e.paypal && e.paypal.orderId) === want);
@@ -1583,7 +1582,7 @@ async function agentCheckDelivery(args, ctx) {
   const overdue = st !== 'DELIVERED' && days >= 7;
   let autoDraft = null;
   if (overdue) {
-    const sim = await simulateDispute({ vaultId: entry.id, disputeType: 'not_received' }, ctx.lang);
+    const sim = await simulateDispute({ vaultId: entry.id, disputeType: 'not_received', session: ctx.session }, ctx.lang);
     if (sim && !sim.error) autoDraft = { winChance: sim.winChance, label: sim.label, missingProof: sim.missingProof };
   }
   return {
@@ -1692,8 +1691,8 @@ async function agentExecuteTool(action, args, ctx) {
       const order = { orderId: raw.orderId, status: raw.status, approveUrl: raw.approveUrl, totalUSD: amount, productId: p.id, shareCheckout: isShare };
       return { data: order, summary: 'order ' + order.orderId + ' created, total $' + order.totalUSD };
     }
-    case 'get_vault': return agentGetVault();
-    case 'simulate_dispute': return agentSimulateDispute(a, ctx.lang);
+    case 'get_vault': return agentGetVault(ctx.session);
+    case 'simulate_dispute': return agentSimulateDispute(a, ctx);
     case 'price_watch': return agentPriceWatch(a);
     case 'check_price_watch': return agentCheckPriceWatch(a);
     case 'list_price_watches': return agentListPriceWatches();
@@ -2276,6 +2275,7 @@ app.post('/api/agent', async (req, res) => {
     const ctx = {
       lang,
       baseUrl,
+      session: sessionFromValue(b.session),
       clientGuardrails: b.guardrails || null,
       userApproved: !!b.approved,
       approvedOrder: b.approvedOrder || null,
@@ -2351,10 +2351,7 @@ app.get('/api/marketplace/search', async (req, res) => {
 });
 
 app.get('/api/subscriptions', (req, res) => {
-  const entries = [...vaultEntries.values()].sort((a, b) =>
-    (b.createdAt || '').localeCompare(a.createdAt || '')
-  );
-  res.json({ patterns: findSubscriptions(entries) });
+  res.json({ patterns: findSubscriptions(vaultEntriesFor(sessionOf(req))) });
 });
 
 // PayPal. Server-side only, the secret never leaves this file: no logging
@@ -2432,6 +2429,25 @@ function vaultDir() {
 // written to disk best-effort. On Vercel the disk copy is per-instance
 // /tmp, so a judge's checkout -> vault flow reads the in-memory copy.
 const vaultEntries = new Map();
+// Proof Vault isolation: one browser = one session. The frontend sends a
+// random session id (localStorage) with every vault read/write; the server
+// only shows entries tagged with that session. Without this, every user
+// of the shared Worker isolate would see everyone else's purchases.
+function sessionFromValue(v) {
+  const s = String(v == null ? '' : v).trim();
+  return /^[A-Za-z0-9_-]{1,64}$/.test(s) ? s : null;
+}
+function sessionOf(req) {
+  return sessionFromValue((req && ((req.body && req.body.session) || (req.query && req.query.session))) || '');
+}
+function vaultVisible(entry, session) {
+  return (entry.sessionId || null) === (session || null);
+}
+function vaultEntriesFor(session) {
+  return [...vaultEntries.values()]
+    .filter((e) => vaultVisible(e, session))
+    .sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+}
 // Marketplace orders (orderId -> listing details) so capture can build a
 // Marketplace orders (orderId -> listing details) so capture can build a
 
@@ -2552,6 +2568,7 @@ async function simulateDispute(opts, lang) {
     ? opts.disputeType
     : 'not_received';
   const entry = opts.vaultId ? vaultEntries.get(opts.vaultId) : null;
+  if (entry && !vaultVisible(entry, opts.session || null)) return { error: t(lang, 'simNotFound') };
   const product = opts.productId ? productsById.get(opts.productId) : null;
   const seller = product ? sellersById.get(product.sellerId) : null;
   if (!entry && !product) return { error: t(lang, 'simNotFound') };
@@ -2809,8 +2826,8 @@ const LINK_CATEGORIES = [
 
 function isBlockedHost(host) {
   const h = String(host || '').toLowerCase();
-  if (!h || h === 'localhost' || h.endsWith('.local') || h.endsWith('.internal')) return true;
-  if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)/.test(h)) return true;
+  if (!h || h === 'localhost' || h === '0.0.0.0' || h.endsWith('.local') || h.endsWith('.internal')) return true;
+  if (/^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|169\.254\.)/.test(h)) return true;
   if (h === '::1' || h === '[::1]') return true;
   return false;
 }
@@ -2863,14 +2880,37 @@ async function checkLink(url, lang) {
   const knownMarketplace = KNOWN_MARKETPLACES.some((d) => domain === d || domain.endsWith('.' + d));
   let html = '';
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch(url, {
-      headers: { 'User-Agent': 'ShopPal-LinkPreview/1.0 (+https://fhria5.github.io/shoppal-v2/)', Accept: 'text/html' },
-      signal: controller.signal,
-      redirect: 'follow',
-    });
-    clearTimeout(timer);
+    // Follow redirects manually (max 4 hops) so each hop's host is
+    // re-checked: a public URL that redirects to a private IP must not
+    // slip past isBlockedHost.
+    let current = url;
+    let res = null;
+    for (let hop = 0; hop < 4; hop++) {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
+      try {
+        res = await fetch(current, {
+          headers: { 'User-Agent': 'ShopPal-LinkPreview/1.0 (+https://fhria5.github.io/shoppal-v2/)', Accept: 'text/html' },
+          signal: controller.signal,
+          redirect: 'manual',
+        });
+      } finally {
+        clearTimeout(timer);
+      }
+      if (res.status >= 300 && res.status < 400) {
+        const loc = res.headers.get('location');
+        if (!loc) break;
+        let next;
+        try { next = new URL(loc, current); } catch (e) { break; }
+        if (next.protocol !== 'http:' && next.protocol !== 'https:') break;
+        if (isBlockedHost(next.hostname)) return { error: t(lang, 'clNotUrl'), domain, knownMarketplace };
+        current = next.toString();
+        res = null;
+        continue;
+      }
+      break;
+    }
+    if (!res) return { error: t(lang, 'clFetchFailed'), domain, knownMarketplace };
     if (!res.ok) return { error: t(lang, 'clFetchFailed'), domain, knownMarketplace };
     const buf = await res.arrayBuffer();
     html = new TextDecoder('utf-8').decode(buf.slice(0, 500000));
@@ -3435,6 +3475,7 @@ app.post('/api/paypal/capture-order', async (req, res) => {
     const mp = marketplaceOrders.get(orderId) || null;
     const entry = {
       id: orderId,
+      sessionId: sessionOf(req),
       createdAt: new Date().toISOString(),
       product: mp
         ? { id: productId, name: mp.title, priceUSD: mp.priceUSD, category: 'Marketplace · eBay' }
@@ -3582,10 +3623,7 @@ app.get('/api/paypal/order', async (req, res) => {
 
 // Proof Vault
 app.get('/api/vault', (req, res) => {
-  const entries = [...vaultEntries.values()].sort((a, b) =>
-    (b.createdAt || '').localeCompare(a.createdAt || '')
-  );
-  res.json({ entries });
+  res.json({ entries: vaultEntriesFor(sessionOf(req)) });
 });
 
 app.post('/api/dispute/draft', (req, res) => {
@@ -3593,7 +3631,7 @@ app.post('/api/dispute/draft', (req, res) => {
   const { vaultId } = req.body || {};
   const lang = (req.body || {}).lang === 'id' ? 'id' : 'en';
   const entry = vaultId ? vaultEntries.get(vaultId) : null;
-  if (!entry) {
+  if (!entry || !vaultVisible(entry, sessionOf(req))) {
     return res.status(404).json({
       error: t(lang, 'disputeNotFound'),
     });
@@ -3627,7 +3665,7 @@ app.post('/api/dispute/draft', (req, res) => {
 // Proof Vault entry (post-purchase) or a product (pre-purchase).
 app.post('/api/dispute/simulate', async (req, res) => {
   const lang = (req.body || {}).lang === 'id' ? 'id' : 'en';
-  const result = await simulateDispute(req.body || {}, lang);
+  const result = await simulateDispute({ ...(req.body || {}), session: sessionOf(req) }, lang);
   if (result.error) return res.status(404).json({ error: result.error });
   res.json(result);
 });
@@ -3694,14 +3732,14 @@ app.get('/api/delivery-watch', async (req, res) => {
   const lang = req.query.lang === 'id' ? 'id' : 'en';
   const now = Date.now();
   const items = [];
-  for (const e of vaultEntries.values()) {
+  for (const e of vaultEntriesFor(sessionOf(req))) {
     const bought = new Date((e.paypal && e.paypal.createTime) || e.createdAt || Date.now()).getTime();
     const days = Math.max(0, Math.floor((now - bought) / 86400000));
     const status = (e.tracking && e.tracking.status) || 'NO_TRACKER';
     const overdue = status !== 'DELIVERED' && days >= 7;
     const item = { vaultId: e.id, product: (e.product && e.product.name) || e.id, days, status, overdue, hasTracker: !!(e.tracking && e.tracking.trackerId) };
     if (overdue) {
-      const sim = await simulateDispute({ vaultId: e.id, disputeType: 'not_received', lang });
+      const sim = await simulateDispute({ vaultId: e.id, disputeType: 'not_received', lang, session: sessionOf(req) });
       item.autoDraft = sim && !sim.error ? { winChance: sim.winChance, label: sim.label, missingProof: sim.missingProof } : null;
     }
     items.push(item);
@@ -3756,7 +3794,7 @@ app.get('/api/expenses', (req, res) => {
   let total = 0;
   let monthTotal = 0;
   let count = 0;
-  for (const e of vaultEntries.values()) {
+  for (const e of vaultEntriesFor(sessionOf(req))) {
     const t = (e.paypal && e.paypal.createTime) || e.createdAt || '';
     const amt = Number((e.totalCost && e.totalCost.total) || (e.product && e.product.priceUSD) || 0);
     const cat = (e.product && e.product.category) || 'Other';
@@ -3922,7 +3960,7 @@ app.get('/api/paypal/token-status', async (req, res) => {
 app.get('/api/evidence', (req, res) => {
   const lang = req.query.lang === 'id' ? 'id' : 'en';
   const entry = req.query.vaultId ? vaultEntries.get(req.query.vaultId) : null;
-  if (!entry) return res.status(404).json({ error: t(lang, 'evNotFound') });
+  if (!entry || !vaultVisible(entry, sessionOf(req))) return res.status(404).json({ error: t(lang, 'evNotFound') });
   res.json({ vaultId: entry.id, html: evidenceHtml(entry, lang) });
 });
 
