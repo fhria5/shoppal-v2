@@ -51,11 +51,12 @@
   // materials). The greeting stays English (it renders before any input).
   var lang = 'en';
   var LANG_KEY = 'shoppal-lang';
-  var langManual = null;
+  var langManual = 'en';
   try {
     var savedLang = localStorage.getItem(LANG_KEY);
-    if (savedLang === 'id' || savedLang === 'en') { lang = savedLang; langManual = savedLang; }
-  } catch (e) { /* storage unavailable - auto-detect per message */ }
+    if (savedLang === 'auto') { langManual = null; }
+    else if (savedLang === 'id' || savedLang === 'en') { lang = savedLang; langManual = savedLang; }
+  } catch (e) { /* storage unavailable - English */ }
   function detectLang(text) {
     return /\b(di|yang|mau|aku|saya|murah|termurah|terbaik|paling|bawah|dari|ada|garansi|pertama|berapa|cari|beli|baru|dan|untuk|dengan|ini|itu|aja|saja|tolong|dong)\b/i.test(String(text || ''))
       ? 'id'
@@ -609,9 +610,10 @@
       }
     }
     try {
-      if (choice === 'auto') { localStorage.removeItem(LANG_KEY); langManual = null; lang = 'en'; }
-      else { localStorage.setItem(LANG_KEY, choice); langManual = choice; lang = choice; }
-    } catch (e) { langManual = choice === 'auto' ? null : choice; if (langManual) lang = langManual; else lang = 'en'; }
+      localStorage.setItem(LANG_KEY, choice);
+      langManual = choice === 'auto' ? null : choice;
+      lang = langManual || 'en';
+    } catch (e) { langManual = choice === 'auto' ? null : choice; lang = langManual || 'en'; }
     applyStaticLang();
     renderSettings();
     if (keep) {
