@@ -56,6 +56,8 @@
         <span class="sandbox-badge">Live server · Sandbox · no real money</span>
       </div>
       <button id="settings-btn" type="button" class="icon-btn" aria-label="Settings" aria-haspopup="dialog"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      <button id="vault-btn" type="button" class="icon-btn" aria-label="Proof Vault" aria-haspopup="dialog"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg><span id="vault-count" class="vault-count hidden"></span></button>
+    
     </header>
 
     <div class="layout">
@@ -70,6 +72,12 @@
           <button type="button" class="chip quick-chip" data-prompt="Check my budget guardrail limit"><svg class="chip-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2l8 3v6c0 5.5-3.5 9.5-8 11-4.5-1.5-8-5.5-8-11V5l8-3z" fill="currentColor"/><path d="M8.5 12l2.5 2.5 4.5-5" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg> Check my budget guardrail limit</button>
           <button type="button" class="chip quick-chip" data-prompt="Check my delivery"><svg class="chip-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg> Check my delivery</button>
           <button type="button" class="chip quick-chip" data-prompt="Cancellation / dispute help"><svg class="chip-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a2.9 2.9 0 0 1 5.6 1.2c0 1.9-2.7 2.3-2.7 3.8"/><path d="M12 17.5v.01"/></svg> Cancellation / dispute help</button>
+        </div>
+        <div class="scenario-demo" aria-label="Demo scenarios">
+          <span class="quick-demo-label">Demo scenarios:</span>
+          <button type="button" class="chip scenario-chip" data-prompt="buy p11"><svg class="chip-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg> Auto-approve under $20</button>
+          <button type="button" class="chip scenario-chip" data-prompt="buy p12"><svg class="chip-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg> Guardrail over $20</button>
+          <button type="button" class="chip scenario-chip" data-prompt="buy p14"><svg class="chip-ico" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> Risky seller shield</button>
         </div>
 
         <footer class="composer">
@@ -92,10 +100,6 @@
           <p class="big num" id="side-guardrail">$20.00</p>
           <p>Auto-approve limit. Above $20.00 the agent stops and asks you first.</p>
         </div>
-        <div class="side-card">
-          <h2>Proof Vault</h2>
-          <p>Every verified capture is saved with its order, risk score and dispute draft, ready for a claim.</p>
-        </div>
       </aside>
     </div>
   </div>
@@ -110,6 +114,15 @@
       <div class="modal-body" id="settings-body"></div>
     </div>
   </div>
-  <script src="app.js?v=22"></script>
+  <div id="vault-overlay" class="modal-overlay hidden">
+    <div id="vault-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="vault-title">
+      <div class="modal-head">
+        <h2 id="vault-title">Proof Vault</h2>
+        <button id="vault-close" type="button" class="icon-btn" aria-label="Close Proof Vault">&times;</button>
+      </div>
+      <div class="modal-body" id="vault-body"></div>
+    </div>
+  </div>
+  <script src="app.js?v=23"></script>
 </body>
 </html>
