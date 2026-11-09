@@ -1,0 +1,181 @@
+// End-to-end tests for ShopPal v2 — core user flows (headless Playwright).
+//
+// Run against the local server (default) or the live GitHub Pages site:
+//   npx playwright test tests/e2e_shoppal.spec.js
+//   SHOPPAL_BASE_URL=https://fhria5.github.io/shoppal-v2/ npx playwright test tests/e2e_shoppal.spec.js
+//
+// Prerequisites:
+//   - For the local target, the ShopPal server must be running first:
+//     `node server.js` in ~/workspace/shoppal-v2 (port 3000).
+//   - @playwright/test must be installed: `npm install --save-dev @playwright/test`.
+//     No browser download is needed in this sandbox: the script reuses the
+//     Chromium binary from the Python Playwright install when it exists,
+//     and otherwise falls back to Playwright's bundled Chromium.
+//
+// What is covered (one test, four steps, in order — step 4 depends on
+// the state built by steps 2–3):
+//   1. Load page: the chat interface and the Quick Demo chips bar render.
+//   2. Quick Demo chips: clicking "headphones under $60" shows the skeleton
+//      loader shimmer briefly, then renders the product cards.
+//   3. Guardrail enforcement: an over-limit agent buy ("beli headphone p01",
+//      total $65.57 > the $20 auto-approve limit) shows the Human Approval
+//      Callout with Approve / Reject buttons; Approve creates the order.
+//   4. Persistence & refresh: after page.reload(), the chat history and the
+//      lastResults context are recovered from localStorage, with no
+//      JavaScript console errors and no uncaught page errors.
+//
+// Notes on what the test deliberately does NOT assert:
+//   - Failed network requests are not asserted: in this sandbox the
+//     headless browser cannot reach external hosts (the PayPal SDK and the
+//     Worker), so those requests fail for environmental reasons, not
+//     product bugs. Console errors and uncaught page errors ARE asserted,
+//     except for one expected entry: Chromium logs the guardrail's
+//     intentional HTTP 403 (step 3, /api/agent) as a console error, which
+//     the test filters out by design.
+//   - The orders created here are PayPal Sandbox orders in CREATED state;
+//     they are never captured, so no money moves.
+const { test, expect } = require('@playwright/test');
+const fs = require('fs');
+
+const BASE_URL = process.env.SHOPPAL_BASE_URL || 'http://localhost:3000';
+
+// Reuse the Chromium that ships with the Python Playwright install when it
+// is present (this sandbox); otherwise let Playwright use its own bundle.
+const CHROMIUM_PATH =
+  process.env.PLAYWRIGHT_CHROMIUM_PATH ||
+  '/home/hatch/.cache/ms-playwright/chromium-1254/chrome-linux64/chrome';
+
+const launchOptions = {};
+if (CHROMIUM_PATH && fs.existsSync(CHROMIUM_PATH)) {
+  launchOptions.executablePath = CHROMIUM_PATH;
+}
+
+test.use({
+  launchOptions,
+  viewport: { width: 1280, height: 900 },
+});
+test.setTimeout(120000);
+
+test.describe('ShopPal v2 — core user flows', () => {
+  test('load, chips + skeleton, guardrail callout, persistence across reload', async ({ page }) => {
+    const consoleErrors = [];
+    const pageErrors = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text());
+    });
+    page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+    // Skeleton probe: the shimmer bubble only lives for a few hundred ms
+    // while /api/ask is in flight, so a plain waitForSelector can miss it.
+    // A MutationObserver installed before any navigation records every
+    // time a skeleton bubble appears, so the test can assert it afterwards.
+    await page.addInitScript(() => {
+      window.__skeletonSeen = 0;
+      window.__skeletonLog = [];
+      const obs = new MutationObserver((muts) => {
+        for (const m of muts) {
+          for (const n of m.addedNodes) {
+            if (n.nodeType !== 1) continue;
+            if (n.classList.contains('skeleton-msg') || n.querySelector('.skeleton-msg')) {
+              window.__skeletonSeen += 1;
+              window.__skeletonLog.push(Date.now());
+            }
+          }
+        }
+      });
+      const start = () => obs.observe(document.documentElement, { childList: true, subtree: true });
+      if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+      else start();
+    });
+
+    // Fresh state: clear any previous chat history, then reload so the
+    // page starts from a clean greeting + catalog.
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'networkidle' });
+
+    await test.step('1. Load page — chat interface and Quick Demo chips render', async () => {
+      await expect(page.locator('#chat')).toBeVisible();
+      await expect(page.locator('#ask')).toBeVisible();
+      await expect(page.locator('#ask-btn')).toBeVisible();
+      await expect(page.locator('.quick-demo')).toBeVisible();
+      const chips = page.locator('.quick-demo .chip');
+      await expect(chips).toHaveCount(4);
+      await expect(chips.first()).toHaveAttribute('data-prompt', 'headphones under $60');
+      await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toHaveCount(1);
+      await expect(page.locator('#chat .msg.agent[data-step="catalog"] .product-card')).toHaveCount(11);
+    });
+
+    await test.step('2. Quick Demo chip — skeleton shimmer, then product cards', async () => {
+      await page.locator('.quick-demo .chip').first().click();
+      // The results bubble is the agent bubble with no data-step (greeting,
+      // catalog and vault all carry one). Its cards are the Ask results —
+      // not the greeting catalog (11 cards) and not the price-watch "Buy
+      // now" buttons in the vault bubble, which also carry data-product.
+      const resultsBubble = page.locator('#chat .msg.agent:not([data-step])').last();
+      const resultCards = resultsBubble.locator('.product-card');
+      await expect(resultCards.first()).toBeVisible({ timeout: 30000 });
+      await expect(resultCards).toHaveCount(3, { timeout: 30000 });
+      await expect(resultsBubble.locator('.product-card[data-product="p01"]')).toBeVisible();
+      await expect(resultsBubble.locator('.product-card[data-product="p02"]')).toBeVisible();
+      await expect(resultsBubble.locator('.product-card[data-product="p03"]')).toBeVisible();
+      // The skeleton appeared at least once while fetching, and is gone now.
+      expect(await page.evaluate(() => window.__skeletonSeen)).toBeGreaterThanOrEqual(1);
+      await expect(page.locator('.skeleton-msg')).toHaveCount(0);
+      // The chip query itself is in the chat as a user message.
+      await expect(page.locator('#chat .msg.user', { hasText: 'headphones under $60' })).toHaveCount(1);
+    });
+
+    await test.step('3. Guardrail enforcement — over-limit buy shows the approval callout', async () => {
+      await page.fill('#ask', 'beli headphone p01');
+      await page.click('#ask-btn');
+      const callout = page.locator('#chat .callout');
+      await expect(callout).toBeVisible({ timeout: 30000 });
+      await expect(callout).toContainText('Pending Human Approval (Guardrail Triggered)');
+      await expect(callout.locator('[data-act="approve"]')).toBeVisible();
+      await expect(callout.locator('[data-act="reject"]')).toBeVisible();
+      // The 403 must NOT surface as a bare error bubble.
+      const bare403 = await page.locator('#chat .msg.agent').evaluateAll((els) =>
+        els.filter((el) => /^\s*403\b/.test(el.textContent || '')).length
+      );
+      expect(bare403).toBe(0);
+      // Approve: the order is created and a PayPal approve link appears.
+      // (The agent also opens the PayPal URL in a new tab; that tab is
+      // left alone — the assertion below only looks at this page.)
+      await callout.locator('[data-act="approve"]').click();
+      await expect(page.locator('#chat a[href*="paypal.com"]')).toBeVisible({ timeout: 60000 });
+    });
+
+    await test.step('4. Persistence — reload restores history and lastResults context', async () => {
+      const before = await page.evaluate(() => ({
+        history: localStorage.getItem('shoppal-chat-v1'),
+        context: localStorage.getItem('shoppal-chat-v1-context'),
+      }));
+      expect(before.history).toBeTruthy();
+      const contextIds = JSON.parse(before.context || '[]');
+      expect(Array.isArray(contextIds)).toBe(true);
+      expect(contextIds.length).toBeGreaterThan(0);
+      expect(contextIds).toEqual(expect.arrayContaining(['p01', 'p02', 'p03']));
+
+      await page.reload({ waitUntil: 'networkidle' });
+      await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toHaveCount(1);
+      // The chip query and its result cards come back from localStorage.
+      await expect(page.locator('#chat .msg.user', { hasText: 'headphones under $60' })).toHaveCount(1);
+      const restoredCards = page.locator('#chat .msg.agent:not([data-step]) .product-card');
+      await expect(restoredCards).toHaveCount(3, { timeout: 15000 });
+      // The guardrail callout survives the reload as a record.
+      await expect(page.locator('#chat .callout')).toContainText('Pending Human Approval (Guardrail Triggered)');
+      // No JavaScript console errors and no uncaught page errors, before
+      // or after the reload. One exception is expected: Chromium logs the
+      // guardrail's intentional HTTP 403 (step 3, /api/agent) as a console
+      // error — "Failed to load resource: ... 403 (Forbidden)". That is
+      // the contract working as designed, not a product bug, so it is
+      // filtered out; anything else still fails the test.
+      const unexpectedConsoleErrors = consoleErrors.filter(
+        (msg) => !/^Failed to load resource: the server responded with a status of 403/.test(msg)
+      );
+      expect(pageErrors).toEqual([]);
+      expect(unexpectedConsoleErrors).toEqual([]);
+    });
+  });
+});
