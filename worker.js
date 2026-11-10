@@ -2221,11 +2221,15 @@ async function agentFallback(message, lang, ctx) {
   const isDelivery = isDeliveryCheck(message);
   // One-tap buy ("buy p12") names the product by ID, not by category.
   const isBuyId = isBuyProductId(message);
+  // Split intent ("split p01 with Budi and Sari") also names the product
+  // by ID, not by category - it must pass the gate so the split branch
+  // below can resolve it.
+  const isSplit = /\b(patungan|split|bagi rata|bagi-bagi)\b/.test(message.toLowerCase());
   // No shopping intent at all (the frontend only routes buy goals here,
   // but a direct API call could send anything): do not guess a purchase.
   const hasIntent = intent.category || intent.maxPrice !== null || intent.minPrice !== null
     || intent.cheapest || intent.best || intent.seller || intent.needsReturn || intent.needsTracking
-    || isCheckWatches || isTrackDispute || isContinuation || isDelivery || isBuyId;
+    || isCheckWatches || isTrackDispute || isContinuation || isDelivery || isBuyId || isSplit;
   if (!hasIntent) {
     return {
       reply: lang === 'id'
@@ -2367,7 +2371,7 @@ async function agentFallback(message, lang, ctx) {
   }
   // Split intent ("patungan headphone sama Budi dan Sari"): create a
   // payment link per friend via the Orders API (the Invoicing API is 403).
-  const isSplit = /\b(patungan|split|bagi rata|bagi-bagi)\b/.test(message.toLowerCase());
+  // isSplit was computed above the hasIntent gate.
   if (isSplit) {
     // Friends are the names after "sama/with/bareng/dengan", split by
     // "dan/and" or commas; category/price words are stripped first.
@@ -2376,14 +2380,37 @@ async function agentFallback(message, lang, ctx) {
     tail = m ? m[1] : '';
     const friends = tail
       .replace(/\$\s*\d+(\.\d+)?/g, '')
+      .replace(/\bp\d{2}\b/g, '')
       .replace(/\b(headphone|headphones|smartwatch|keyboard|speaker|charger|paling aman|termurah|terbaik|safest|cheapest|best|patungan|split|bagi rata|bagi-bagi)\b/g, '')
       .split(/\s*(?:dan|and|,)\s*/)
       .map((x) => x.trim())
       .filter(Boolean)
       .slice(0, 10);
-    const splitIntent = { ...intent, maxPrice: null, minPrice: null, cheapest: false, best: false };
-    const sResult = applyIntent(splitIntent, null, lang);
-    const sProducts = sResult.products.slice(0, 5);
+    // A product named by ID ("split p01 ...") resolves directly. An ID
+    // that is not in the catalog is an error, not a silent guess at p01
+    // (applyIntent falls back to the whole catalog when nothing matches).
+    // With no ID, only a real product signal (category, price, cheapest,
+    // best, seller, return, tracking) goes to the search; otherwise ask
+    // which product to split instead of guessing the first one.
+    const idMatch = String(message || '').toLowerCase().match(/\bp(\d{2})\b/);
+    const idProduct = buyProductId(message);
+    const hasProductSignal = intent.category || intent.maxPrice !== null || intent.minPrice !== null
+      || intent.cheapest || intent.best || intent.seller || intent.needsReturn || intent.needsTracking;
+    let sProducts;
+    if (idMatch && !idProduct) {
+      sProducts = [];
+    } else if (idProduct) {
+      sProducts = [idProduct];
+    } else if (hasProductSignal) {
+      sProducts = applyIntent({ ...intent, maxPrice: null, minPrice: null, cheapest: false, best: false }, null, lang).products.slice(0, 5);
+    } else {
+      return {
+        reply: lang === 'id'
+          ? 'Produk mana yang mau dipatungan? Sebutkan nama atau ID produknya, misalnya "patungan p01 sama Budi dan Sari".'
+          : 'Which product do you want to split? Name it or give its ID, for example "split p01 with Budi and Sari".',
+        steps, aiUsed: false,
+      };
+    }
     steps.push({ action: 'search_products', summary: sProducts.length + ' product(s) found' });
     if (!sProducts.length) {
       return {
