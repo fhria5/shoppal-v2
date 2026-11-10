@@ -2779,10 +2779,11 @@ routes.push({ method: 'POST', path: '/api/ebay-watch', handler: (req, res) => {
 routes.push({ method: 'GET', path: '/api/ebay-watch', handler: (req, res) => {
   res.json({ watches: ebayWatchesFor(sessionOf(req)) });
 }});
-app.delete('/api/ebay-watch/:id', (req, res) => {
-  const w = ebayWatches.get(req.params.id);
+routes.push({ method: 'POST', path: '/api/ebay-watch/delete', handler: (req, res) => {
+  const id = String((req.body || {}).id || '');
+  const w = ebayWatches.get(id);
   if (!w || (w.sessionId || null) !== (sessionOf(req) || null)) return res.status(404).json({ error: 'Watch not found.' });
-  ebayWatches.delete(req.params.id);
+  ebayWatches.delete(id);
   res.json({ ok: true });
 }});
 // Refresh every watch against the live eBay price. A watch whose live
@@ -2837,10 +2838,11 @@ routes.push({ method: 'POST', path: '/api/wishlist', handler: (req, res) => {
 routes.push({ method: 'GET', path: '/api/wishlist', handler: (req, res) => {
   res.json({ items: wishlistFor(sessionOf(req)) });
 }});
-app.delete('/api/wishlist/:id', (req, res) => {
-  const w = wishlistEntries.get(req.params.id);
+routes.push({ method: 'POST', path: '/api/wishlist/delete', handler: (req, res) => {
+  const id = String((req.body || {}).id || '');
+  const w = wishlistEntries.get(id);
   if (!w || (w.sessionId || null) !== (sessionOf(req) || null)) return res.status(404).json({ error: 'Wishlist item not found.' });
-  wishlistEntries.delete(req.params.id);
+  wishlistEntries.delete(id);
   res.json({ ok: true, note: t((req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : 'en', 'wlRemoved') });
 }});
 
