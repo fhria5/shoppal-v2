@@ -1192,7 +1192,7 @@
     var html = '<p><strong>' + t('bestDealVerdict') + '</strong> · ' + escapeHtml(p.title) + '</p>' +
       '<p>' + escapeHtml(d.verdict || '') + '</p>' +
       '<p><span class="score score-' + zone + '">' + p.riskScore + '/100 · ' + p.riskLabel + '</span> · ' + p.source + ' · ' + escapeHtml(p.sellerName) + '</p>' +
-      '<p><strong>' + t('honestTotal') + '</strong>, ' + money(p.totalUSD) + ' (' + t('itemPrice') + ' ' + money(p.priceUSD) + ')</p>' +
+      '<p><strong>' + t('honestTotal') + '</strong><span class="verdict-total">' + money(p.totalUSD) + '</span> <span class="hint">(' + t('itemPrice') + ' ' + money(p.priceUSD) + ')</span></p>' +
       '<p class="hint">' + escapeHtml(d.reason || '') + '</p>' +
       '<p><button type="button" class="btn-primary" id="bestdeal-buy">' + t('bestDealBuy') + '</button></p>';
     if (d.runnersUp && d.runnersUp.length) {
@@ -1204,6 +1204,7 @@
         }).join('') + '</ul>';
     }
     var bubble = addBubble('agent', html);
+    bubble.classList.add('verdict-hero');
     var buyBtn = bubble.querySelector('#bestdeal-buy');
     if (buyBtn) buyBtn.addEventListener('click', function () { openDealCandidate(p); });
   }
@@ -1218,7 +1219,7 @@
       entries.map(function (c) {
         var zone = (c.riskLabel || 'Caution').toLowerCase();
         var isOverall = overallId && (c.kind + ':' + c.id) === overallId;
-        return '<p>' + (isOverall ? '<strong>' + t('compareOverall') + ' · </strong>' : '') +
+        return '<p>' + (isOverall ? '<span class="best-badge">' + t('compareOverall') + '</span> ' : '') +
           '<strong>' + escapeHtml(c.source) + '</strong> · ' + escapeHtml(c.title) + '<br>' +
           money(c.priceUSD) + ' · ' + money(c.totalUSD) + ' all-in · ' + escapeHtml(c.sellerName) + '<br>' +
           '<span class="score score-' + zone + '">' + c.riskScore + '/100 · ' + c.riskLabel + '</span></p>';
