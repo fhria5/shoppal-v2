@@ -1276,6 +1276,16 @@ button.product-card .seller {
 .seg-btn:hover { background: var(--bg); }
 .seg-btn.seg-active { background: var(--navy); color: #fff; border-color: var(--navy); }
 .seg-btn:focus-visible, .modal-body button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+/* Settings form rows: the input takes the free width so its placeholder
+   never truncates, the Save button sits beside it, and the saved
+   confirmation drops to its own line. Language pills share one row. */
+.set-row { display: flex; gap: 0.5rem; align-items: center; }
+.set-row input[type="number"] { flex: 1; min-width: 0; width: auto; }
+.set-label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted); margin: 0.45rem 0 0.3rem; }
+.set-status { font-size: 0.85rem; color: var(--muted); }
+.set-status:empty { display: none; }
+.seg { flex-wrap: nowrap; }
+.seg-btn { flex: 1 1 0; min-width: 0; }
 body.modal-open { overflow: hidden; }
 .quick-chip { display: inline-flex; align-items: center; gap: 0.4rem; }
 .chip-ico { flex: none; }
