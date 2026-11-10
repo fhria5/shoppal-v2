@@ -10,6 +10,7 @@
 const ENV = {};
 for (const k of ['PAYPAL_CLIENT_ID', 'PAYPAL_CLIENT_SECRET', 'PAYPAL_MODE',
   'PAYPAL_API_BASE', 'VYCE_API_KEY', 'VYCE_API_BASE', 'VYCE_MODEL',
+  'GEMINI_API_KEY', 'GEMINI_MODEL', 'GROQ_API_KEY', 'GROQ_MODEL',
   'EBAY_APP_ID', 'EBAY_CERT_ID', 'EBAY_API_BASE', 'EBAY_MARKETPLACE',
   'ETSY_API_KEY', 'ETSY_API_BASE']) {
   const v = globalThis[k];
@@ -433,7 +434,7 @@ const STR = {
     wlRemoved: 'Removed from your wishlist.',
     wlDeal: 'Deal! Now {price}, down from {saved}.',
     aiNoteFallback: 'AI explanation unavailable, showing rule-based reasons.',
-    aiNoteVyce: 'Explanation rewritten by AI (Vyce); the numeric score is rule-based and unchanged.',
+    aiNoteVyce: 'Explanation rewritten by AI; the numeric score is rule-based and unchanged.',
     disputeBody: 'Dispute response draft (simulated, factual only): Order {order} for {product} ({total}) was paid via PayPal Sandbox and captured as {status}. Seller: {seller} (risk score {score} at checkout). Proof is attached in the Proof Vault entry {id}.',
     disputeNotFound: 'Proof Vault entry not found. Save a successful checkout first.',
     refundNoCapture: 'No capture ID found for this vault entry.',
@@ -690,7 +691,7 @@ const STR = {
     wlRemoved: 'Dihapus dari wishlist.',
     wlDeal: 'Deal! Kini {price}, turun dari {saved}.',
     aiNoteFallback: 'Penjelasan AI tidak tersedia, menampilkan alasan berbasis aturan.',
-    aiNoteVyce: 'Penjelasan ditulis ulang oleh AI (Vyce); skor angka berbasis aturan dan tidak berubah.',
+    aiNoteVyce: 'Penjelasan ditulis ulang oleh AI; skor angka berbasis aturan dan tidak berubah.',
     disputeBody: 'Draf jawaban sengketa (simulasi, hanya fakta): Order {order} untuk {product} ({total}) dibayar via PayPal Sandbox dan di-capture sebagai {status}. Seller: {seller} (skor risiko {score} saat checkout). Bukti terlampir di entri Proof Vault {id}.',
     disputeNotFound: 'Entri Proof Vault tidak ditemukan. Simpan checkout yang berhasil dulu.',
     refundNoCapture: 'Tidak ada capture ID untuk entri vault ini.',
@@ -904,44 +905,22 @@ async function explainScore(components, label, lang) {
     aiAvailable: false,
     aiNote: t(lang, 'aiNoteFallback'),
   };
-  const apiKey = ENV.VYCE_API_KEY;
-  if (!apiKey) return fallback;
-  const baseUrl = (ENV.VYCE_API_BASE || 'https://vyceai.com/v1').replace(/\/$/, '');
-  const model = ENV.VYCE_MODEL || 'deepseek-v4.1';
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30000);
-    const res = await fetch(baseUrl + '/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + apiKey,
+    const { text } = await callAI([
+      {
+        role: 'system',
+        content:
+          'You rewrite seller-risk reasons for a shopper. Keep the meaning, ' +
+          'do not change any numbers, do not add new facts, do not invent scores. ' +
+          'Return exactly 3 lines, one reason per line, no numbering, no extra text.' +
+          (lang === 'id' ? ' Reply in Indonesian.' : ' Reply in English.'),
       },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You rewrite seller-risk reasons for a shopper. Keep the meaning, ' +
-              'do not change any numbers, do not add new facts, do not invent scores. ' +
-              'Return exactly 3 lines, one reason per line, no numbering, no extra text.' +
-              (lang === 'id' ? ' Reply in Indonesian.' : ' Reply in English.'),
-          },
-          {
-            role: 'user',
-            content: reasons.slice(0, 3).join('\n'),
-          },
-        ],
-        temperature: 0.2,
-        max_tokens: 200,
-      }),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    if (!res.ok) return fallback;
-    const data = await res.json();
-    const text = data?.choices?.[0]?.message?.content || '';
+      {
+        role: 'user',
+        content: reasons.slice(0, 3).join('\n'),
+      },
+    ], { temperature: 0.2, maxTokens: 200 });
+    if (!text) return fallback;
     const lines = text
       .split('\n')
       .map((l) => l.replace(/^[-*•\d.)\s]+/, '').trim())
@@ -1345,51 +1324,141 @@ function parseAsk(query, contextProducts, lang) {
   return applyIntent(parseAskRegex(query), contextProducts, lang);
 }
 
-// Vyce intent parsing. When VYCE_API_KEY is set, the AI reads the query
-// (English or Indonesian) and returns structured intent as strict JSON.
-// Anything invalid, slow, or missing falls back to the regex parser above,
-// so the Ask feature never depends on the AI being up.
-async function parseAskWithVyce(query) {
-  const apiKey = ENV.VYCE_API_KEY;
-  if (!apiKey) return null;
-  const baseUrl = (ENV.VYCE_API_BASE || 'https://vyceai.com/v1').replace(/\/$/, '');
-  const model = ENV.VYCE_MODEL || 'deepseek-v4.1';
+// AI fallback chain (order: Gemini -> Groq -> Vyce -> local fallback).
+// Vyce's DeepSeek model is disabled on Vyce's side (verified 10 Nov 2026:
+// deepseek-v4 returns HTTP 503 "model temporarily disabled"), so ShopPal
+// can no longer rely on Vyce alone. Each provider returns raw text;
+// callers parse it as before. Returns { text, provider } or nulls.
+const GEMINI_MODEL = ENV.GEMINI_MODEL || 'gemini-3.5-flash-lite';
+const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/' + GEMINI_MODEL + ':generateContent';
+const GROQ_MODEL = ENV.GROQ_MODEL || 'openai/gpt-oss-120b';
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const GROQ_UA = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36';
+
+async function callGemini(apiKey, messages, opts) {
+  const timeoutMs = (opts && opts.timeoutMs) || 15000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30000);
-    const res = await fetch(baseUrl + '/chat/completions', {
+    let systemText = '';
+    const contents = [];
+    for (const m of messages) {
+      if (m.role === 'system') systemText += m.content + '\n';
+      else contents.push({ role: 'user', parts: [{ text: String(m.content) }] });
+    }
+    const body = { contents };
+    if (systemText) body.systemInstruction = { parts: [{ text: systemText }] };
+    if (opts && (opts.temperature !== undefined || opts.maxTokens)) {
+      body.generationConfig = {};
+      if (opts.temperature !== undefined) body.generationConfig.temperature = opts.temperature;
+      if (opts.maxTokens) body.generationConfig.maxOutputTokens = opts.maxTokens;
+    }
+    const res = await fetch(GEMINI_URL + '?key=' + encodeURIComponent(apiKey), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + apiKey,
-      },
-      body: JSON.stringify({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You extract shopping intent from a short message (English or Indonesian). ' +
-              'Reply with strict JSON only, no other text: ' +
-              '{"category": "Headphones"|"Smartwatch"|"Keyboard"|"Speaker"|"Charger"|null, ' +
-              '"maxPrice": number|null, "minPrice": number|null, "cheapest": boolean, "best": boolean, ' +
-              '"seller": "TechHub Official"|"GadgetZone ID"|"DealHunter88"|null, ' +
-              '"needsReturn": boolean, "needsTracking": boolean, "selectFirst": boolean}. ' +
-              '"murah"/"termurah" means cheapest=true. "paling aman" means safest. ' +
-              '"terbaik"/"rekomendasi" means best=true. "yang pertama" means selectFirst=true, the buyer wants the first result shown before.',
-          },
-          { role: 'user', content: query },
-        ],
-        temperature: 0,
-        max_tokens: 200,
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
     clearTimeout(timer);
     if (!res.ok) return null;
     const data = await res.json();
-    const text = (data?.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim();
-    const intent = JSON.parse(text);
+    const parts = data?.candidates?.[0]?.content?.parts || [];
+    const text = parts.map((p) => p.text || '').join('').trim();
+    return text || null;
+  } catch (e) {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+async function callGroq(apiKey, messages, opts) {
+  // Groq's bot protection blocks the default server User-Agent (403 error
+  // 1010), so send a browser UA, the same fix Gembala uses.
+  const timeoutMs = (opts && opts.timeoutMs) || 15000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(GROQ_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey, 'User-Agent': GROQ_UA },
+      body: JSON.stringify({ model: GROQ_MODEL, messages, temperature: (opts && opts.temperature !== undefined) ? opts.temperature : 0.3, max_tokens: (opts && opts.maxTokens) || 400 }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = (data?.choices?.[0]?.message?.content || '').trim();
+    return text || null;
+  } catch (e) {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+async function callVyceText(apiKey, messages, opts) {
+  const baseUrl = (ENV.VYCE_API_BASE || 'https://vyceai.com/v1').replace(/\/$/, '');
+  const model = ENV.VYCE_MODEL || 'deepseek-v4.1';
+  const timeoutMs = (opts && opts.timeoutMs) || 15000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(baseUrl + '/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey },
+      body: JSON.stringify({ model, messages, temperature: (opts && opts.temperature !== undefined) ? opts.temperature : 0, max_tokens: (opts && opts.maxTokens) || 400 }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const text = (data?.choices?.[0]?.message?.content || '').trim();
+    return text || null;
+  } catch (e) {
+    clearTimeout(timer);
+    return null;
+  }
+}
+
+async function callAI(messages, opts) {
+  if (ENV.GEMINI_API_KEY) {
+    const t = await callGemini(ENV.GEMINI_API_KEY, messages, opts);
+    if (t) return { text: t, provider: 'gemini' };
+  }
+  if (ENV.GROQ_API_KEY) {
+    const t = await callGroq(ENV.GROQ_API_KEY, messages, opts);
+    if (t) return { text: t, provider: 'groq' };
+  }
+  if (ENV.VYCE_API_KEY) {
+    const t = await callVyceText(ENV.VYCE_API_KEY, messages, opts);
+    if (t) return { text: t, provider: 'vyce' };
+  }
+  return { text: null, provider: null };
+}
+
+// AI intent parsing. The AI reads the query (English or Indonesian) and
+// returns structured intent as strict JSON. Anything invalid, slow, or
+// missing falls back to the regex parser above, so the Ask feature never
+// depends on the AI being up. Returns the intent with a provider field.
+async function parseAskWithAI(query) {
+  const messages = [
+    {
+      role: 'system',
+      content:
+        'You extract shopping intent from a short message (English or Indonesian). ' +
+        'Reply with strict JSON only, no other text: ' +
+        '{"category": "Headphones"|"Smartwatch"|"Keyboard"|"Speaker"|"Charger"|null, ' +
+        '"maxPrice": number|null, "minPrice": number|null, "cheapest": boolean, "best": boolean, ' +
+        '"seller": "TechHub Official"|"GadgetZone ID"|"DealHunter88"|null, ' +
+        '"needsReturn": boolean, "needsTracking": boolean, "selectFirst": boolean}. ' +
+        '"murah"/"termurah" means cheapest=true. "paling aman" means safest. ' +
+        '"terbaik"/"rekomendasi" means best=true. "yang pertama" means selectFirst=true, the buyer wants the first result shown before.',
+    },
+    { role: 'user', content: query },
+  ];
+  try {
+    const { text, provider } = await callAI(messages, { temperature: 0, maxTokens: 200 });
+    if (!text) return null;
+    const intent = JSON.parse(text.replace(/```json|```/g, '').trim());
     const cats = ['Headphones', 'Smartwatch', 'Keyboard', 'Speaker', 'Charger'];
     const sellers = ['TechHub Official', 'GadgetZone ID', 'DealHunter88'];
     if (intent.category !== null && !cats.includes(intent.category)) return null;
@@ -1407,6 +1476,7 @@ async function parseAskWithVyce(query) {
       needsReturn: !!intent.needsReturn,
       needsTracking: !!intent.needsTracking,
       selectFirst: !!intent.selectFirst,
+      provider,
     };
   } catch (err) {
     return null;
@@ -1582,14 +1652,14 @@ routes.push({ method: 'GET', path: '/api/ask', handler: async (req, res) => {
   const ctxProducts = ctxIds
     .map((id) => productsById.get(id))
     .filter(Boolean);
-  // AI first when the Vyce key is set; regex fallback otherwise.
-  const aiIntent = await parseAskWithVyce(q);
+  // AI first (Gemini -> Groq -> Vyce); regex fallback otherwise.
+  const aiIntent = await parseAskWithAI(q);
   const intent = aiIntent || parseAskRegex(q);
   const result = applyIntent(intent, ctxProducts, lang);
   res.json({
     query: q,
     lang,
-    understood: { ...result.understood, aiParsed: Boolean(aiIntent) },
+    understood: { ...result.understood, aiParsed: Boolean(aiIntent), aiProvider: aiIntent ? aiIntent.provider : null },
     products: result.products,
     selectFirst: result.selectFirst,
   });
@@ -1643,27 +1713,10 @@ function agentToolList(lang) {
 }
 
 async function agentAskModel(messages) {
-  const apiKey = ENV.VYCE_API_KEY;
-  if (!apiKey) return null;
-  const baseUrl = (ENV.VYCE_API_BASE || 'https://vyceai.com/v1').replace(/\/$/, '');
-  const model = ENV.VYCE_MODEL || 'deepseek-v4.1';
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 30000);
-    const res = await fetch(baseUrl + '/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + apiKey,
-      },
-      body: JSON.stringify({ model, messages, temperature: 0, max_tokens: 400 }),
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    if (!res.ok) return null;
-    const data = await res.json();
-    const text = (data?.choices?.[0]?.message?.content || '').replace(/```json|```/g, '').trim();
-    const decision = JSON.parse(text);
+    const { text } = await callAI(messages, { temperature: 0, maxTokens: 400 });
+    if (!text) return null;
+    const decision = JSON.parse(text.replace(/```json|```/g, '').trim());
     if (!decision || typeof decision.action !== 'string') return null;
     return decision;
   } catch (e) {
@@ -2492,11 +2545,35 @@ async function runAgentLoop(message, lang, ctx) {
   ];
   const steps = [];
   const toolCtx = { ...ctx };
+  // A split created by the model must reach the frontend: keep the split
+  // payload and attach it to the model's final reply, the same way the
+  // deterministic split bypass in agentFallback does. Same for a price
+  // watch: the model path must return the watch object the tests and the
+  // frontend read (agentFallback already does).
+  let splitData = null;
+  let watchData = null;
+  let watchesData = null;
+  let searchedFound = false;
   for (let i = 0; i < AGENT_MAX_STEPS; i++) {
     const decision = await agentAskModel(messages);
     if (!decision) break;
     if (decision.action === 'reply') {
-      return { reply: String(decision.text || ''), steps, aiUsed: true };
+      const text = String(decision.text || '');
+      // The model sometimes contradicts its own tool results ("no keyboards
+      // available" right after search_products found 5). When a search did
+      // find products, that denial is wrong by construction: fall back to
+      // the deterministic rules, which answer from the products found.
+      const deniesProducts = /no\s+\w+\s+available|no\s+products?\s+(available|found)|couldn'?t find|tidak ada|tidak tersedia|tidak ditemukan/i.test(text);
+      if (deniesProducts && searchedFound) {
+        const fb = await agentFallback(message, lang, ctx);
+        fb.steps = [...steps, ...fb.steps];
+        return fb;
+      }
+      const out = { reply: text, steps, aiUsed: true };
+      if (splitData) out.splitPayment = splitData;
+      if (watchData) out.watch = watchData;
+      if (watchesData) out.watches = watchesData;
+      return out;
     }
     if (decision.action === 'ask_approval') {
       const p = productsById.get(String(decision.productId || ''));
@@ -2519,18 +2596,34 @@ async function runAgentLoop(message, lang, ctx) {
     }
     const result = await agentExecuteTool(decision.action, decision.args || {}, toolCtx);
     steps.push({ action: decision.action, summary: result.summary });
+    if (decision.action === 'split_payment_link' && result.data && !result.data.error && Array.isArray(result.data.links) && result.data.links.length) {
+      splitData = result.data;
+    }
+    if ((decision.action === 'price_watch' || decision.action === 'check_price_watch') && result.data && !result.data.error && result.data.watchId) {
+      watchData = result.data;
+    }
+    if (decision.action === 'list_price_watches' && result.data && Array.isArray(result.data.watches)) {
+      watchesData = result.data.watches;
+    }
+    if (decision.action === 'search_products' && result.data && Array.isArray(result.data.products) && result.data.products.length > 0) {
+      searchedFound = true;
+    }
     messages.push({ role: 'assistant', content: JSON.stringify({ action: decision.action, args: decision.args || {}, reason: decision.reason || '' }) });
     messages.push({ role: 'user', content: 'Tool result: ' + JSON.stringify(result.data).slice(0, 2000) });
     if (decision.action === 'create_order' && result.data && result.data.approveUrl) {
-      return {
+      const out = {
         reply: lang === 'id'
           ? 'Pesanan PayPal sudah dibuat, total $' + result.data.totalUSD + '. Silakan setujui pembayarannya di PayPal.'
           : 'The PayPal order is ready, total $' + result.data.totalUSD + '. Please approve the payment on PayPal.',
         steps, order: result.data, aiUsed: true,
       };
+      if (splitData) out.splitPayment = splitData;
+      if (watchData) out.watch = watchData;
+      if (watchesData) out.watches = watchesData;
+      return out;
     }
     if (decision.action === 'create_order' && result.data && result.data.needsApproval) {
-      return {
+      const out = {
         reply: lang === 'id'
           ? 'Pembelian ini butuh persetujuanmu dulu: ' + (result.data.error || '') + ' Ketuk setujui untuk lanjut.'
           : 'This purchase needs your approval first: ' + (result.data.error || '') + ' Tap approve to continue.',
@@ -2539,6 +2632,10 @@ async function runAgentLoop(message, lang, ctx) {
         pendingOrder: { productId: String(decision.args.productId || ''), totalUSD: result.data.totalUSD || 0, name: '', shareCheckout: !!result.data.shareCheckout },
         aiUsed: true,
       };
+      if (splitData) out.splitPayment = splitData;
+      if (watchData) out.watch = watchData;
+      if (watchesData) out.watches = watchesData;
+      return out;
     }
     if (decision.action === 'check_delivery' && result.data && !result.data.error) {
       return deliveryCheckResult(result, lang, steps, true);
@@ -3167,44 +3264,24 @@ async function simulateDispute(opts, lang) {
   // AI explanation (Vyce), rewrites the component notes only.
   let aiExplanation = null;
   let aiAvailable = false;
-  const apiKey = ENV.VYCE_API_KEY;
-  if (apiKey) {
+  {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 30000);
-      const baseUrl = (ENV.VYCE_API_BASE || 'https://vyceai.com/v1').replace(/\/$/, '');
-      const model = ENV.VYCE_MODEL || 'deepseek-v4.1';
-      const res = await fetch(baseUrl + '/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You explain a PayPal dispute win-chance estimate to a shopper in 2 short sentences. ' +
-                'Keep the meaning, do not change any numbers, do not add new facts, do not invent scores. ' +
-                (lang === 'id' ? 'Reply in Indonesian.' : 'Reply in English.'),
-            },
-            {
-              role: 'user',
-              content: `Win chance ${chance}% (${label}). ` + components.map((c) => c.note).join(' '),
-            },
-          ],
-          temperature: 0.2,
-          max_tokens: 150,
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (res.ok) {
-        const data = await res.json();
-        const text = (data?.choices?.[0]?.message?.content || '').trim();
-        if (text) {
-          aiExplanation = text;
-          aiAvailable = true;
-        }
+      const { text } = await callAI([
+        {
+          role: 'system',
+          content:
+            'You explain a PayPal dispute win-chance estimate to a shopper in 2 short sentences. ' +
+            'Keep the meaning, do not change any numbers, do not add new facts, do not invent scores. ' +
+            (lang === 'id' ? 'Reply in Indonesian.' : 'Reply in English.'),
+        },
+        {
+          role: 'user',
+          content: `Win chance ${chance}% (${label}). ` + components.map((c) => c.note).join(' '),
+        },
+      ], { temperature: 0.2, maxTokens: 150 });
+      if (text) {
+        aiExplanation = text;
+        aiAvailable = true;
       }
     } catch (err) { /* AI is optional; the rule-based result stands */ }
   }
@@ -3592,44 +3669,24 @@ async function checkPhishing(text, lang) {
   score = Math.max(0, Math.min(100, score));
   const label = score >= 80 ? t(lang, 'phLegit') : score >= 50 ? t(lang, 'phSuspicious') : t(lang, 'phLikely');
 
-  // AI review (Vyce), a second opinion in plain language.
+  // AI review, a second opinion in plain language.
   let aiReview = null;
   let aiAvailable = false;
-  const apiKey = ENV.VYCE_API_KEY;
-  if (apiKey) {
+  {
     try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 45000);
-      const baseUrl = (ENV.VYCE_API_BASE || 'https://vyceai.com/v1').replace(/\/$/, '');
-      const model = ENV.VYCE_MODEL || 'deepseek-v4.1';
-      const res = await fetch(baseUrl + '/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-        body: JSON.stringify({
-          model,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a phishing analyst. Read the message and say in 2 short sentences whether it looks like a PayPal phishing attempt and why. ' +
-                'Do not invent facts. Do not ask the user for anything. ' +
-                (lang === 'id' ? 'Reply in Indonesian.' : 'Reply in English.'),
-            },
-            { role: 'user', content: input.slice(0, 2000) },
-          ],
-          temperature: 0.2,
-          max_tokens: 150,
-        }),
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (res.ok) {
-        const data = await res.json();
-        const textOut = (data?.choices?.[0]?.message?.content || '').trim();
-        if (textOut) {
-          aiReview = textOut;
-          aiAvailable = true;
-        }
+      const { text: textOut } = await callAI([
+        {
+          role: 'system',
+          content:
+            'You are a phishing analyst. Read the message and say in 2 short sentences whether it looks like a PayPal phishing attempt and why. ' +
+            'Do not invent facts. Do not ask the user for anything. ' +
+            (lang === 'id' ? 'Reply in Indonesian.' : 'Reply in English.'),
+        },
+        { role: 'user', content: input.slice(0, 2000) },
+      ], { temperature: 0.2, maxTokens: 150, timeoutMs: 45000 });
+      if (textOut) {
+        aiReview = textOut;
+        aiAvailable = true;
       }
     } catch (err) { /* AI is optional; the rule-based verdict stands */ }
   }
