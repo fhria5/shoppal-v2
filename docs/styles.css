@@ -465,7 +465,9 @@ button:active:not(:disabled) { transform: translateY(1px); }
    demo runs without typing. Always visible, unlike the greeting chips. */
 .quick-demo {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 0.4rem;
   align-items: center;
   padding: 0.6rem 1rem;
@@ -481,7 +483,9 @@ button:active:not(:disabled) { transform: translateY(1px); }
    chips of their own, next to the Demo row. */
 .feature-demo {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 0.4rem;
   align-items: center;
   width: 100%;
@@ -492,9 +496,13 @@ button:active:not(:disabled) { transform: translateY(1px); }
   border-top: 1px solid var(--border);
 }
 .feature-chip { padding: 0.7rem 0.9rem; min-height: 48px; font-size: 0.85rem; }
+.quick-demo::-webkit-scrollbar, .feature-demo::-webkit-scrollbar { display: none; }
 /* The Proof Vault lived behind an unlabeled shield icon; the label makes
    the headline feature findable. */
 #vault-btn { width: auto; padding: 0 12px; gap: 6px; }
+/* Header actions: Settings + Vault sit in one glued group, so the
+   two buttons stay adjacent instead of spread apart by space-between. */
+.header-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .vault-label { font-size: 0.85rem; font-weight: 600; }
 
 /* Marketplace fallback photo (eBay sandbox listings have no image):
@@ -955,14 +963,9 @@ button.product-card .seller {
 /* (The right sidebar was removed: its cards duplicated the header
    badges. The layout is one column at every width.) */
 
-/* All demo chips visible in rows instead of a clipped scroll row,
-   from tablet widths up; phones keep the horizontal scroll. */
-@media (min-width: 921px) {
-    .quick-demo {
-        flex-wrap: wrap !important;
-        overflow-x: visible !important;
-    }
-}
+/* Demo chips stay one horizontal scroll row at every width. (An older
+   rule wrapped them into rows above 921px; the user asked 10 Nov 2026
+   to tidy the layout because the rows filled the screen.) */
 
 /* Below 1100px the long header pills overflow and overlap the
    identity (seen at 980-1024px). Keep only the compact Live badge. */
@@ -1310,12 +1313,13 @@ body.modal-open { overflow: hidden; }
   .modal { max-width: none; border-radius: 16px 16px 0 0; max-height: 85dvh; }
 }
 
-/* Bottom navigation: mobile only (<= 920px). One-tap reach for the four
-   headline tools plus Chat: the same actions as the Try chips above the
-   composer, placed where the thumb already rests. Desktop keeps the
-   header and chips and never shows this bar. */
+/* Bottom navigation: up to 1024px, so it also shows on phones in
+   desktop-site mode. One-tap reach for the four headline tools plus
+   Chat: the same actions as the Try chips above the composer, placed
+   where the thumb already rests. Desktop keeps the header and chips
+   and never shows this bar. */
 .bottom-nav { display: none; }
-@media (max-width: 920px) {
+@media (max-width: 1024px) {
   .bottom-nav {
     display: flex;
     flex: 0 0 auto;
@@ -1345,4 +1349,8 @@ body.modal-open { overflow: hidden; }
   }
   .nav-btn svg { width: 22px; height: 22px; }
   .nav-btn.active { color: var(--blue); }
+  /* The Try row duplicates the bottom nav, and the fineprint squeezes
+     the composer away from it, so both hide while the nav shows. */
+  .feature-demo { display: none; }
+  .fineprint { display: none; }
 }
