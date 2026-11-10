@@ -17,6 +17,7 @@
   --faint: #64748b;
   --navy: #003087;
   --navy-dark: #00205f;
+  --gold: #ffc439;
   --blue: #0070ba;
   --blue-dark: #005ea6;
   --amber-bg: #fffbeb;
@@ -168,6 +169,41 @@ body {
   border: 1px solid var(--border);
   border-radius: 16px 16px 16px 4px;
   box-shadow: var(--shadow-sm);
+}
+
+/* Best Deal verdict hero: the single most important answer in the chat
+   gets a navy card with a gold total, so the eye lands on it first. */
+.msg.agent.verdict-hero {
+  background: var(--navy-dark) !important;
+  color: #fff;
+  border: 1px solid var(--navy-dark) !important;
+  box-shadow: var(--shadow-md);
+}
+.msg.agent.verdict-hero .msg-label { color: #bfdbfe !important; }
+.msg.agent.verdict-hero .hint { color: #cbd5e1; }
+.msg.agent.verdict-hero .verdict-total {
+  display: block;
+  font-size: 1.7rem;
+  font-weight: 800;
+  color: var(--gold);
+  margin-top: 0.15rem;
+}
+.msg.agent.verdict-hero .btn-primary {
+  background: var(--gold);
+  color: var(--navy-dark);
+  border-color: var(--gold);
+}
+
+/* Gold "best" badge: the same gold as the Best Deal hero total, used for
+   the winning entry in Compare, so "best" always looks the same. */
+.best-badge {
+  background: var(--gold);
+  color: var(--navy-dark);
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 .msg.user {
   align-self: flex-end;
@@ -769,17 +805,18 @@ button.product-card .seller {
 
 .card-buy {
     width: 100%;
-    min-height: 44px;
+    min-height: 38px;
     border-radius: 10px;
-    background: var(--navy-primary);
-    color: #ffffff;
+    background: transparent;
+    color: var(--navy);
     font-weight: 600;
-    font-size: 0.88rem;
-    border: none;
+    font-size: 0.85rem;
+    border: 1px solid var(--border-strong);
     cursor: pointer;
 }
 .card-buy:hover {
-    background: var(--navy-hover);
+    background: #e8eef7;
+    border-color: var(--navy);
 }
 .card-buy:disabled {
     opacity: 0.55;
