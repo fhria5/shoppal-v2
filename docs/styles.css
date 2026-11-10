@@ -198,12 +198,6 @@ body {
 .chip:hover { background: #eff6ff; }
 .chip.active { background: var(--navy); color: #fff; }
 
-/* Marketplace source toggle: small eBay / Etsy pills in the results
-   header. Reuses .chip (with its .active navy state) at a smaller size
-   so the toggle sits inline next to the heading. */
-.mp-source-toggle { display: inline-flex; gap: 0.35rem; margin-left: 0.35rem; vertical-align: middle; }
-.chip.mp-source-btn { padding: 0.3rem 0.7rem; min-height: 32px; font-size: 0.8rem; }
-
 /* Product cards inside a message. White surface, slate border, layered
    shadow; the risk pill on the card makes risk visible before any tap. */
 .cards {
