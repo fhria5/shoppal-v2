@@ -162,6 +162,7 @@
       checkoutCancelled: 'Checkout was cancelled in PayPal. No payment was made.',
       checkoutError: 'PayPal checkout error: {msg}',
       vaultEmpty: 'No Proof Vault entries yet. Complete a successful checkout to save proof automatically.',
+      vaultIntro: 'Every completed checkout saves its receipt, capture proof, and risk score here, so a dispute is one tap away.', sampleTitle: 'Sample Proof', sampleHint: 'A real Sandbox capture from our own test run. See exactly what the vault saves, before you buy anything.', sampleView: 'View Sample Proof', vaultLimitsTitle: 'Your limits',
       subsTitle: 'Subscription Watcher',
       subsEmpty: 'No recurring purchases detected yet. Buy the same product twice and it shows up here with the total you have spent on it.',
       subsFound: 'recurring purchases found',
@@ -252,7 +253,7 @@
       wishlistTitle: 'My wishlist', noWishlist: 'Wishlist is empty. Save a product from its checkout step.',
       dealBadge: 'DEAL', savedPrice: 'Saved at:',
       cmpSelected: '{n}/2 selected', cmpCompareBtn: 'Compare', cmpClear: 'Clear',
-      budTitle: 'Monthly budget', budSet: 'Set monthly budget (USD)',
+      budTitle: 'Monthly budget', budSet: 'Set monthly budget (USD)', budHint: 'ShopPal warns you when your spending this month passes this amount.',
       budSave: 'Save', budSpent: 'Spent this month: {spent} of {budget} ({pct}%)',
       budLeft: '{left} left this month.', budOver: 'Over budget by {over} this month.',
       budWarn: 'This purchase would take you over your monthly budget ({spent} of {budget} spent).',
@@ -264,7 +265,7 @@
       grApproved: 'Approved, capturing payment...', grRejected: 'Purchase rejected. The PayPal order was not captured and will expire.',
       grAutoOk: 'Under your auto-approve limit, capturing...',
       setTitle: 'Settings', setClose: 'Close settings', setOpen: 'Open settings',
-      setLang: 'Language', setLangAuto: 'Auto (follows your message)', setLangHint: 'The agent answers in this language. Buttons and labels switch too.',
+      setLang: 'Language', setLangAuto: 'Auto', setLangHint: 'The agent answers in this language. Buttons and labels switch too.',
       setData: 'Chat data', setClearChat: 'Clear chat history', setClearHint: 'Removes the conversation from this browser. Your Proof Vault stays saved.',
       setCleared: 'Chat history cleared.', setGrSummary: 'Guardrail: auto-approve up to {limit}.', budSaved: 'Budget saved.',
       askPh: 'Ask ShopPal…', quickDemo: 'Demo:',
@@ -378,6 +379,7 @@
       checkoutCancelled: 'Checkout dibatalkan di PayPal. Tidak ada pembayaran.',
       checkoutError: 'Error checkout PayPal: {msg}',
       vaultEmpty: 'Belum ada entri Proof Vault. Selesaikan checkout yang berhasil untuk menyimpan bukti otomatis.',
+      vaultIntro: 'Setiap checkout yang berhasil menyimpan struk, bukti pembayaran, dan skor risikonya di sini, jadi sengketa tinggal satu ketukan.', sampleTitle: 'Contoh Bukti', sampleHint: 'Tangkapan Sandbox asli dari pengujian kami sendiri. Lihat persis apa yang disimpan vault, sebelum kamu membeli.', sampleView: 'Lihat Contoh Bukti', vaultLimitsTitle: 'Batas kamu',
       subsTitle: 'Pemantau Langganan',
       subsEmpty: 'Belum ada pembelian berulang. Beli produk yang sama dua kali dan akan muncul di sini beserta total yang sudah kamu belanjakan.',
       subsFound: 'pembelian berulang ditemukan',
@@ -468,7 +470,7 @@
       wishlistTitle: 'Wishlist saya', noWishlist: 'Wishlist masih kosong. Simpan produk dari langkah checkout-nya.',
       dealBadge: 'DEAL', savedPrice: 'Disimpan di:',
       cmpSelected: '{n}/2 dipilih', cmpCompareBtn: 'Bandingkan', cmpClear: 'Bersihkan',
-      budTitle: 'Budget bulanan', budSet: 'Atur budget bulanan (USD)',
+      budTitle: 'Budget bulanan', budSet: 'Atur budget bulanan (USD)', budHint: 'ShopPal mengingatkanmu saat belanja bulan ini melewati jumlah ini.',
       budSave: 'Simpan', budSpent: 'Belanja bulan ini: {spent} dari {budget} ({pct}%)',
       budLeft: 'Sisa {left} bulan ini.', budOver: 'Melebihi budget {over} bulan ini.',
       budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
@@ -480,7 +482,7 @@
       grApproved: 'Disetujui, meng-capture pembayaran...', grRejected: 'Pembelian ditolak. Order PayPal tidak di-capture dan akan kedaluwarsa.',
       grAutoOk: 'Di bawah batas setujui otomatis, meng-capture...',
       setTitle: 'Pengaturan', setClose: 'Tutup pengaturan', setOpen: 'Buka pengaturan',
-      setLang: 'Bahasa', setLangAuto: 'Otomatis (ikut pesanmu)', setLangHint: 'Agen menjawab dalam bahasa ini. Tombol dan label ikut berganti.',
+      setLang: 'Bahasa', setLangAuto: 'Otomatis', setLangHint: 'Agen menjawab dalam bahasa ini. Tombol dan label ikut berganti.',
       setData: 'Data chat', setClearChat: 'Hapus riwayat chat', setClearHint: 'Menghapus percakapan dari browser ini. Proof Vault tetap tersimpan.',
       setCleared: 'Riwayat chat dihapus.', setGrSummary: 'Guardrail: setujui otomatis sampai {limit}.', budSaved: 'Budget tersimpan.',
       askPh: 'Tanya ShopPal…', quickDemo: 'Demo:',
@@ -604,12 +606,14 @@
       '<button type="button" class="seg-btn" data-lang-choice="id">Bahasa Indonesia</button>' +
       '</div><p class="hint">' + t('setLangHint') + '</p></section>' +
       '<section class="set-section"><h3>' + t('budTitle') + '</h3>' +
-      '<p><input id="set-budget-input" type="number" min="1" step="1" placeholder="' + t('budSet') + '" value="' + (budget || '') + '"> ' +
-      '<button id="set-budget-save" type="button">' + t('budSave') + '</button> <span id="set-budget-status"></span></p></section>' +
+      '<p class="hint">' + t('budHint') + '</p>' +
+      '<p class="set-row"><input id="set-budget-input" type="number" min="1" step="1" placeholder="' + t('budSet') + '" value="' + (budget || '') + '"> ' +
+      '<button id="set-budget-save" type="button">' + t('budSave') + '</button></p><p class="set-status" id="set-budget-status"></p></section>' +
       '<section class="set-section"><h3>' + t('grTitle') + '</h3>' +
       '<p class="hint">' + t('grIntro') + '</p>' +
-      '<p><input id="set-gr-limit" type="number" min="0" step="1" value="' + gr.autoApproveLimit + '"> ' + t('grLimit') + '</p>' +
-      '<p><button id="set-gr-save" type="button">' + t('grSave') + '</button> <span id="set-gr-status"></span></p></section>' +
+      '<label class="set-label" for="set-gr-limit">' + t('grLimit') + '</label>' +
+      '<p class="set-row"><input id="set-gr-limit" type="number" min="0" step="1" value="' + gr.autoApproveLimit + '"> ' +
+      '<button id="set-gr-save" type="button">' + t('grSave') + '</button></p><p class="set-status" id="set-gr-status"></p></section>' +
       '<section class="set-section"><h3>' + t('setData') + '</h3>' +
       '<p><button id="set-clear-chat" type="button" class="btn-secondary">' + t('setClearChat') + '</button> <span id="set-clear-status"></span></p>' +
       '<p class="hint">' + t('setClearHint') + '</p></section>';
@@ -2765,7 +2769,7 @@
     var budget = getBudget();
     var spent = monthSpend(entries);
     var gr = getGuardrails();
-    var setHtml = '<div class="card"><p><strong>' + t('setTitle') + '</strong></p>' +
+    var setHtml = '<div class="card"><p><strong>' + t('vaultLimitsTitle') + '</strong></p>' +
       '<p>' + (budget
         ? fmt(t('budSpent'), { spent: money(spent), budget: money(budget), pct: Math.round(spent / budget * 100) }) + ' ' +
           (spent > budget ? fmt(t('budOver'), { over: money(spent - budget) }) : fmt(t('budLeft'), { left: money(Math.round((budget - spent) * 100) / 100) }))
@@ -2774,10 +2778,10 @@
       '<p><button id="vault-settings" type="button" class="btn-secondary">' + t('setOpen') + '</button></p></div>';
     var dwHtml = '<div class="card" id="dw-card"><p><strong>' + t('dwTitle') + '</strong></p><p class="hint">' + t('dwIntro') + '</p><p id="dw-body">…</p></div>';
     box.innerHTML =
-      '<p><strong>Proof Vault</strong></p>' + body +
-      '<div class="card" id="sample-proof-card"><p><strong>Sample Proof</strong> <span class="score score-safe">SAMPLE</span></p>' +
-      '<p class="hint">A real Sandbox capture from our own test run - see exactly what the vault saves, before you buy anything.</p>' +
-      '<p><button id="sample-proof-btn" type="button" class="btn-secondary">View Sample Proof</button></p>' +
+      '<p class="hint">' + t('vaultIntro') + '</p>' + body +
+      '<div class="card" id="sample-proof-card"><p><strong>' + t('sampleTitle') + '</strong> <span class="score score-safe">SAMPLE</span></p>' +
+      '<p class="hint">' + t('sampleHint') + '</p>' +
+      '<p><button id="sample-proof-btn" type="button" class="btn-secondary">' + t('sampleView') + '</button></p>' +
       '<div id="sample-proof-body" class="hidden"></div></div>' +
       '<div class="card">' + subs + '</div>' +
       setHtml +
