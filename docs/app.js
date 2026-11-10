@@ -22,26 +22,26 @@
   };
   var CATALOG = {
     products: [
-      { id: 'p01', name: 'Aurora Wireless Headphones', priceUSD: 59.99, referencePriceUSD: 59.99, category: 'Headphones', sellerId: 'seller-safe' },
-      { id: 'p02', name: 'Aurora Wireless Headphones', priceUSD: 54.99, referencePriceUSD: 59.99, category: 'Headphones', sellerId: 'seller-caution' },
-      { id: 'p03', name: 'Aurora Wireless Headphones', priceUSD: 29.99, referencePriceUSD: 59.99, category: 'Headphones', sellerId: 'seller-risky' },
-      { id: 'p04', name: 'Pulse Smartwatch Series 5', priceUSD: 89.00, referencePriceUSD: 89.00, category: 'Smartwatch', sellerId: 'seller-safe' },
-      { id: 'p05', name: 'Pulse Smartwatch Series 5', priceUSD: 44.00, referencePriceUSD: 89.00, category: 'Smartwatch', sellerId: 'seller-risky' },
-      { id: 'p06', name: 'Nova Mechanical Keyboard', priceUSD: 79.00, referencePriceUSD: 79.00, category: 'Keyboard', sellerId: 'seller-safe' },
-      { id: 'p07', name: 'Nova Mechanical Keyboard', priceUSD: 69.00, referencePriceUSD: 79.00, category: 'Keyboard', sellerId: 'seller-caution' },
-      { id: 'p08', name: 'Echo Bluetooth Speaker', priceUSD: 39.99, referencePriceUSD: 39.99, category: 'Speaker', sellerId: 'seller-safe' },
-      { id: 'p09', name: 'Echo Bluetooth Speaker', priceUSD: 19.99, referencePriceUSD: 39.99, category: 'Speaker', sellerId: 'seller-risky' },
-      { id: 'p10', name: 'Volt 65W GaN Charger', priceUSD: 24.99, referencePriceUSD: 24.99, category: 'Charger', sellerId: 'seller-caution' },
-      { id: 'p11', name: 'Echo Mini Bluetooth Speaker', priceUSD: 14.99, referencePriceUSD: 19.99, category: 'Speaker', sellerId: 'seller-safe' },
-      { id: 'p12', name: 'Aurora Wireless Mouse', priceUSD: 34.99, referencePriceUSD: 34.99, category: 'Mouse', sellerId: 'seller-safe' },
-      { id: 'p13', name: 'Aurora Wireless Mouse', priceUSD: 29.99, referencePriceUSD: 34.99, category: 'Mouse', sellerId: 'seller-caution' },
-      { id: 'p14', name: 'Aurora Wireless Mouse', priceUSD: 16.99, referencePriceUSD: 34.99, category: 'Mouse', sellerId: 'seller-risky' },
-      { id: 'p15', name: 'Aurora True Wireless Earbuds', priceUSD: 49.99, referencePriceUSD: 49.99, category: 'Earbuds', sellerId: 'seller-safe' },
-      { id: 'p16', name: 'Aurora True Wireless Earbuds', priceUSD: 19.99, referencePriceUSD: 49.99, category: 'Earbuds', sellerId: 'seller-risky' },
-      { id: 'p17', name: 'Aurora 1080p Webcam', priceUSD: 45.99, referencePriceUSD: 45.99, category: 'Webcam', sellerId: 'seller-safe' },
-      { id: 'p18', name: 'Aurora 1080p Webcam', priceUSD: 32.99, referencePriceUSD: 45.99, category: 'Webcam', sellerId: 'seller-caution' },
-      { id: 'p19', name: 'Echo 20000mAh Power Bank', priceUSD: 24.99, referencePriceUSD: 24.99, category: 'Power Bank', sellerId: 'seller-safe' },
-      { id: 'p20', name: 'Echo 20000mAh Power Bank', priceUSD: 18.99, referencePriceUSD: 24.99, category: 'Power Bank', sellerId: 'seller-caution' },
+      { id: 'p01', image: 'images/p01.jpg', name: 'Aurora Wireless Headphones', priceUSD: 59.99, referencePriceUSD: 59.99, category: 'Headphones', sellerId: 'seller-safe' },
+      { id: 'p02', image: 'images/p02.jpg', name: 'Aurora Wireless Headphones', priceUSD: 54.99, referencePriceUSD: 59.99, category: 'Headphones', sellerId: 'seller-caution' },
+      { id: 'p03', image: 'images/p03.jpg', name: 'Aurora Wireless Headphones', priceUSD: 29.99, referencePriceUSD: 59.99, category: 'Headphones', sellerId: 'seller-risky' },
+      { id: 'p04', image: 'images/p04.jpg', name: 'Pulse Smartwatch Series 5', priceUSD: 89.00, referencePriceUSD: 89.00, category: 'Smartwatch', sellerId: 'seller-safe' },
+      { id: 'p05', image: 'images/p05.jpg', name: 'Pulse Smartwatch Series 5', priceUSD: 44.00, referencePriceUSD: 89.00, category: 'Smartwatch', sellerId: 'seller-risky' },
+      { id: 'p06', image: 'images/p06.jpg', name: 'Nova Mechanical Keyboard', priceUSD: 79.00, referencePriceUSD: 79.00, category: 'Keyboard', sellerId: 'seller-safe' },
+      { id: 'p07', image: 'images/p07.jpg', name: 'Nova Mechanical Keyboard', priceUSD: 69.00, referencePriceUSD: 79.00, category: 'Keyboard', sellerId: 'seller-caution' },
+      { id: 'p08', image: 'images/p08.jpg', name: 'Echo Bluetooth Speaker', priceUSD: 39.99, referencePriceUSD: 39.99, category: 'Speaker', sellerId: 'seller-safe' },
+      { id: 'p09', image: 'images/p09.jpg', name: 'Echo Bluetooth Speaker', priceUSD: 19.99, referencePriceUSD: 39.99, category: 'Speaker', sellerId: 'seller-risky' },
+      { id: 'p10', image: 'images/p10.jpg', name: 'Volt 65W GaN Charger', priceUSD: 24.99, referencePriceUSD: 24.99, category: 'Charger', sellerId: 'seller-caution' },
+      { id: 'p11', image: 'images/p11.jpg', name: 'Echo Mini Bluetooth Speaker', priceUSD: 14.99, referencePriceUSD: 19.99, category: 'Speaker', sellerId: 'seller-safe' },
+      { id: 'p12', image: 'images/p12.jpg', name: 'Aurora Wireless Mouse', priceUSD: 34.99, referencePriceUSD: 34.99, category: 'Mouse', sellerId: 'seller-safe' },
+      { id: 'p13', image: 'images/p13.jpg', name: 'Aurora Wireless Mouse', priceUSD: 29.99, referencePriceUSD: 34.99, category: 'Mouse', sellerId: 'seller-caution' },
+      { id: 'p14', image: 'images/p14.jpg', name: 'Aurora Wireless Mouse', priceUSD: 16.99, referencePriceUSD: 34.99, category: 'Mouse', sellerId: 'seller-risky' },
+      { id: 'p15', image: 'images/p15.jpg', name: 'Aurora True Wireless Earbuds', priceUSD: 49.99, referencePriceUSD: 49.99, category: 'Earbuds', sellerId: 'seller-safe' },
+      { id: 'p16', image: 'images/p16.jpg', name: 'Aurora True Wireless Earbuds', priceUSD: 19.99, referencePriceUSD: 49.99, category: 'Earbuds', sellerId: 'seller-risky' },
+      { id: 'p17', image: 'images/p17.jpg', name: 'Aurora 1080p Webcam', priceUSD: 45.99, referencePriceUSD: 45.99, category: 'Webcam', sellerId: 'seller-safe' },
+      { id: 'p18', image: 'images/p18.jpg', name: 'Aurora 1080p Webcam', priceUSD: 32.99, referencePriceUSD: 45.99, category: 'Webcam', sellerId: 'seller-caution' },
+      { id: 'p19', image: 'images/p19.jpg', name: 'Echo 20000mAh Power Bank', priceUSD: 24.99, referencePriceUSD: 24.99, category: 'Power Bank', sellerId: 'seller-safe' },
+      { id: 'p20', image: 'images/p20.jpg', name: 'Echo 20000mAh Power Bank', priceUSD: 18.99, referencePriceUSD: 24.99, category: 'Power Bank', sellerId: 'seller-caution' },
     ],
     sellers: [
       { id: 'seller-safe', name: 'TechHub Official', riskProfile: 'Safe', accountAgeYears: 4.2, profileComplete: true, totalTransactions: 12400, disputeRate: 0.4, hasTracking: true, hasReturnPolicy: true },
@@ -1619,7 +1619,7 @@
   function productCardHtml(p) {
     var seller = sellerOf(p);
     return '<button type="button" class="product-card" data-product="' + p.id + '">' +
-      '<img src="' + IMAGE[p.category] + '" alt="' + p.name + '">' +
+      '<img src="' + (p.image || IMAGE[p.category]) + '" alt="' + p.name + '">' +
       '<span class="card-body"><strong>' + p.name + '</strong>' +
       '<span class="price">' + money(p.priceUSD) + '</span> · ' + p.category + '<br>' +
       '<span class="seller">Seller: ' + seller.name + '</span> ' +
@@ -1774,7 +1774,7 @@
       if (r === cheaper && r !== safer) badges += ' <span class="pick-badge pick-cheaper">' + t('cmpCheaper') + '</span>';
       return '<div class="compare-card' + (r === safer ? ' compare-safer' : '') + '">' +
         '<div class="compare-head">' +
-        '<img src="' + IMAGE[r.product.category] + '" alt="' + r.product.name + '">' +
+        '<img src="' + (r.product.image || IMAGE[r.product.category]) + '" alt="' + r.product.name + '">' +
         '<div><strong>' + r.product.name + '</strong><br><span class="price">' + money(r.product.priceUSD) + '</span> · ' + r.seller.name + badges + '</div></div>' +
         '<ul><li>' + t('riskScore') + ': <span class="score score-' + zone + '">' + r.risk.score + '/100 · ' + labelText(r.risk.label) + '</span></li>' +
         '<li>' + t('holdTitle') + ': <span class="score score-' + hz + '">' + holdLabelText(r.hold.label) + ' · ' + shortHold(r.hold) + '</span></li>' +
@@ -2002,7 +2002,7 @@
     var html = '<p><strong>' + t('bestDealVerdict') + '</strong> · ' + escapeHtml(p.title) + '</p>' +
       '<p>' + escapeHtml(d.verdict || '') + '</p>' +
       '<p><span class="score score-' + zone + '">' + p.riskScore + '/100 · ' + p.riskLabel + '</span> · ' + p.source + ' · ' + escapeHtml(p.sellerName) + '</p>' +
-      '<p><strong>' + t('honestTotal') + '</strong>, ' + money(p.totalUSD) + ' (' + t('itemPrice') + ' ' + money(p.priceUSD) + ')</p>' +
+      '<p><strong>' + t('honestTotal') + '</strong><span class="verdict-total">' + money(p.totalUSD) + '</span> <span class="hint">(' + t('itemPrice') + ' ' + money(p.priceUSD) + ')</span></p>' +
       '<p class="hint">' + escapeHtml(d.reason || '') + '</p>' +
       '<p><button type="button" class="btn-primary" id="bestdeal-buy">' + t('bestDealBuy') + '</button></p>';
     if (d.runnersUp && d.runnersUp.length) {
@@ -2014,6 +2014,7 @@
         }).join('') + '</ul>';
     }
     var bubble = addBubble('agent', html);
+    bubble.classList.add('verdict-hero');
     var buyBtn = bubble.querySelector('#bestdeal-buy');
     if (buyBtn) buyBtn.addEventListener('click', function () { openDealCandidate(p); });
   }
@@ -2028,7 +2029,7 @@
       entries.map(function (c) {
         var zone = (c.riskLabel || 'Caution').toLowerCase();
         var isOverall = overallId && (c.kind + ':' + c.id) === overallId;
-        return '<p>' + (isOverall ? '<strong>' + t('compareOverall') + ' · </strong>' : '') +
+        return '<p>' + (isOverall ? '<span class="best-badge">' + t('compareOverall') + '</span> ' : '') +
           '<strong>' + escapeHtml(c.source) + '</strong> · ' + escapeHtml(c.title) + '<br>' +
           money(c.priceUSD) + ' · ' + money(c.totalUSD) + ' all-in · ' + escapeHtml(c.sellerName) + '<br>' +
           '<span class="score score-' + zone + '">' + c.riskScore + '/100 · ' + c.riskLabel + '</span></p>';
