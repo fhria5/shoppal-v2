@@ -406,6 +406,49 @@ async function get(path) {
   const workerSrc = fs.readFileSync('worker.js', 'utf8');
   check('worker CORS restricted to Pages origin', workerSrc.includes("'Access-Control-Allow-Origin': 'https://fhria5.github.io'") && !workerSrc.includes("'Access-Control-Allow-Origin': '*'"), null);
 
+
+  // Section 14: Best Deal, Compare, real eBay Price Watch, Wishlist.
+  r = await get('/api/best-deal?q=headphones&maxPrice=60');
+  check('best-deal 200 with pick', r.status === 200 && r.data.pick && typeof r.data.pick.totalUSD === 'number' && typeof r.data.pick.riskScore === 'number' && Array.isArray(r.data.runnersUp) && Array.isArray(r.data.sources) && r.data.sources.includes('Catalog') && r.data.sources.includes('eBay'), r.data);
+  check('best-deal pick is Safe and cheapest total', r.status === 200 && r.data.pick && r.data.pick.riskScore >= 80 && r.data.runnersUp.every((x) => x.totalUSD >= r.data.pick.totalUSD || x.riskScore < 80), r.data);
+  r = await get('/api/best-deal');
+  check('best-deal no q is 400', r.status === 400, r.data);
+  r = await get('/api/compare?q=headphones&maxPrice=60');
+  check('compare 200 per-source', r.status === 200 && r.data.perSource && r.data.perSource.Catalog && r.data.perSource.eBay && r.data.overallPick, r.data);
+  check('compare per-source has totals and risk', r.status === 200 && r.data.perSource && Object.values(r.data.perSource).every((c) => typeof c.totalUSD === 'number' && typeof c.riskScore === 'number'), r.data);
+  // eBay watch: search for a real listing first so the itemId is live.
+  r = await get('/api/marketplace/search?q=headphones&source=ebay&limit=3');
+  const liveItem = r.status === 200 && Array.isArray(r.data.listings) && r.data.listings[0];
+  check('ebay search returns a live item for the watch test', !!liveItem, r.data);
+  if (liveItem) {
+    const target = Math.max(1, Math.floor(liveItem.priceUSD * 0.5 * 100) / 100);
+    r = await post('/api/ebay-watch', { itemId: liveItem.itemId, title: liveItem.title, priceUSD: liveItem.priceUSD, targetUSD: target, session: 'test-session-a' });
+    check('ebay-watch create 201', r.status === 201 && r.data.watch && r.data.watch.id, r.data);
+    const watchId = r.data.watch && r.data.watch.id;
+    r = await get('/api/ebay-watch?session=test-session-a');
+    check('ebay-watch list session A has it', r.status === 200 && Array.isArray(r.data.watches) && r.data.watches.some((w) => w.id === watchId), r.data);
+    r = await get('/api/ebay-watch?session=test-session-b');
+    check('ebay-watch session B does not see it', r.status === 200 && Array.isArray(r.data.watches) && !r.data.watches.some((w) => w.id === watchId), r.data);
+    r = await post('/api/ebay-watch/check?session=test-session-a', {});
+    check('ebay-watch check refreshes live price', r.status === 200 && Array.isArray(r.data.watches) && r.data.watches.some((w) => w.id === watchId && typeof w.lastPriceUSD === 'number' && w.status === 'watching'), r.data);
+    r = await fetch(BASE + '/api/ebay-watch/' + watchId + '?session=test-session-a', { method: 'DELETE' });
+    const delBody = await r.json().catch(() => ({}));
+    check('ebay-watch delete 200', r.status === 200 && delBody.ok === true, delBody);
+    r = await get('/api/ebay-watch?session=test-session-a');
+    check('ebay-watch list empty after delete', r.status === 200 && Array.isArray(r.data.watches) && !r.data.watches.some((w) => w.id === watchId), r.data);
+  }
+  // Wishlist: create, list, session isolation, delete.
+  r = await post('/api/wishlist', { title: 'Test Wish Item', priceUSD: 42.5, source: 'Catalog', productId: 'p01', session: 'test-session-a' });
+  check('wishlist create 201', r.status === 201 && r.data.entry && r.data.entry.id, r.data);
+  const wishId = r.data.entry && r.data.entry.id;
+  r = await get('/api/wishlist?session=test-session-a');
+  check('wishlist list session A has it', r.status === 200 && Array.isArray(r.data.items) && r.data.items.some((w) => w.id === wishId), r.data);
+  r = await get('/api/wishlist?session=test-session-b');
+  check('wishlist session B does not see it', r.status === 200 && Array.isArray(r.data.items) && !r.data.items.some((w) => w.id === wishId), r.data);
+  r = await fetch(BASE + '/api/wishlist/' + wishId + '?session=test-session-a', { method: 'DELETE' });
+  const wdel = await r.json().catch(() => ({}));
+  check('wishlist delete 200', r.status === 200 && wdel.ok === true, wdel);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => {
