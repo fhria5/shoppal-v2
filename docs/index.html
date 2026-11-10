@@ -38,7 +38,7 @@
     ]
   }
   </script>
-  <link rel="stylesheet" href="./styles.css?v=13">
+  <link rel="stylesheet" href="./styles.css?v=14">
   <!-- PayPal JS SDK (Sandbox). The Client ID is a public identifier, same as in the server version's /api/config. -->
   <script defer src="https://www.paypal.com/sdk/js?client-id=BAALyYZJX5wmJY824qhV5UfLMcGdKKcQXCq0gAM75j8MrwxrIuvbxcQ5BDhPvKLsBYWFrhNPGb-goDEm00&currency=USD&intent=capture"></script>
 </head>
@@ -89,18 +89,6 @@
         <p class="fineprint">ShopPal v2: PayPal AI Hackathon. Scores are a decision aid, not a PayPal guarantee. Product photos are AI-generated illustrations of generic demo products, not real listings.</p>
       </div>
 
-      <aside class="sidebar" aria-label="Live status">
-        <div class="side-card">
-          <h2>Live status</h2>
-          <p><span class="score score-emerald">● Sandbox · Online</span></p>
-          <p id="side-health">PayPal Sandbox API · no real money moves.</p>
-        </div>
-        <div class="side-card">
-          <h2>Guardrails</h2>
-          <p class="big num" id="side-guardrail">$20.00</p>
-          <p>Auto-approve limit. Above $20.00 the agent stops and asks you first.</p>
-        </div>
-      </aside>
     </div>
   </div>
   <div id="toast-root" class="toast-root" aria-live="polite" aria-label="Notifications"></div>
@@ -123,6 +111,6 @@
       <div class="modal-body" id="vault-body"></div>
     </div>
   </div>
-  <script src="./app.js?v=32"></script>
+  <script src="./app.js?v=33"></script>
 </body>
 </html>
