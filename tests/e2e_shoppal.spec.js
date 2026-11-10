@@ -348,5 +348,33 @@ test.describe('ShopPal v2 — core user flows', () => {
     expect(liveImg).toBe(0);
     expect(pageErrors).toEqual([]);
   });
+
+  test('deals: best deal verdict + compare + wishlist save/list', async ({ page }) => {
+    const pageErrors = [];
+    page.on('pageerror', (err) => pageErrors.push(String(err)));
+
+    await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+    // Best Deal: a verdict bubble with a Buy button.
+    await page.fill('#ask', 'best deal headphones under $60');
+    await page.click('#ask-btn');
+    await expect(page.locator('#bestdeal-buy')).toBeVisible({ timeout: 20000 });
+    const verdict = await page.locator('#chat').innerText();
+    expect(verdict).toContain('Best deal');
+    // Compare: a per-source bubble with a Best overall marker.
+    await page.fill('#ask', 'compare headphones');
+    await page.click('#ask-btn');
+    await expect(page.locator('#chat')).toContainText('Compare sources', { timeout: 20000 });
+    expect(await page.locator('#chat').innerText()).toContain('Best overall');
+    // Wishlist: open a catalog product, save it, list it from chat.
+    await page.click('#catalog-toggle');
+    await page.locator('.product-card').first().click();
+    await expect(page.locator('#save-wishlist-btn')).toBeVisible({ timeout: 15000 });
+    await page.click('#save-wishlist-btn');
+    await expect(page.locator('#chat')).toContainText('wishlist', { timeout: 15000 });
+    await page.fill('#ask', 'my wishlist');
+    await page.click('#ask-btn');
+    await expect(page.locator('#chat')).toContainText('Your wishlist', { timeout: 15000 });
+    expect(pageErrors).toEqual([]);
+  });
 });
 
