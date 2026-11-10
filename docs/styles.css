@@ -475,6 +475,31 @@ button:active:not(:disabled) { transform: translateY(1px); }
 .quick-demo-label { font-size: 0.8rem; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
 .quick-chip { padding: 0.7rem 0.9rem; min-height: 48px; font-size: 0.85rem; }
 
+
+/* Featured tools row: Best Deal / Compare / Wishlist / Price Watch were
+   hidden behind chat commands judges never typed, so they get one-tap
+   chips of their own, next to the Demo row. */
+.feature-demo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+  width: 100%;
+  max-width: 840px;
+  margin: 0 auto;
+  padding: 0.6rem 1rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+.feature-chip { padding: 0.7rem 0.9rem; min-height: 48px; font-size: 0.85rem; }
+/* The Proof Vault lived behind an unlabeled shield icon; the label makes
+   the headline feature findable. */
+#vault-btn { width: auto; padding: 0 12px; gap: 6px; }
+.vault-label { font-size: 0.85rem; font-weight: 600; }
+
+/* Marketplace fallback photo (eBay sandbox listings have no image):
+   a generic category illustration, rendered slightly muted. */
+.mp-fallback-img { filter: saturate(0.6); opacity: 0.85; }
 /* Composer: input + send, pinned to the bottom. */
 .composer {
   display: flex;
