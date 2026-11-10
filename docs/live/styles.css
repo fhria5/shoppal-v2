@@ -1309,3 +1309,40 @@ body.modal-open { overflow: hidden; }
   .modal-overlay { align-items: flex-end; padding: 0; }
   .modal { max-width: none; border-radius: 16px 16px 0 0; max-height: 85dvh; }
 }
+
+/* Bottom navigation: mobile only (<= 920px). One-tap reach for the four
+   headline tools plus Chat: the same actions as the Try chips above the
+   composer, placed where the thumb already rests. Desktop keeps the
+   header and chips and never shows this bar. */
+.bottom-nav { display: none; }
+@media (max-width: 920px) {
+  .bottom-nav {
+    display: flex;
+    flex: 0 0 auto;
+    height: calc(60px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: #ffffff;
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -2px 8px rgba(15, 23, 42, 0.06);
+  }
+  .nav-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    min-height: 60px;
+    padding: 6px 2px;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1.1;
+    cursor: pointer;
+  }
+  .nav-btn svg { width: 22px; height: 22px; }
+  .nav-btn.active { color: var(--blue); }
+}
