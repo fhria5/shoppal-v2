@@ -107,17 +107,14 @@ body {
 }
 .header-badges { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
 
-/* Two-column layout on desktop: chat + live-status sidebar. */
+/* Single-column layout: the chat takes the full width. The right
+   sidebar was removed (its Live status + Guardrails cards duplicated the
+   header badges), so there is no two-column grid any more. */
 .layout { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .chat-col { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.sidebar { display: none; }
 @media (min-width: 1024px) {
   .layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 300px;
-    gap: 1rem;
     padding: 1rem;
-    align-items: start;
   }
   .chat-col {
     min-height: 0;
@@ -127,24 +124,6 @@ body {
     box-shadow: var(--shadow-sm);
     overflow: hidden;
   }
-  .sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    position: sticky;
-    top: 76px;
-  }
-  .side-card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-sm);
-    padding: 0.9rem 1rem;
-    animation: card-in 0.3s ease-out;
-  }
-  .side-card h2 { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 0.5rem; }
-  .side-card p { margin: 0.3rem 0; font-size: 0.9rem; color: var(--muted); }
-  .side-card .big { font-size: 1.4rem; font-weight: 800; color: var(--ink); }
 }
 
 /* Messages */
@@ -614,10 +593,9 @@ body {
     white-space: nowrap;
 }
 
-/* 3. Layout: single column by default; the 2-column desktop grid
-   (chat + 350px sidebar) lives in the >=1024px block below. An
-   unconditional 2-column grid used to squeeze the chat on 921-1023px
-   viewports (e.g. a phone in desktop mode). */
+/* 3. Layout: single column at every width. (An unconditional
+   2-column grid used to squeeze the chat on 921-1023px viewports, e.g. a
+   phone in desktop mode; the sidebar that caused it is gone.) */
 .layout {
     display: flex;
     flex-direction: column;
@@ -918,47 +896,8 @@ button.product-card .seller {
     background: transparent !important;
 }
 
-/* 7. Sidebar Kanan Desktop */
-.sidebar {
-    background: #ffffff;
-    border-left: 1px solid var(--border-subtle);
-    padding: 1.15rem;
-    height: 100%;
-    overflow-y: auto;
-    display: none;
-    flex-direction: column;
-    gap: 0.85rem;
-    /* The desktop media query made it sticky; inside the fixed-height
-       grid it is a plain scrolling column. */
-    position: static !important;
-    top: auto !important;
-}
-
-/* Two-column desktop layout (chat + sidebar) only at >=1024px.
-   Sidebar is 300px: wide enough for the status cards, narrow enough
-   that the chat keeps the room. */
-@media (min-width: 1024px) {
-    .layout {
-        display: grid !important;
-        grid-template-columns: minmax(0, 1fr) 300px !important;
-    }
-    .sidebar {
-        display: flex !important;
-    }
-    /* The header toggle hides the sidebar: one column, chat full width. */
-    .layout.no-sidebar {
-        grid-template-columns: minmax(0, 1fr) !important;
-    }
-    .layout.no-sidebar .sidebar {
-        display: none !important;
-    }
-}
-/* The sidebar toggle only exists on desktop: below 1024px there is no
-   sidebar to toggle. */
-#sidebar-toggle { display: none; }
-@media (min-width: 1024px) {
-    #sidebar-toggle { display: inline-flex; }
-}
+/* (The right sidebar was removed: its cards duplicated the header
+   badges. The layout is one column at every width.) */
 
 /* All demo chips visible in rows instead of a clipped scroll row,
    from tablet widths up; phones keep the horizontal scroll. */
@@ -1045,11 +984,6 @@ button.product-card .seller {
         min-height: 0 !important;
         height: auto !important;
         overflow: hidden !important;
-    }
-
-    /* Sembunyikan sidebar sekunder di mobile agar fokus pada ruang chat */
-    .sidebar {
-        display: none !important;
     }
 
     .chat-col {
