@@ -2627,6 +2627,25 @@
     // pattern as Settings); Escape or a tap on the backdrop closes it.
     var vaultBtn = $('vault-btn');
     if (vaultBtn) vaultBtn.addEventListener('click', function () { openVault(); });
+    // Sidebar toggle (desktop only): hide the right sidebar so the chat
+    // takes the full width, or bring it back. Choice persists per browser.
+    (function () {
+      var toggle = $('sidebar-toggle');
+      var layout = document.querySelector('.layout');
+      if (!toggle || !layout) return;
+      var hidden = false;
+      try { hidden = localStorage.getItem('shoppal-sidebar') === 'hidden'; } catch (e) { /* private mode */ }
+      var apply = function () {
+        layout.classList.toggle('no-sidebar', hidden);
+        toggle.setAttribute('aria-pressed', String(!hidden));
+      };
+      apply();
+      toggle.addEventListener('click', function () {
+        hidden = !hidden;
+        try { localStorage.setItem('shoppal-sidebar', hidden ? 'hidden' : 'shown'); } catch (e) { /* private mode */ }
+        apply();
+      });
+    })();
     var vaultClose = $('vault-close');
     if (vaultClose) vaultClose.addEventListener('click', function () { closeVault(); });
     var vaultOverlay = $('vault-overlay');
