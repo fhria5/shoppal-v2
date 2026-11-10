@@ -95,6 +95,26 @@ async function get(path) {
     const lastSplit = r.data.splitPayment;
     check('split p01 reply names the product and the $20 share', typeof r.data.reply === 'string' && r.data.reply.includes('Aurora Wireless Headphones') && r.data.reply.includes('$20'), r.data.reply);
 
+    // Regression (10 Nov 2026): the same split WITHOUT a category word
+    // ("split p01 with Budi and Sari") used to fall through the
+    // agentFallback hasIntent gate and answer with the generic reply.
+    // The split branch must resolve the product by ID.
+    r = await post('/api/agent', { message: 'split p01 with Budi and Sari', lang: 'en' });
+    check('split p01 without category returns 200', r.status === 200, r.data);
+    check('split p01 without category has a splitPayment', Boolean(r.data.splitPayment && r.data.splitPayment.links), r.data.splitPayment);
+    check('split p01 without category productId is p01', r.data.splitPayment && r.data.splitPayment.productId === 'p01', r.data.splitPayment);
+    check('split p01 without category share is $20.00', r.data.splitPayment && r.data.splitPayment.share === 20, r.data.splitPayment);
+    check('split p01 without category creates 2 friend links', r.data.splitPayment && Array.isArray(r.data.splitPayment.links) && r.data.splitPayment.links.length === 2, r.data.splitPayment && r.data.splitPayment.links);
+
+    // Edge cases: an unknown ID must NOT silently split p01, and a split
+    // with no product at all must ask which product instead of guessing.
+    r = await post('/api/agent', { message: 'split p99 with Budi and Sari', lang: 'en' });
+    check('split p99 does not create a splitPayment', !r.data.splitPayment, r.data.splitPayment);
+    check('split p99 says no matching product', typeof r.data.reply === 'string' && r.data.reply.includes('could not find a matching product'), r.data.reply);
+    r = await post('/api/agent', { message: 'split with Budi and Sari', lang: 'en' });
+    check('split with no product does not create a splitPayment', !r.data.splitPayment, r.data.splitPayment);
+    check('split with no product asks which product', typeof r.data.reply === 'string' && r.data.reply.includes('Which product do you want to split'), r.data.reply);
+
     // "Lanjut checkout bagian saya" with the split session: the agent must
     // check out the user's own share ($19.99) of p01 — not search.
     r = await post('/api/agent', { message: 'lanjut checkout bagian saya', lang: 'id', lastSplit });
