@@ -742,31 +742,9 @@
     });
   }
 
-  // Marketplace source: eBay or Etsy. Persisted per browser; the
-  // automatic search after every Ask uses it, and the toggle in the
-  // results bubble switches it (re-running the last search with the new
-  // source). Listings already carry their own marketplace name, so the
-  // card, the selection and the checkout all read it from the listing.
-  var MP_SOURCE_KEY = 'shoppal-mp-source';
-  function getMpSource() {
-    try {
-      var s = localStorage.getItem(MP_SOURCE_KEY);
-      return s === 'etsy' ? 'etsy' : 'ebay';
-    } catch (e) { return 'ebay'; }
-  }
-  var mpSource = getMpSource();
+  // Marketplace source is eBay only now: the Etsy app was banned, so
+  // the Etsy adapter has no key and the toggle is gone.
   var lastMpQuery = null;
-  function mpSourceName() { return mpSource === 'etsy' ? 'Etsy' : 'eBay'; }
-  function mpSourceToggleHtml() {
-    return '<span class="mp-source-toggle">' +
-      '<button type="button" class="chip mp-source-btn' + (mpSource === 'ebay' ? ' active' : '') + '" data-mp-source="ebay">eBay</button>' +
-      '<button type="button" class="chip mp-source-btn' + (mpSource === 'etsy' ? ' active' : '') + '" data-mp-source="etsy">Etsy</button>' +
-      '</span>';
-  }
-  function setMpSource(next) {
-    mpSource = next === 'etsy' ? 'etsy' : 'ebay';
-    try { localStorage.setItem(MP_SOURCE_KEY, mpSource); } catch (e) { /* ignore */ }
-  }
   // Marketplace keyword: eBay searches by keyword, so the user's full
   // sentence ("headphones under $60", "find a mug") returns nothing
   // while the bare word ("headphones", "mug") returns listings. Prefer
@@ -784,7 +762,7 @@
 
   async function fetchMarketplace() {
     var mq = lastMpQuery || { q: '', lang: 'en', maxPrice: null, cheapest: false };
-    var mpParams = new URLSearchParams({ q: mq.q, lang: mq.lang, source: mpSource });
+    var mpParams = new URLSearchParams({ q: mq.q, lang: mq.lang, source: 'ebay' });
     if (mq.maxPrice !== null && mq.maxPrice !== undefined) mpParams.set('maxPrice', mq.maxPrice);
     if (mq.cheapest) mpParams.set('cheapest', 'true');
     var mpRes = await fetch(API_BASE + '/api/marketplace/search?' + mpParams.toString());
@@ -794,32 +772,17 @@
     var header = bubble.querySelector('.mp-header');
     var note = bubble.querySelector('.mp-note');
     var cards = bubble.querySelector('.cards');
-    if (header) header.innerHTML = '<strong>' + t('mpHeader') + '</strong> ' + mpSourceToggleHtml();
+    if (header) header.innerHTML = '<strong>' + t('mpHeader') + '</strong>';
     if (note) note.textContent = mp.note || '';
     if (cards) {
       if (mp.configured && mp.listings && mp.listings.length) {
         renderMarketplaceInto(cards, mp.listings);
       } else if (mp.configured) {
-        cards.innerHTML = '<p class="hint">' + escapeHtml(fmt(t('mpNone'), { mp: mpSourceName() })) + '</p>';
+        cards.innerHTML = '<p class="hint">' + escapeHtml(fmt(t('mpNone'), { mp: 'eBay' })) + '</p>';
       } else {
         cards.innerHTML = '';
       }
     }
-    wireMpSourceToggle(bubble);
-  }
-  function wireMpSourceToggle(bubble) {
-    var btns = bubble.querySelectorAll('[data-mp-source]');
-    btns.forEach(function (btn) {
-      btn.addEventListener('click', async function () {
-        var next = btn.getAttribute('data-mp-source');
-        if (next === mpSource) return;
-        setMpSource(next);
-        try {
-          var mp = await fetchMarketplace();
-          renderMpIntoBubble(bubble, mp);
-        } catch (e) { /* a failed switch leaves the old results in place */ }
-      });
-    });
   }
 
   function marketplaceCardHtml(l) {
@@ -1597,11 +1560,10 @@
       (data.understood && data.understood.aiParsed ? ' ' + t('parsedByAI') : '') + '</p>' +
       '<div class="cards"></div>');
     renderCatalogInto(resultsBubble.querySelector('.cards'), products);
-    // Real marketplace search, same query. Runs after the demo
-    // catalog reply so the Ask answer never waits on the marketplace.
-    // The bubble always appears, with the eBay/Etsy toggle, so the
-    // source choice is visible even when a source is not configured
-    // yet (its note explains the missing key).
+    // Real marketplace search (eBay only), same query. Runs after the
+    // demo catalog reply so the Ask answer never waits on the marketplace.
+    // The bubble always appears, even when eBay is not configured yet
+    // (its note explains the missing key).
     lastMpQuery = {
       q: marketplaceKeyword(q, data.understood && data.understood.category), lang: lang,
       maxPrice: (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) ? data.understood.maxPrice : null,
@@ -1611,7 +1573,7 @@
       var mp = await fetchMarketplace();
       hideTyping(typing);
       var mpBubble = addBubble('agent',
-        '<p class="mp-header"><strong>' + t('mpHeader') + '</strong> ' + mpSourceToggleHtml() + '</p>' +
+        '<p class="mp-header"><strong>' + t('mpHeader') + '</strong></p>' +
         '<p class="hint mp-note"></p>' +
         '<div class="cards"></div>', 'marketplace');
       renderMpIntoBubble(mpBubble, mp);
