@@ -1345,7 +1345,7 @@
       var bubble = addBubble('agent', html);
       bubble.querySelectorAll('[data-unwatch]').forEach(function (btn) {
         btn.addEventListener('click', async function () {
-          await fetch(API_BASE + '/api/ebay-watch/' + btn.getAttribute('data-unwatch') + '?session=' + encodeURIComponent(getSessionId()), { method: 'DELETE' });
+          await fetch(API_BASE + '/api/ebay-watch/delete?session=' + encodeURIComponent(getSessionId()), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: btn.getAttribute('data-unwatch') }) });
           bubble.remove();
           listWatches();
         });
@@ -1396,7 +1396,7 @@
       var bubble = addBubble('agent', html);
       bubble.querySelectorAll('[data-unwish]').forEach(function (btn) {
         btn.addEventListener('click', async function () {
-          await fetch(API_BASE + '/api/wishlist/' + btn.getAttribute('data-unwish') + '?session=' + encodeURIComponent(getSessionId()), { method: 'DELETE' });
+          await fetch(API_BASE + '/api/wishlist/delete?session=' + encodeURIComponent(getSessionId()), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: btn.getAttribute('data-unwish') }) });
           bubble.remove();
           listWishlist();
         });
