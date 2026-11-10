@@ -2525,6 +2525,13 @@ async function runAgentLoop(message, lang, ctx) {
   if (isCheckoutContinuation(message)) {
     return agentCheckoutContinuation(message, lang, ctx);
   }
+  // Split intent ("patungan headphone sama Budi dan Sari") is deterministic
+  // too: the model invents placeholder friends instead of asking for names,
+  // so the rules parse the friends, ask when none are given, and create
+  // the payment links. agentFallback's split branch does exactly that.
+  if (/\b(patungan|split|bagi rata|bagi-bagi)\b/.test(message.toLowerCase())) {
+    return agentFallback(message, lang, ctx);
+  }
   // Tell the model about the active session, so even the model path (when
   // the bypass above does not apply) never re-searches the catalog for a
   // product the user is already working on.
@@ -2578,16 +2585,24 @@ async function runAgentLoop(message, lang, ctx) {
     if (decision.action === 'ask_approval') {
       const p = productsById.get(String(decision.productId || ''));
       if (!p) {
-        return { reply: String(decision.text || ''), steps, aiUsed: true };
+        const out0 = { reply: String(decision.text || ''), steps, aiUsed: true };
+        if (splitData) out0.splitPayment = splitData;
+        if (watchData) out0.watch = watchData;
+        if (watchesData) out0.watches = watchesData;
+        return out0;
       }
       const total = calculateTotalCost(p.priceUSD, true, true, lang);
-      return {
+      const out = {
         reply: String(decision.text || ''),
         steps,
         needsApproval: true,
         pendingOrder: { productId: p.id, totalUSD: total.total, name: p.name },
         aiUsed: true,
       };
+      if (splitData) out.splitPayment = splitData;
+      if (watchData) out.watch = watchData;
+      if (watchesData) out.watches = watchesData;
+      return out;
     }
     if (!['search_products', 'get_risk_score', 'get_total_cost', 'get_hold_risk', 'check_guardrails', 'create_order', 'get_vault', 'simulate_dispute', 'price_watch', 'check_price_watch', 'list_price_watches', 'split_payment_link', 'track_and_dispute', 'check_delivery'].includes(decision.action)) {
       messages.push({ role: 'assistant', content: JSON.stringify(decision) });
