@@ -1246,6 +1246,12 @@ button.product-card .seller {
   box-shadow: 0 12px 40px rgba(11, 19, 43, 0.25);
 }
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+/* Desktop: the modal is wider, so it does not sit as a narrow strip in
+   the middle of a wide screen. Phones keep the full-width bottom sheet
+   from the <=920px block below. */
+@media (min-width: 921px) {
+  .modal { max-width: 840px; }
+}
 .modal-head h2 { margin: 0; font-size: 1.25rem; }
 .modal-body { margin-top: 0.5rem; }
 .set-section { padding: 0.9rem 0; border-top: 1px solid var(--border); }
