@@ -614,10 +614,13 @@ body {
     white-space: nowrap;
 }
 
-/* 3. Layout 2 Kolom Desktop */
+/* 3. Layout: single column by default; the 2-column desktop grid
+   (chat + 350px sidebar) lives in the >=1024px block below. An
+   unconditional 2-column grid used to squeeze the chat on 921-1023px
+   viewports (e.g. a phone in desktop mode). */
 .layout {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 350px !important;
+    display: flex;
+    flex-direction: column;
     gap: 0 !important;
     margin-top: 0 !important;
     padding: 0 !important;
@@ -922,13 +925,42 @@ button.product-card .seller {
     padding: 1.15rem;
     height: 100%;
     overflow-y: auto;
-    display: flex;
+    display: none;
     flex-direction: column;
     gap: 0.85rem;
     /* The desktop media query made it sticky; inside the fixed-height
        grid it is a plain scrolling column. */
     position: static !important;
     top: auto !important;
+}
+
+/* Two-column desktop layout (chat + sidebar) only at >=1024px. */
+@media (min-width: 1024px) {
+    .layout {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) 350px !important;
+    }
+    .sidebar {
+        display: flex !important;
+    }
+}
+
+/* All demo chips visible in rows instead of a clipped scroll row,
+   from tablet widths up; phones keep the horizontal scroll. */
+@media (min-width: 921px) {
+    .quick-demo {
+        flex-wrap: wrap !important;
+        overflow-x: visible !important;
+    }
+}
+
+/* Below 1100px the long header pills overflow and overlap the
+   identity (seen at 980-1024px). Keep only the compact Live badge. */
+@media (max-width: 1100px) {
+    #health-badge,
+    .header-badges .sandbox-badge:not(#live-status) {
+        display: none !important;
+    }
 }
 
 .side-card {
