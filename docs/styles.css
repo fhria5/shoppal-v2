@@ -114,7 +114,7 @@ body {
 @media (min-width: 1024px) {
   .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
+    grid-template-columns: minmax(0, 1fr) 300px;
     gap: 1rem;
     padding: 1rem;
     align-items: start;
@@ -934,15 +934,30 @@ button.product-card .seller {
     top: auto !important;
 }
 
-/* Two-column desktop layout (chat + sidebar) only at >=1024px. */
+/* Two-column desktop layout (chat + sidebar) only at >=1024px.
+   Sidebar is 300px: wide enough for the status cards, narrow enough
+   that the chat keeps the room. */
 @media (min-width: 1024px) {
     .layout {
         display: grid !important;
-        grid-template-columns: minmax(0, 1fr) 350px !important;
+        grid-template-columns: minmax(0, 1fr) 300px !important;
     }
     .sidebar {
         display: flex !important;
     }
+    /* The header toggle hides the sidebar: one column, chat full width. */
+    .layout.no-sidebar {
+        grid-template-columns: minmax(0, 1fr) !important;
+    }
+    .layout.no-sidebar .sidebar {
+        display: none !important;
+    }
+}
+/* The sidebar toggle only exists on desktop: below 1024px there is no
+   sidebar to toggle. */
+#sidebar-toggle { display: none; }
+@media (min-width: 1024px) {
+    #sidebar-toggle { display: inline-flex; }
 }
 
 /* All demo chips visible in rows instead of a clipped scroll row,
