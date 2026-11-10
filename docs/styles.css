@@ -1313,13 +1313,12 @@ body.modal-open { overflow: hidden; }
   .modal { max-width: none; border-radius: 16px 16px 0 0; max-height: 85dvh; }
 }
 
-/* Bottom navigation: up to 1024px, so it also shows on phones in
-   desktop-site mode. One-tap reach for the four headline tools plus
-   Chat: the same actions as the Try chips above the composer, placed
-   where the thumb already rests. Desktop keeps the header and chips
-   and never shows this bar. */
+/* Bottom navigation: mobile only (<= 920px). One-tap reach for the four
+   headline tools plus Chat: the same actions as the Try chips above the
+   composer, placed where the thumb already rests. Desktop keeps the
+   header and chips and never shows this bar. */
 .bottom-nav { display: none; }
-@media (max-width: 1024px) {
+@media (max-width: 920px) {
   .bottom-nav {
     display: flex;
     flex: 0 0 auto;
