@@ -247,7 +247,7 @@ Every line in the UI is labelled "estimated". These are public fee figures used 
 | `GET /api/catalog` | Demo catalog (sellers + products). |
 | `POST /api/risk-score` | `{ sellerId, productId }` → score, label, components, 3 reasons, recommendation, comparison, scam-pattern warning, before-you-pay checklist. |
 | `POST /api/hold-risk` | `{ sellerId, productId }` → hold-risk score, label (Low/Moderate/High), estimated chance, reasons, tip. |
-| `GET /api/ask?q=` | Plain-language search (English or Indonesian: category, budget or range, cheapest/best/safest, seller, returns/tracking) → products sorted by the ranking asked for. Follow-ups ("yang termurah", "yang pertama") refer to the last results via `&context=`. With `VYCE_API_KEY` set, the intent is parsed by AI (Vyce/DeepSeek) with the regex parser as fallback; `aiParsed` says which one ran. |
+| `GET /api/ask?q=` | Plain-language search in English (the API also accepts Indonesian queries) → products sorted by the ranking asked for. Follow-ups refer to the last results via `&context=`. With an AI key set, the intent is parsed by AI (Gemini first, then Groq, then Vyce/DeepSeek) with the regex parser as fallback; `aiParsed` says which one ran. |
 | `POST /api/agent` | Pay Agent: server-driven loop (max 5 steps), tools `search_products`, `get_risk_score`, `get_total_cost`, `get_hold_risk`, `check_guardrails`, `create_order`, `get_vault`, `simulate_dispute`, `price_watch`, `check_price_watch`, `list_price_watches`, `split_payment_link`, `track_and_dispute`. Guardrails enforced server-side; the agent never captures. |
 | `GET /api/subscriptions` | Recurring purchases found in the Proof Vault (same product bought 2+ times). |
 | `POST /api/total-cost` | `{ priceUSD, international, currencyConversion }` → fee breakdown, total, and trouble-costs (chargeback/dispute/refund/instant transfer/micropayments) + Buyer Protection note. |
@@ -284,7 +284,7 @@ Two features are client-side (no server endpoint, they reuse the vault and the e
 ## UI / UX & accessibility
 
 - **FinTech design system:** soft background `#F8FAFC`, white cards with `1px solid #E2E8F0` borders and layered shadows, PayPal navy `#003087` + blue `#0070BA` accents. Inter / system-ui for UI, tabular-nums + monospace for money, Order IDs and JSON.
-- **Layout:** 2 columns on desktop (chat + live-status sidebar), 1 column on mobile, sticky header with a live status badge fed by `GET /api/health`.
+- **Layout:** 1 column everywhere (the live-status sidebar was removed 10 Nov 2026, its content duplicated the header badges), sticky header with a live status badge fed by `GET /api/health`.
 - **Guardrail callout:** amber warning box with a shield, the reason, and Approve / Reject buttons.
 - **Split card:** breakdown (Total → friend share + initiatorShare), emerald `CREATED` badge, nominal amount badge per participant, "Open PayPal Sandbox" + "Copy Link" (toast + "✓ Copied!").
 - **Dispute card:** status summary (`OPEN` · `INQUIRY` · `PP-D-…`) above a dark code block with a "Copy JSON" button.
