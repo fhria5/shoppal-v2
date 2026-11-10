@@ -240,6 +240,17 @@
       cmpVerdictBoth: 'Safer and cheapest: {safer} ({score}/100).',
       cmpVerdictSplit: 'Safer: {safer} ({score}/100). Cheapest: {cheaper} ({price}, saves {saves}).',
       cmpPick: 'Pick two products to compare.',
+      bestDealTitle: 'Best deal', bestDealVerdict: 'Best deal',
+      bestDealRunner: 'Also worth a look', bestDealNone: 'No deal found for that search.',
+      bestDealBuy: 'Buy this deal', compareTitle: 'Compare sources', compareOverall: 'Best overall',
+      viewOnEbay: 'View on eBay',
+      simNote: 'Sandbox simulation: this creates a PayPal Sandbox order for the listing total. It does <strong>not</strong> buy the {mp} item, it proves the total and saves the proof.',
+      saveBtn: 'Save to wishlist', savedMsg: 'Saved to your wishlist.',
+      watchesTitle: 'My price watches', noWatches: 'No price watches yet. Watch a price from an eBay listing in the live demo.',
+      dropBadge: 'PRICE DROP', goneBadge: 'GONE', currentPrice: 'Current:', watchTarget: 'Target:',
+      removeBtn: 'Remove', checkPricesBtn: 'Check prices now', checkedMsg: 'Prices checked. No drops below target.',
+      wishlistTitle: 'My wishlist', noWishlist: 'Wishlist is empty. Save a product from its checkout step.',
+      dealBadge: 'DEAL', savedPrice: 'Saved at:',
       cmpSelected: '{n}/2 selected', cmpCompareBtn: 'Compare', cmpClear: 'Clear',
       budTitle: 'Monthly budget', budSet: 'Set monthly budget (USD)',
       budSave: 'Save', budSpent: 'Spent this month: {spent} of {budget} ({pct}%)',
@@ -445,6 +456,17 @@
       cmpVerdictBoth: 'Paling aman dan termurah: {safer} ({score}/100).',
       cmpVerdictSplit: 'Paling aman: {safer} ({score}/100). Termurah: {cheaper} ({price}, hemat {saves}).',
       cmpPick: 'Pilih dua produk untuk dibandingkan.',
+      bestDealTitle: 'Penawaran terbaik', bestDealVerdict: 'Penawaran terbaik',
+      bestDealRunner: 'Juga layak dilihat', bestDealNone: 'Tidak ada penawaran untuk pencarian itu.',
+      bestDealBuy: 'Beli penawaran ini', compareTitle: 'Bandingkan sumber', compareOverall: 'Terbaik keseluruhan',
+      viewOnEbay: 'Lihat di eBay',
+      simNote: 'Simulasi sandbox: ini membuat order PayPal Sandbox sebesar total listing. Ini <strong>tidak</strong> membeli barang {mp}, hanya membuktikan total dan menyimpan bukti.',
+      saveBtn: 'Simpan ke wishlist', savedMsg: 'Disimpan ke wishlist.',
+      watchesTitle: 'Pantauan harga saya', noWatches: 'Belum ada pantauan harga. Pantau harga dari listing eBay di demo live.',
+      dropBadge: 'HARGA TURUN', goneBadge: 'HILANG', currentPrice: 'Saat ini:', watchTarget: 'Target:',
+      removeBtn: 'Hapus', checkPricesBtn: 'Cek harga sekarang', checkedMsg: 'Harga sudah dicek. Tidak ada yang turun di bawah target.',
+      wishlistTitle: 'Wishlist saya', noWishlist: 'Wishlist masih kosong. Simpan produk dari langkah checkout-nya.',
+      dealBadge: 'DEAL', savedPrice: 'Disimpan di:',
       cmpSelected: '{n}/2 dipilih', cmpCompareBtn: 'Bandingkan', cmpClear: 'Bersihkan',
       budTitle: 'Budget bulanan', budSet: 'Atur budget bulanan (USD)',
       budSave: 'Simpan', budSpent: 'Belanja bulan ini: {spent} dari {budget} ({pct}%)',
@@ -543,6 +565,23 @@
   }
   function saveGuardrailsLocal(g) {
     try { localStorage.setItem(GUARDRAILS_KEY, JSON.stringify(g)); } catch (e) { /* private mode */ }
+  }
+
+  // Session id: one random id per browser, kept in localStorage. It is
+  // sent with every wishlist / watch read-write so the server only returns
+  // this browser's own entries. Same key as the live demo, so both demos
+  // on this origin share one wishlist and one watch list.
+  function getSessionId() {
+    try {
+      var s = localStorage.getItem('shoppal-session');
+      if (!s) {
+        s = (window.crypto && crypto.randomUUID)
+          ? crypto.randomUUID()
+          : ('s-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10));
+        localStorage.setItem('shoppal-session', s);
+      }
+      return s;
+    } catch (e) { return 'no-session'; }
   }
 
   // Settings modal (gear in the header): language, monthly budget, smart
@@ -1949,6 +1988,191 @@
     sendAsk();
   }
 
+  // Best Deal / Compare / Wishlist / eBay watch: the same features as the
+  // live demo, backed by the Worker. A catalog pick opens the static
+  // demo's own checkout; a marketplace pick buys through the Worker
+  // (Sandbox simulation, labelled in the UI).
+  function renderBestDeal(d) {
+    if (!d.pick) {
+      addBubble('agent', '<p><strong>' + t('bestDealTitle') + '</strong></p><p>' + t('bestDealNone') + '</p>');
+      return;
+    }
+    var p = d.pick;
+    var zone = (p.riskLabel || 'Caution').toLowerCase();
+    var html = '<p><strong>' + t('bestDealVerdict') + '</strong> · ' + escapeHtml(p.title) + '</p>' +
+      '<p>' + escapeHtml(d.verdict || '') + '</p>' +
+      '<p><span class="score score-' + zone + '">' + p.riskScore + '/100 · ' + p.riskLabel + '</span> · ' + p.source + ' · ' + escapeHtml(p.sellerName) + '</p>' +
+      '<p><strong>' + t('honestTotal') + '</strong>, ' + money(p.totalUSD) + ' (' + t('itemPrice') + ' ' + money(p.priceUSD) + ')</p>' +
+      '<p class="hint">' + escapeHtml(d.reason || '') + '</p>' +
+      '<p><button type="button" class="btn-primary" id="bestdeal-buy">' + t('bestDealBuy') + '</button></p>';
+    if (d.runnersUp && d.runnersUp.length) {
+      html += '<p><strong>' + t('bestDealRunner') + '</strong></p><ul>' +
+        d.runnersUp.map(function (r) {
+          var rz = (r.riskLabel || 'Caution').toLowerCase();
+          return '<li>' + escapeHtml(r.title) + ' · ' + money(r.totalUSD) + ' all-in · ' + r.source +
+            ' · <span class="score score-' + rz + '">' + r.riskScore + '/100</span></li>';
+        }).join('') + '</ul>';
+    }
+    var bubble = addBubble('agent', html);
+    var buyBtn = bubble.querySelector('#bestdeal-buy');
+    if (buyBtn) buyBtn.addEventListener('click', function () { openDealCandidate(p); });
+  }
+  function renderCompare(d) {
+    var entries = Object.keys(d.perSource || {}).map(function (src) { return d.perSource[src]; });
+    if (!entries.length) {
+      addBubble('agent', '<p><strong>' + t('compareTitle') + '</strong></p><p>' + t('bestDealNone') + '</p>');
+      return;
+    }
+    var overallId = d.overallPick ? (d.overallPick.kind + ':' + d.overallPick.id) : null;
+    var html = '<p><strong>' + t('compareTitle') + '</strong></p>' +
+      entries.map(function (c) {
+        var zone = (c.riskLabel || 'Caution').toLowerCase();
+        var isOverall = overallId && (c.kind + ':' + c.id) === overallId;
+        return '<p>' + (isOverall ? '<strong>' + t('compareOverall') + ' · </strong>' : '') +
+          '<strong>' + escapeHtml(c.source) + '</strong> · ' + escapeHtml(c.title) + '<br>' +
+          money(c.priceUSD) + ' · ' + money(c.totalUSD) + ' all-in · ' + escapeHtml(c.sellerName) + '<br>' +
+          '<span class="score score-' + zone + '">' + c.riskScore + '/100 · ' + c.riskLabel + '</span></p>';
+      }).join('') +
+      '<p><button type="button" class="btn-primary" id="compare-buy">' + t('bestDealBuy') + '</button></p>';
+    var bubble = addBubble('agent', html);
+    var buyBtn = bubble.querySelector('#compare-buy');
+    if (buyBtn && d.overallPick) buyBtn.addEventListener('click', function () { openDealCandidate(d.overallPick); });
+    else if (buyBtn) buyBtn.remove();
+  }
+  // Open a deal candidate: a catalog product goes through the static
+  // demo's own checkout; a marketplace listing buys through the Worker.
+  function openDealCandidate(c) {
+    if (!c) return;
+    if (c.kind === 'catalog') {
+      var p = CATALOG.products.find(function (x) { return x.id === c.id; });
+      if (p) selectProduct(p);
+      return;
+    }
+    buyMarketplaceDeal(c);
+  }
+  // Buy a marketplace listing through the Worker: creates a PayPal Sandbox
+  // order for the listing total (a simulation, labelled), then opens the
+  // PayPal approval page, the same as the agent does.
+  async function buyMarketplaceDeal(c) {
+    var body = {
+      marketplace: {
+        marketplace: c.source || 'eBay', itemId: c.id, title: c.title,
+        priceUSD: c.priceUSD, itemUrl: c.itemUrl || null, image: c.image || null,
+        sellerName: c.sellerName || 'Unknown seller',
+        riskScore: { score: c.riskScore, label: c.riskLabel },
+      },
+      totalUSD: c.totalUSD, international: true, currencyConversion: true,
+    };
+    try {
+      var res = await fetch(WORKER_API + '/api/paypal/create-order', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      var data = await res.json();
+      if (!res.ok) {
+        addBubble('agent', '<p>' + escapeHtml(data.error || String(res.status)) + '</p>');
+        return;
+      }
+      var link = c.itemUrl ? '<p><a href="' + escapeHtml(c.itemUrl) + '" target="_blank" rel="noopener">' + t('viewOnEbay') + '</a></p>' : '';
+      addBubble('agent',
+        '<p><strong>' + escapeHtml(c.title) + '</strong>, ' + money(data.totalUSD) + '</p>' +
+        '<p>' + fmt(t('simNote'), { mp: c.source || 'eBay' }) + '</p>' + link +
+        '<p><a href="' + data.approveUrl + '" target="_blank" rel="noopener">' + t('agentPayLink') + '</a></p>' +
+        '<p class="hint">' + t('agentPayHint') + '</p>');
+      if (data.approveUrl) window.open(data.approveUrl, '_blank', 'noopener');
+    } catch (e) { addBubble('agent', '<p>' + t('agentFailed') + '</p>'); }
+  }
+  // Save the currently selected catalog product to the wishlist.
+  async function saveSelectedToWishlist() {
+    if (!selected || !selected.product) return;
+    var p = selected.product;
+    try {
+      var res = await fetch(WORKER_API + '/api/wishlist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: p.name, priceUSD: p.priceUSD, productId: p.id, source: 'Catalog', session: getSessionId() }),
+      });
+      var data = await res.json();
+      addBubble('agent', '<p>' + escapeHtml(data.note || t('savedMsg')) + '</p>');
+    } catch (e) { addBubble('agent', '<p>' + t('agentFailed') + '</p>'); }
+  }
+  // List the user's eBay price watches, with a live refresh button.
+  async function listWatches() {
+    try {
+      var res = await fetch(WORKER_API + '/api/ebay-watch?session=' + encodeURIComponent(getSessionId()));
+      var data = await res.json();
+      var watches = data.watches || [];
+      if (!watches.length) {
+        addBubble('agent', '<p><strong>' + t('watchesTitle') + '</strong></p><p>' + t('noWatches') + '</p>');
+        return;
+      }
+      var html = '<p><strong>' + t('watchesTitle') + '</strong></p>' +
+        watches.map(function (w) {
+          var badge = w.status === 'drop' ? ' <span class="score score-safe">' + t('dropBadge') + '</span>'
+            : w.status === 'gone' ? ' <span class="score score-risky">' + t('goneBadge') + '</span>' : '';
+          return '<p>' + escapeHtml(w.title) + badge + '<br>' +
+            t('currentPrice') + ' ' + money(w.lastPriceUSD) + ' · ' + t('watchTarget') + money(w.targetUSD) + '<br>' +
+            '<button type="button" class="btn-secondary" data-unwatch="' + w.id + '">' + t('removeBtn') + '</button></p>';
+        }).join('') +
+        '<p><button type="button" class="btn-primary" id="check-watches-btn">' + t('checkPricesBtn') + '</button></p>';
+      var bubble = addBubble('agent', html);
+      bubble.querySelectorAll('[data-unwatch]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          await fetch(WORKER_API + '/api/ebay-watch/delete?session=' + encodeURIComponent(getSessionId()), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: btn.getAttribute('data-unwatch') }) });
+          bubble.remove();
+          listWatches();
+        });
+      });
+      var checkBtn = bubble.querySelector('#check-watches-btn');
+      if (checkBtn) checkBtn.addEventListener('click', async function () {
+        checkBtn.disabled = true;
+        var r = await fetch(WORKER_API + '/api/ebay-watch/check?session=' + encodeURIComponent(getSessionId()), { method: 'POST' });
+        var d2 = await r.json();
+        bubble.remove();
+        var drops = (d2.watches || []).filter(function (w) { return w.status === 'drop'; });
+        var msg = drops.length
+          ? drops.map(function (w) { return escapeHtml(w.note || ''); }).join('<br>')
+          : t('checkedMsg');
+        addBubble('agent', '<p>' + msg + '</p>');
+        listWatches();
+      });
+    } catch (e) { addBubble('agent', '<p>' + t('agentFailed') + '</p>'); }
+  }
+  // List the wishlist, flagging items whose live price dropped below the
+  // price they were saved at (a deal). eBay items are refreshed live.
+  async function listWishlist() {
+    try {
+      var res = await fetch(WORKER_API + '/api/wishlist?session=' + encodeURIComponent(getSessionId()));
+      var data = await res.json();
+      var items = data.items || [];
+      if (!items.length) {
+        addBubble('agent', '<p><strong>' + t('wishlistTitle') + '</strong></p><p>' + t('noWishlist') + '</p>');
+        return;
+      }
+      var live = {};
+      try {
+        var wr = await fetch(WORKER_API + '/api/ebay-watch?session=' + encodeURIComponent(getSessionId()));
+        var wd = await wr.json();
+        (wd.watches || []).forEach(function (w) { live[w.itemId] = w.lastPriceUSD; });
+      } catch (e) { /* live refresh is a bonus */ }
+      var html = '<p><strong>' + t('wishlistTitle') + '</strong></p>' +
+        items.map(function (it) {
+          var current = (it.itemId && live[it.itemId] !== undefined) ? live[it.itemId] : it.priceUSD;
+          var isDeal = current < it.savedPriceUSD;
+          var badge = isDeal ? ' <span class="score score-safe">' + t('dealBadge') + '</span>' : '';
+          return '<p>' + escapeHtml(it.title) + badge + '<br>' +
+            t('savedPrice') + ' ' + money(it.savedPriceUSD) + ' · ' + t('currentPrice') + ' ' + money(current) + ' · ' + escapeHtml(it.source) + '<br>' +
+            '<button type="button" class="btn-secondary" data-unwish="' + it.id + '">' + t('removeBtn') + '</button></p>';
+        }).join('');
+      var bubble = addBubble('agent', html);
+      bubble.querySelectorAll('[data-unwish]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          await fetch(WORKER_API + '/api/wishlist/delete?session=' + encodeURIComponent(getSessionId()), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id: btn.getAttribute('data-unwish') }) });
+          bubble.remove();
+          listWishlist();
+        });
+      });
+    } catch (e) { addBubble('agent', '<p>' + t('agentFailed') + '</p>'); }
+  }
+
   function sendAsk() {
     var q = $('ask').value.trim();
     if (!q || sending) return;
@@ -2034,6 +2258,35 @@
     if (isGuardrailStatus(q)) {
       hideTyping(typing);
       showGuardrailStatus();
+      return;
+    }
+    // Best deal / compare / watches / wishlist: deterministic Worker
+    // calls, answered here so the static demo shows the same features as
+    // the live demo. The query words are stripped before the search.
+    var lowerQ = q.toLowerCase();
+    var isBestDeal = /\bbest deal\b|\bdeal terbaik\b|\bpenawaran terbaik\b|\bcheapest safe\b|\bpaling worth\b/.test(lowerQ);
+    var isCompareSrc = /\bcompare\b|\bbandingkan\b|\bbanding\b/.test(lowerQ);
+    var isWatches = /\bmy watches\b|\bpantauan\b|\bprice watch\b/.test(lowerQ);
+    var isWishlist = /\bwishlist\b|\bmy wishlist\b/.test(lowerQ);
+    if (isBestDeal || isCompareSrc || isWatches || isWishlist) {
+      var dealQ = q.replace(/\b(best deal|deal terbaik|penawaran terbaik|cheapest safe|paling worth it|compare|bandingkan|banding)\b/gi, '').trim();
+      if (isBestDeal) {
+        fetch(WORKER_API + '/api/best-deal?' + new URLSearchParams({ q: dealQ || q, lang: lang }).toString())
+          .then(function (res) { return res.json(); })
+          .then(function (d) { hideTyping(typing); renderBestDeal(d); })
+          .catch(function () { hideTyping(typing); addBubble('agent', '<p>' + t('agentFailed') + '</p>'); });
+      } else if (isCompareSrc) {
+        fetch(WORKER_API + '/api/compare?' + new URLSearchParams({ q: dealQ || q, lang: lang }).toString())
+          .then(function (res) { return res.json(); })
+          .then(function (d) { hideTyping(typing); renderCompare(d); })
+          .catch(function () { hideTyping(typing); addBubble('agent', '<p>' + t('agentFailed') + '</p>'); });
+      } else if (isWatches) {
+        hideTyping(typing);
+        listWatches();
+      } else {
+        hideTyping(typing);
+        listWishlist();
+      }
       return;
     }
     // Pay Agent: buying goals go to the agent on the live server.
@@ -2287,6 +2540,7 @@
       '<div id="budget-warn"></div>' +
       '<p><label><input id="approve" type="checkbox"> ' + t('approveLabel') + '</label></p>' +
       '<div id="paypal-button-container"></div>' +
+      '<p><button id="save-wishlist-btn" type="button" class="btn-secondary">' + t('saveBtn') + '</button></p>' +
       '<p id="checkout-status"></p>' +
       '<p class="hint">' + t('checkoutHint') + ' <a href="https://developer.paypal.com/dashboard/accounts" target="_blank" rel="noopener">PayPal Sandbox Personal (buyer)</a></p>',
       'checkout');
@@ -2303,6 +2557,8 @@
     }
     var approve = $('approve');
     approve.addEventListener('change', function () { renderPayPalButton(); });
+    var saveBtn = $('save-wishlist-btn');
+    if (saveBtn) saveBtn.addEventListener('click', saveSelectedToWishlist);
     renderPayPalButton();
   }
 
