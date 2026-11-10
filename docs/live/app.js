@@ -2616,12 +2616,28 @@
     });
     // Quick Demo chips: one tap fills the prompt and sends it, so a demo
     // scenario runs without typing.
-    document.querySelectorAll('.quick-chip, .feature-chip').forEach(function (chip) {
+    document.querySelectorAll('.quick-chip, .feature-chip, .nav-btn[data-prompt]').forEach(function (chip) {
       chip.addEventListener('click', function () {
         var prompt = chip.getAttribute('data-prompt') || '';
         if (!prompt) return;
         $('ask').value = prompt;
         sendAsk();
+      });
+    });
+    // Bottom navigation (mobile): Chat focuses the composer and scrolls
+    // to the latest message; the other buttons send their prompt like
+    // the Try chips. The tapped button becomes the active one.
+    document.querySelectorAll('.nav-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        document.querySelectorAll('.nav-btn').forEach(function (b) { b.classList.remove('active'); b.removeAttribute('aria-current'); });
+        btn.classList.add('active');
+        btn.setAttribute('aria-current', 'page');
+        if (btn.getAttribute('data-nav') === 'chat') {
+          var input = $('ask');
+          if (input) input.focus();
+          var chatBox = $('chat');
+          if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+        }
       });
     });
     await loadConfig();
