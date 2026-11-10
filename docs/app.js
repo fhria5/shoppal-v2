@@ -1857,7 +1857,11 @@
       lastSplit = { productId: ag.splitPayment.productId, share: ag.splitPayment.share, initiatorShare: ag.splitPayment.initiatorShare, total: ag.splitPayment.total, friends: ag.splitPayment.friends || [] };
       saveLastSplit();
     }
-    if (ag.order && ag.order.shareCheckout) {
+    // A share order that arrives IN THE SAME response as the split (the
+    // model checked the user's share out while splitting) must NOT clear
+    // the session: the split is still active and the user has not checked
+    // out yet. Only a standalone share checkout clears it.
+    if (ag.order && ag.order.shareCheckout && !ag.splitPayment) {
       lastSplit = null;
       saveLastSplit();
     }
@@ -3147,7 +3151,7 @@
     });
     // Quick Demo chips: one tap fills the prompt and sends it, so a demo
     // scenario runs without typing.
-    document.querySelectorAll('.quick-chip').forEach(function (chip) {
+    document.querySelectorAll('.quick-chip, .feature-chip').forEach(function (chip) {
       chip.addEventListener('click', function () {
         var prompt = chip.getAttribute('data-prompt') || '';
         if (!prompt) return;
