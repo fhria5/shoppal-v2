@@ -95,7 +95,7 @@ ShopPal v2 (single repo)
 ├── worker.js          Cloudflare Workers build of server.js (generated).
 ├── data/catalog.json  Demo catalog: 11 products, 3 sellers with distinct
 │                      risk profiles (Safe / Caution / Risky).
-├── marketplace/       One adapter per marketplace (eBay Browse API, Etsy Open API v3).
+├── marketplace/       One adapter per marketplace (eBay Browse API live; Etsy Open API v3 dormant, app banned).
 ├── test_new_features2.js  Core test suite (107 checks).
 └── test_mcp.js        MCP test suite (17 checks).
 ```
@@ -176,7 +176,7 @@ SHOPPAL_API_BASE=http://localhost:3000 node mcp-server.js
 
 Tools - `paypal-sandbox-mcp`: `get_access_token` (status only, never the token value), `create_paypal_order`, `capture_order`, `split_payment_link`, `track_and_dispute`. `mock-store-guardrail-mcp`: `search_mock_products`, `check_budget_guardrail`, `simulate_price_change`. `create_sandbox_invoice` is deliberately not exposed: the PayPal Invoicing API returns 403 for this sandbox app, and `split_payment_link` (Orders API v2) is the replacement. The dispute in `track_and_dispute` is a simulation; its payload follows the official PayPal Disputes API shape and is labelled simulated.
 
-## Real marketplace search (eBay + Etsy)
+## Real marketplace search (eBay only)
 
 The demo catalog is 20 demo products, good for the judged demo, but a shopping agent should search real marketplaces. ShopPal does that through one adapter file per marketplace (`marketplace/<name>.js`), all returning the same normalized listing shape. eBay is first because its Browse API is open to any free developer account:
 
@@ -185,11 +185,7 @@ The demo catalog is 20 demo products, good for the judged demo, but a shopping a
 3. Restart the server and ask ShopPal anything, real eBay listings appear below the demo catalog, each with a real photo, the seller's feedback %, a ShopPal risk score built from marketplace signals (feedback, price vs this search's median, returns and shipping), and a link to the listing.
 4. Picking a real listing runs the same 7 steps. Checkout is a **PayPal Sandbox simulation**: it creates a sandbox order for the listing total and saves the proof, it does **not** buy the eBay item, and the UI says so.
 
-Etsy is the second marketplace, because Etsy sellers accept PayPal and its Open API v3 listing search needs only an API key (no OAuth):
-
-1. Create a free developer app at [etsy.com/developers/register](https://www.etsy.com/developers/register).
-2. Copy its **keystring** and **shared secret** into your local `.env` as ONE value: `ETSY_API_KEY="keystring:shared_secret"`.
-3. Search with `?source=etsy` (eBay stays the default). Only USD listings are kept, so totals and risk scores stay comparable; seller feedback % and return policy are not shared by Etsy's search, so those score neutral. Checkout is the same PayPal Sandbox simulation — it does **not** buy the Etsy item.
+Etsy was the second marketplace (its Open API v3 listing search needs only an API key), but the Etsy developer app was banned, so the Etsy adapter (`marketplace/etsy.js`) is dormant and the UI is eBay-only. Do not register a new Etsy app for this demo.
 
 Other marketplaces need their own keys and adapters, one at a time: Amazon (Product Advertising API, needs affiliate approval), AliExpress (affiliate app), Shopee / Tokopedia (partner access). There is no single key that unlocks every marketplace, and scraping them is against their terms, so ShopPal only searches marketplaces through their official APIs.
 
@@ -274,7 +270,7 @@ Every line in the UI is labelled "estimated". These are public fee figures used 
 | `POST /api/fx-compare` | FX Optimizer: live mid-market rate + PayPal 3.5% markup, per currency. |
 | `POST /api/price-watch` / `GET /api/price-watches` / `POST /api/price-watch/check` | Price Watch (sniper): simulated price feed, clearly labelled. |
 | `GET /api/best-deal` | Best Deal: the single best offer across the catalog + every configured marketplace (cheapest Safe by all-in total, else highest safety score), with two runners-up and the reason. |
-| `GET /api/compare` | Compare Sources: the best offer per source (catalog, eBay, Etsy when configured) + the overall pick. |
+| `GET /api/compare` | Compare Sources: the best offer per source (catalog, eBay) + the overall pick. |
 | `POST /api/wishlist` / `GET /api/wishlist` / `POST /api/wishlist/delete` | Wishlist (per-session): save a product or marketplace listing, with the price it was saved at. |
 | `POST /api/ebay-watch` / `GET /api/ebay-watch` / `POST /api/ebay-watch/check` / `POST /api/ebay-watch/delete` | Real eBay Price Watch (per-session): watch a live eBay listing at a target price; check re-reads the live price and reports a drop or a gone listing. |
 | `POST /api/split-bill` | Split Bill (message-only version): share per person, collection via the PayPal app. |
