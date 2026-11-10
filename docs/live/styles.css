@@ -963,14 +963,9 @@ button.product-card .seller {
 /* (The right sidebar was removed: its cards duplicated the header
    badges. The layout is one column at every width.) */
 
-/* All demo chips visible in rows instead of a clipped scroll row,
-   from tablet widths up; phones keep the horizontal scroll. */
-@media (min-width: 921px) {
-    .quick-demo {
-        flex-wrap: wrap !important;
-        overflow-x: visible !important;
-    }
-}
+/* Demo chips stay one horizontal scroll row at every width. (An older
+   rule wrapped them into rows above 921px; the user asked 10 Nov 2026
+   to tidy the layout because the rows filled the screen.) */
 
 /* Below 1100px the long header pills overflow and overlap the
    identity (seen at 980-1024px). Keep only the compact Live badge. */
@@ -1318,13 +1313,12 @@ body.modal-open { overflow: hidden; }
   .modal { max-width: none; border-radius: 16px 16px 0 0; max-height: 85dvh; }
 }
 
-/* Bottom navigation: up to 1024px, so it also shows on phones in
-   desktop-site mode. One-tap reach for the four headline tools plus
-   Chat: the same actions as the Try chips above the composer, placed
-   where the thumb already rests. Desktop keeps the header and chips
-   and never shows this bar. */
+/* Bottom navigation: mobile only (<= 920px). One-tap reach for the four
+   headline tools plus Chat: the same actions as the Try chips above the
+   composer, placed where the thumb already rests. Desktop keeps the
+   header and chips and never shows this bar. */
 .bottom-nav { display: none; }
-@media (max-width: 1024px) {
+@media (max-width: 920px) {
   .bottom-nav {
     display: flex;
     flex: 0 0 auto;
