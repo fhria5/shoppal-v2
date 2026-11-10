@@ -135,7 +135,38 @@ async function searchEbay(query, { limit = 8 } = {}) {
   }
 }
 
-const ebay = { isConfigured, searchEbay, normalize };
+// Fetch one listing by its Browse API item id (e.g. "v1|110591504555|0").
+// Used by Price Watch to refresh the live price of a watched listing.
+// Returns the normalized listing, or null when eBay is not configured.
+async function getEbayItem(itemId) {
+  if (!isConfigured()) return null;
+  if (!itemId) throw new Error('itemId is required.');
+  const token = await getAccessToken();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(ebayApiBase() + '/buy/browse/v1/item/' + encodeURIComponent(itemId), {
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'X-EBAY-C-MARKETPLACE': ENV.EBAY_MARKETPLACE || 'EBAY_US',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      throw new Error('eBay item lookup failed (HTTP ' + res.status + ').');
+    }
+    const data = await res.json();
+    const listing = normalize(data);
+    return listing.priceUSD !== null && Number.isFinite(listing.priceUSD) ? listing : null;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+const ebay = { isConfigured, searchEbay, getEbayItem, normalize };
 
 // Etsy adapter — the second real marketplace for ShopPal v2.
 //
@@ -262,6 +293,7 @@ const RATE_LIMITED_PATHS = new Set([
   '/api/agent', '/api/ask',
   '/api/paypal/token', '/api/paypal/create-order', '/api/paypal/capture-order', '/api/paypal/refund',
   '/api/marketplace/search', '/api/check-link', '/api/phishing-check', '/api/tracking/add', '/api/fx-compare',
+  '/api/best-deal', '/api/compare', '/api/ebay-watch/check',
 ]);
 const rateLimitStore = new Map(); // ip -> { count, resetAt }
 function rateLimitAllowed(ip, path) {
@@ -310,6 +342,9 @@ function detectLang(text) {
 }
 function fmt(template, vars) {
   return String(template).replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : '{' + k + '}'));
+}
+function money(n) {
+  return '$' + Number(n).toFixed(2);
 }
 function t(lang, key) {
   const dict = STR[lang] || STR.en;
@@ -383,6 +418,20 @@ const STR = {
     mpNoteEtsy: 'Real Etsy listings (Open API v3). Prices in USD; risk scores use marketplace signals, price vs this search’s median, and shipping. Etsy does not share seller feedback % or return policy in search, so those score neutral.',
     mpNotConfigured: 'Real marketplace search needs free eBay developer keys. Add EBAY_APP_ID and EBAY_CERT_ID to .env (developer.ebay.com), no keys, no real listings.',
     mpNotConfiguredEtsy: 'Real Etsy search needs a free Etsy developer key. Add ETSY_API_KEY to .env as "keystring:shared_secret" (etsy.com/developers/register), no key, no real listings.',
+    bestDealTitle: 'Best deal',
+    bestDealVerdict: 'Best deal for "{q}": {title} at {total} all-in from {source} ({seller}).',
+    bestDealReasonSafe: 'Safe seller (score {score}/100) and the lowest all-in total.',
+    bestDealReasonValue: 'Best value: the highest safety score ({score}/100) at this price.',
+    bestDealNone: 'No deal found for that search.',
+    bestDealRunner: 'Also worth a look',
+    compareTitle: 'Compare sources',
+    pwAdded: 'Watching "{title}" - I will flag it when the price drops below {target}.',
+    pwDrop: 'Price drop! "{title}" is now {price} (was {old}), below your target {target}.',
+    pwGone: '"{title}" is no longer listed on eBay.',
+    pwNoChange: 'No price drop yet.',
+    wlAdded: 'Saved "{title}" to your wishlist.',
+    wlRemoved: 'Removed from your wishlist.',
+    wlDeal: 'Deal! Now {price}, down from {saved}.',
     aiNoteFallback: 'AI explanation unavailable, showing rule-based reasons.',
     aiNoteVyce: 'Explanation rewritten by AI (Vyce); the numeric score is rule-based and unchanged.',
     disputeBody: 'Dispute response draft (simulated, factual only): Order {order} for {product} ({total}) was paid via PayPal Sandbox and captured as {status}. Seller: {seller} (risk score {score} at checkout). Proof is attached in the Proof Vault entry {id}.',
@@ -626,6 +675,20 @@ const STR = {
     mpNoteEtsy: 'Listing Etsy asli (Open API v3). Harga dalam USD; skor risiko memakai sinyal marketplace, harga vs median pencarian ini, dan shipping. Etsy tidak membagikan feedback % seller atau kebijakan retur di pencarian, jadi keduanya dinilai netral.',
     mpNotConfigured: 'Pencarian marketplace asli butuh kunci developer eBay gratis. Tambahkan EBAY_APP_ID dan EBAY_CERT_ID ke .env (developer.ebay.com), tanpa kunci, tidak ada listing asli.',
     mpNotConfiguredEtsy: 'Pencarian Etsy asli butuh kunci developer Etsy gratis. Tambahkan ETSY_API_KEY ke .env sebagai "keystring:shared_secret" (etsy.com/developers/register), tanpa kunci, tidak ada listing asli.',
+    bestDealTitle: 'Penawaran terbaik',
+    bestDealVerdict: 'Penawaran terbaik untuk "{q}": {title} seharga {total} all-in dari {source} ({seller}).',
+    bestDealReasonSafe: 'Seller aman (skor {score}/100) dan total all-in terendah.',
+    bestDealReasonValue: 'Nilai terbaik: skor keamanan tertinggi ({score}/100) di harga ini.',
+    bestDealNone: 'Tidak ada penawaran untuk pencarian itu.',
+    bestDealRunner: 'Juga layak dilihat',
+    compareTitle: 'Bandingkan sumber',
+    pwAdded: 'Memantau "{title}" - saya akan tandai saat harganya turun di bawah {target}.',
+    pwDrop: 'Harga turun! "{title}" kini {price} (sebelumnya {old}), di bawah target {target}.',
+    pwGone: '"{title}" sudah tidak terdaftar di eBay.',
+    pwNoChange: 'Belum ada penurunan harga.',
+    wlAdded: '"{title}" disimpan ke wishlist.',
+    wlRemoved: 'Dihapus dari wishlist.',
+    wlDeal: 'Deal! Kini {price}, turun dari {saved}.',
     aiNoteFallback: 'Penjelasan AI tidak tersedia, menampilkan alasan berbasis aturan.',
     aiNoteVyce: 'Penjelasan ditulis ulang oleh AI (Vyce); skor angka berbasis aturan dan tidak berubah.',
     disputeBody: 'Draf jawaban sengketa (simulasi, hanya fakta): Order {order} untuk {product} ({total}) dibayar via PayPal Sandbox dan di-capture sebagai {status}. Seller: {seller} (skor risiko {score} saat checkout). Bukti terlampir di entri Proof Vault {id}.',
@@ -2528,6 +2591,77 @@ routes.push({ method: 'POST', path: '/api/agent', handler: async (req, res) => {
 // ?source=ebay (default) or ?source=etsy. Returns real listings with a
 // ShopPal risk score attached. Without that marketplace's keys it says so
 // plainly and returns no listings, the UI then shows the demo catalog only.
+
+// ---------- Best Deal / Compare core ----------
+// One candidate shape for a catalog product or a marketplace listing, so
+// Best Deal and Compare can rank them head to head: risk score + all-in
+// total (price + PayPal fees). `ref` is what checkout needs to buy it.
+function dealCandidateFromCatalog(p, lang) {
+  const seller = sellersById.get(p.sellerId) || {};
+  const risk = calculateRiskScore(seller, p);
+  const total = calculateTotalCost(p.priceUSD, false, false, lang).total;
+  return {
+    kind: 'catalog', source: 'Catalog', id: p.id, title: p.name,
+    priceUSD: p.priceUSD, sellerName: seller.name || 'ShopPal catalog',
+    riskScore: risk.score, riskLabel: risk.label, totalUSD: total,
+    image: p.image || null, category: p.category || null,
+    ref: { productId: p.id },
+  };
+}
+function dealCandidateFromListing(l, lang) {
+  const risk = l.risk || scoreMarketplaceListing(l, [l], lang);
+  const total = calculateTotalCost(l.priceUSD, false, false, lang).total;
+  return {
+    kind: 'marketplace', source: l.marketplace || 'eBay', id: l.itemId,
+    title: l.title, priceUSD: l.priceUSD, sellerName: l.sellerName,
+    riskScore: risk.score, riskLabel: risk.label, totalUSD: total,
+    image: l.image || null, category: null,
+    ref: { marketplace: { marketplace: l.marketplace || 'eBay', itemId: l.itemId, title: l.title, priceUSD: l.priceUSD } },
+  };
+}
+// Search the catalog + every configured marketplace for one query.
+// Returns { candidates, sources } where sources names each source that
+// actually returned candidates (a source with no key contributes none).
+async function searchAllDeals(q, { maxPrice = null, lang = 'en' } = {}) {
+  const candidates = [];
+  const sources = [];
+  const intent = parseAskRegex(q);
+  const cat = applyIntent(intent, null, lang);
+  const catProducts = (cat.products || []).filter((p) => maxPrice === null || p.priceUSD <= maxPrice);
+  for (const p of catProducts) candidates.push(dealCandidateFromCatalog(p, lang));
+  if (catProducts.length) sources.push('Catalog');
+  for (const [name, adapter, searchFn] of [['eBay', ebay, ebay.searchEbay], ['Etsy', etsy, etsy.searchEtsy]]) {
+    if (!adapter.isConfigured()) continue;
+    try {
+      let listings = await searchFn(q, { limit: 8 });
+      if (!listings) listings = [];
+      if (maxPrice !== null) listings = listings.filter((l) => l.priceUSD <= maxPrice);
+      const scored = listings.map((l) => ({ ...l, risk: scoreMarketplaceListing(l, listings, lang) }));
+      for (const l of scored) candidates.push(dealCandidateFromListing(l, lang));
+      if (scored.length) sources.push(name);
+    } catch (e) { /* one dead source never breaks the deal search */ }
+  }
+  return { candidates, sources };
+}
+// Pick the best deal: the cheapest Safe (score >= 80) option by all-in
+// total; when nothing is Safe, the highest safety score, then the lowest
+// total. Returns { pick, runnersUp, reason } or null when empty.
+function pickBestDeal(candidates, lang) {
+  if (!candidates.length) return null;
+  const safe = candidates.filter((c) => c.riskScore >= 80);
+  const pool = safe.length ? safe : candidates;
+  const sorted = [...pool].sort((a, b) => a.totalUSD - b.totalUSD || b.riskScore - a.riskScore);
+  const pick = sorted[0];
+  const runnersUp = [...candidates]
+    .filter((c) => c !== pick)
+    .sort((a, b) => b.riskScore - a.riskScore || a.totalUSD - b.totalUSD)
+    .slice(0, 2);
+  const reason = safe.length
+    ? fmt(t(lang, 'bestDealReasonSafe'), { score: pick.riskScore })
+    : fmt(t(lang, 'bestDealReasonValue'), { score: pick.riskScore });
+  return { pick, runnersUp, reason };
+}
+
 routes.push({ method: 'GET', path: '/api/marketplace/search', handler: async (req, res) => {
   const q = String(req.query.q || '').trim();
   if (!q) return res.status(400).json({ error: 'q is required.' });
@@ -2570,6 +2704,144 @@ routes.push({ method: 'GET', path: '/api/marketplace/search', handler: async (re
   } catch (err) {
     res.status(502).json({ configured: true, source: sourceName, listings: [], error: err.message });
   }
+}});
+
+
+// Best Deal: the agent picks ONE best offer across the catalog + every
+// configured marketplace, instead of handing the user a list to compare.
+routes.push({ method: 'GET', path: '/api/best-deal', handler: async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'q is required.' });
+  const lang = (req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : detectLang(q);
+  const maxPrice = Number(req.query.maxPrice);
+  const { candidates, sources } = await searchAllDeals(q, { maxPrice: Number.isFinite(maxPrice) ? maxPrice : null, lang });
+  const verdict = pickBestDeal(candidates, lang);
+  if (!verdict) return res.json({ q, sources, pick: null, runnersUp: [], reason: t(lang, 'bestDealNone') });
+  res.json({
+    q, sources, pick: verdict.pick, runnersUp: verdict.runnersUp, reason: verdict.reason,
+    verdict: fmt(t(lang, 'bestDealVerdict'), { q, title: verdict.pick.title, total: money(verdict.pick.totalUSD), source: verdict.pick.source, seller: verdict.pick.sellerName }),
+  });
+}});
+
+// Compare: the best option from EACH source side by side (catalog, eBay,
+// Etsy when configured), so the user sees which marketplace wins and why.
+routes.push({ method: 'GET', path: '/api/compare', handler: async (req, res) => {
+  const q = String(req.query.q || '').trim();
+  if (!q) return res.status(400).json({ error: 'q is required.' });
+  const lang = (req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : detectLang(q);
+  const maxPrice = Number(req.query.maxPrice);
+  const { candidates, sources } = await searchAllDeals(q, { maxPrice: Number.isFinite(maxPrice) ? maxPrice : null, lang });
+  const bySource = {};
+  for (const c of candidates) {
+    const best = bySource[c.source];
+    if (!best || c.riskScore > best.riskScore || (c.riskScore === best.riskScore && c.totalUSD < best.totalUSD)) {
+      bySource[c.source] = c;
+    }
+  }
+  const overall = pickBestDeal(candidates, lang);
+  res.json({ q, sources, perSource: bySource, overallPick: overall ? overall.pick : null });
+}});
+
+// ---------- Price Watch (real eBay prices) + Wishlist ----------
+// Both are per-browser-session stores, same pattern as the Proof Vault:
+// one global Map, each entry tagged with sessionId, filtered per session.
+// Memory-only (Worker: per isolate), never a claim of durable storage.
+const ebayWatches = new Map();
+const wishlistEntries = new Map();
+function ebayWatchesFor(session) {
+  return [...ebayWatches.values()].filter((w) => (w.sessionId || null) === (session || null));
+}
+function wishlistFor(session) {
+  return [...wishlistEntries.values()].filter((w) => (w.sessionId || null) === (session || null));
+}
+function newEbayWatchId() {
+  return 'PW-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+}
+function newWishId() {
+  return 'WL-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 6).toUpperCase();
+}
+
+routes.push({ method: 'POST', path: '/api/ebay-watch', handler: (req, res) => {
+  const session = sessionOf(req);
+  const body = req.body || {};
+  const itemId = String(body.itemId || '').trim();
+  const title = String(body.title || 'Untitled listing').slice(0, 200);
+  const priceUSD = Number(body.priceUSD);
+  const targetUSD = Number(body.targetUSD);
+  if (!itemId || !Number.isFinite(priceUSD) || !Number.isFinite(targetUSD) || targetUSD <= 0) {
+    return res.status(400).json({ error: 'itemId, priceUSD and a positive targetUSD are required.' });
+  }
+  const id = newEbayWatchId();
+  const watch = { id, sessionId: session, itemId, title, priceUSD, targetUSD, lastPriceUSD: priceUSD, lastCheckedAt: null, status: 'watching', createdAt: new Date().toISOString() };
+  ebayWatches.set(id, watch);
+  res.status(201).json({ watch, note: fmt(t((req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : 'en', 'pwAdded'), { title, target: money(targetUSD) }) });
+}});
+routes.push({ method: 'GET', path: '/api/ebay-watch', handler: (req, res) => {
+  res.json({ watches: ebayWatchesFor(sessionOf(req)) });
+}});
+app.delete('/api/ebay-watch/:id', (req, res) => {
+  const w = ebayWatches.get(req.params.id);
+  if (!w || (w.sessionId || null) !== (sessionOf(req) || null)) return res.status(404).json({ error: 'Watch not found.' });
+  ebayWatches.delete(req.params.id);
+  res.json({ ok: true });
+}});
+// Refresh every watch against the live eBay price. A watch whose live
+// price fell below its target flips to status "drop" with a message.
+routes.push({ method: 'POST', path: '/api/ebay-watch/check', handler: async (req, res) => {
+  const lang = (req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : 'en';
+  const session = sessionOf(req);
+  const watches = ebayWatchesFor(session);
+  const results = [];
+  for (const w of watches) {
+    try {
+      const live = await ebay.getEbayItem(w.itemId);
+      if (!live) {
+        w.status = 'gone';
+        results.push({ ...w, note: fmt(t(lang, 'pwGone'), { title: w.title }) });
+        continue;
+      }
+      w.lastPriceUSD = live.priceUSD;
+      w.lastCheckedAt = new Date().toISOString();
+      if (live.priceUSD < w.targetUSD) {
+        w.status = 'drop';
+        results.push({ ...w, note: fmt(t(lang, 'pwDrop'), { title: w.title, price: money(live.priceUSD), old: money(w.priceUSD), target: money(w.targetUSD) }) });
+      } else {
+        w.status = 'watching';
+        results.push({ ...w, note: t(lang, 'pwNoChange') });
+      }
+    } catch (e) {
+      results.push({ ...w, note: e.message });
+    }
+  }
+  res.json({ watches: results });
+}});
+
+routes.push({ method: 'POST', path: '/api/wishlist', handler: (req, res) => {
+  const session = sessionOf(req);
+  const body = req.body || {};
+  const title = String(body.title || 'Untitled').slice(0, 200);
+  const priceUSD = Number(body.priceUSD);
+  if (!title || !Number.isFinite(priceUSD)) return res.status(400).json({ error: 'title and priceUSD are required.' });
+  const id = newWishId();
+  const entry = {
+    id, sessionId: session, title, priceUSD, savedPriceUSD: priceUSD,
+    source: String(body.source || 'Catalog').slice(0, 40),
+    itemId: body.itemId ? String(body.itemId) : null,
+    productId: body.productId ? String(body.productId) : null,
+    image: body.image ? String(body.image) : null,
+    createdAt: new Date().toISOString(),
+  };
+  wishlistEntries.set(id, entry);
+  res.status(201).json({ entry, note: fmt(t((req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : 'en', 'wlAdded'), { title }) });
+}});
+routes.push({ method: 'GET', path: '/api/wishlist', handler: (req, res) => {
+  res.json({ items: wishlistFor(sessionOf(req)) });
+}});
+app.delete('/api/wishlist/:id', (req, res) => {
+  const w = wishlistEntries.get(req.params.id);
+  if (!w || (w.sessionId || null) !== (sessionOf(req) || null)) return res.status(404).json({ error: 'Wishlist item not found.' });
+  wishlistEntries.delete(req.params.id);
+  res.json({ ok: true, note: t((req.query.lang === 'id' || req.query.lang === 'en') ? req.query.lang : 'en', 'wlRemoved') });
 }});
 
 routes.push({ method: 'GET', path: '/api/subscriptions', handler: (req, res) => {
