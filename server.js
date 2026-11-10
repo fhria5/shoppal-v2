@@ -2362,7 +2362,7 @@ function dealCandidateFromListing(l, lang) {
     kind: 'marketplace', source: l.marketplace || 'eBay', id: l.itemId,
     title: l.title, priceUSD: l.priceUSD, sellerName: l.sellerName,
     riskScore: risk.score, riskLabel: risk.label, totalUSD: total,
-    image: l.image || null, category: null,
+    image: l.image || null, itemUrl: l.itemUrl || null, category: null,
     ref: { marketplace: { marketplace: l.marketplace || 'eBay', itemId: l.itemId, title: l.title, priceUSD: l.priceUSD } },
   };
 }
