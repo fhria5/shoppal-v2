@@ -199,7 +199,7 @@
       hrcPrevents: 'prevents future holds',
       hrcNote: 'PayPal’s published hold rules (new-seller and risk holds, up to 21 days). Estimates, not a guarantee, PayPal decides each case.',
       hrcNotFound: 'Pick a product first to see its hold checklist.',
-      mpHeader: 'Real listings', mpNone: 'No {mp} listings found for that search.',
+      mpHeader: 'Real listings', mpNone: 'No {mp} listings found for that search.', mpSearching: 'Searching eBay for real listings…', mpFailed: 'Could not reach eBay right now, the catalog results above are unaffected.',
       bestDealTitle: 'Best deal',
       bestDealVerdict: 'Best deal',
       bestDealRunner: 'Also worth a look',
@@ -364,7 +364,7 @@
       hrcPrevents: 'mencegah hold berikutnya',
       hrcNote: 'Aturan hold resmi PayPal (hold seller baru dan berisiko, sampai 21 hari). Perkiraan, bukan jaminan, PayPal yang memutuskan tiap kasus.',
       hrcNotFound: 'Pilih produk dulu untuk melihat checklist hold-nya.',
-      mpHeader: 'Listing asli', mpNone: 'Tidak ada listing {mp} untuk pencarian itu.',
+      mpHeader: 'Listing asli', mpNone: 'Tidak ada listing {mp} untuk pencarian itu.', mpSearching: 'Mencari listing asli di eBay…', mpFailed: 'Tidak dapat menjangkau eBay saat ini, hasil katalog di atas tidak terpengaruh.',
       bestDealTitle: 'Penawaran terbaik',
       bestDealVerdict: 'Penawaran terbaik',
       bestDealRunner: 'Juga layak dilihat',
@@ -785,10 +785,24 @@
     }
   }
 
+  // eBay sandbox listings carry no photos at all (verified against the
+  // raw Browse API: the items have no image field), so a card without one
+  // falls back to the demo catalog's category photo. It is a generic
+  // category illustration, not the listing's own photo, and it is marked
+  // with the mp-fallback-img class so it renders slightly muted.
+  var MP_CATEGORY_PHOTO = { headphones: 'images/headphones.jpg', smartwatch: 'images/smartwatch.jpg', keyboard: 'images/keyboard.jpg', speaker: 'images/speaker.jpg', charger: 'images/charger.jpg', mouse: 'images/mouse.jpg', earbuds: 'images/earbuds.jpg', webcam: 'images/webcam.jpg', powerbank: 'images/powerbank.jpg' };
+  function mpFallbackImage() {
+    var q = (lastMpQuery && lastMpQuery.q || '').toLowerCase();
+    for (var k in MP_CATEGORY_PHOTO) { if (q.indexOf(k) !== -1) return MP_CATEGORY_PHOTO[k]; }
+    return 'images/headphones.jpg';
+  }
+
   function marketplaceCardHtml(l) {
     var risk = l.risk || {};
     var zone = (risk.label || 'Caution').toLowerCase();
     var img = safeImageUrl(l.image);
+    var imgFallback = !img;
+    if (imgFallback) img = mpFallbackImage();
     var mpName = l.marketplace || 'eBay';
     // The listing URL comes from the marketplace API (seller-side data):
     // only an https link may become a clickable anchor, never a
@@ -799,7 +813,7 @@
     var listingAttr = '';
     try { listingAttr = ' data-listing="' + encodeURIComponent(JSON.stringify(l)) + '"'; } catch (e) { /* ignore */ }
     return '<button type="button" class="product-card" data-marketplace="' + mpName + '"' + listingAttr + '>' +
-      (img ? '<img src="' + img + '" alt="">' : '') +
+      (img ? '<img src="' + img + '" alt=""' + (imgFallback ? ' class="mp-fallback-img"' : '') + '>' : '') +
       '<span class="card-body"><strong>' + escapeHtml(l.title) + '</strong>' +
       '<span class="price">' + money(l.priceUSD) + '</span> · ' + mpName + '<br>' +
       '<span class="seller">Seller: ' + escapeHtml(l.sellerName) +
@@ -1055,7 +1069,11 @@
       lastSplit = { productId: ag.splitPayment.productId, share: ag.splitPayment.share, initiatorShare: ag.splitPayment.initiatorShare, total: ag.splitPayment.total, friends: ag.splitPayment.friends || [] };
       saveLastSplit();
     }
-    if (ag.order && ag.order.shareCheckout) {
+    // A share order that arrives IN THE SAME response as the split (the
+    // model checked the user's share out while splitting) must NOT clear
+    // the session: the split is still active and the user has not checked
+    // out yet. Only a standalone share checkout clears it.
+    if (ag.order && ag.order.shareCheckout && !ag.splitPayment) {
       lastSplit = null;
       saveLastSplit();
     }
@@ -1570,19 +1588,23 @@
       maxPrice: (data.understood && data.understood.maxPrice !== null && data.understood.maxPrice !== undefined) ? data.understood.maxPrice : null,
       cheapest: !!(data.understood && data.understood.cheapest),
     };
+    // The catalog answer is already on screen, so the marketplace bubble
+    // appears at once with an explicit "searching eBay" state instead of
+    // a silent 6-10s typing wait. It fills in when eBay answers.
+    hideTyping(typing);
+    var mpBubble = addBubble('agent',
+      '<p class="mp-header"><strong>' + t('mpHeader') + '</strong></p>' +
+      '<p class="hint mp-note">' + escapeHtml(t('mpSearching')) + '</p>' +
+      '<div class="cards"></div>', 'marketplace');
     try {
       var mp = await fetchMarketplace();
-      hideTyping(typing);
-      var mpBubble = addBubble('agent',
-        '<p class="mp-header"><strong>' + t('mpHeader') + '</strong></p>' +
-        '<p class="hint mp-note"></p>' +
-        '<div class="cards"></div>', 'marketplace');
       renderMpIntoBubble(mpBubble, mp);
-      return;
     } catch (e) {
       // Marketplace search is a bonus, a failure never breaks the Ask flow.
+      var mpNote = mpBubble.querySelector('.mp-note');
+      if (mpNote) mpNote.textContent = t('mpFailed');
     }
-    hideTyping(typing);
+    return;
   }
 
   async function selectProduct(product) {
@@ -2594,7 +2616,7 @@
     });
     // Quick Demo chips: one tap fills the prompt and sends it, so a demo
     // scenario runs without typing.
-    document.querySelectorAll('.quick-chip').forEach(function (chip) {
+    document.querySelectorAll('.quick-chip, .feature-chip').forEach(function (chip) {
       chip.addEventListener('click', function () {
         var prompt = chip.getAttribute('data-prompt') || '';
         if (!prompt) return;
