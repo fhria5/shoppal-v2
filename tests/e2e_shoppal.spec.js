@@ -238,15 +238,13 @@ test.describe('ShopPal v2 — core user flows', () => {
     // Quick Demo chips carry SVG icons, not emoji.
     expect(await page.locator('.quick-chip svg').count()).toBe(8);
 
-    // Open the modal: four sections, English active by default (the demo
-    // is English-only; only Auto and English are offered, no Indonesian).
+    // Open the modal: three sections (the demo is English-only, so there
+    // is no Language section at all anymore).
     await gear.click();
     await expect(page.locator('#settings-overlay')).not.toHaveClass(/hidden/);
     const sections = await page.locator('#settings-body h3').allInnerTexts();
-    expect(sections).toEqual(['Language', 'Monthly budget', 'Smart Guardrails', 'Chat data']);
-    await expect(page.locator('.seg-btn[data-lang-choice="en"]')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('.seg-btn')).toHaveCount(2);
-    await expect(page.locator('.seg-btn[data-lang-choice="id"]')).toHaveCount(0);
+    expect(sections).toEqual(['Monthly budget', 'Smart Guardrails', 'Chat data']);
+    await expect(page.locator('.seg-btn')).toHaveCount(0);
 
     // Budget + guardrails save to localStorage; vault summary follows.
     await page.fill('#set-budget-input', '60');
