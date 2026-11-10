@@ -431,8 +431,8 @@ async function get(path) {
     check('ebay-watch session B does not see it', r.status === 200 && Array.isArray(r.data.watches) && !r.data.watches.some((w) => w.id === watchId), r.data);
     r = await post('/api/ebay-watch/check?session=test-session-a', {});
     check('ebay-watch check refreshes live price', r.status === 200 && Array.isArray(r.data.watches) && r.data.watches.some((w) => w.id === watchId && typeof w.lastPriceUSD === 'number' && w.status === 'watching'), r.data);
-    r = await fetch(BASE + '/api/ebay-watch/' + watchId + '?session=test-session-a', { method: 'DELETE' });
-    const delBody = await r.json().catch(() => ({}));
+    r = await post('/api/ebay-watch/delete?session=test-session-a', { id: watchId });
+    const delBody = r.data;
     check('ebay-watch delete 200', r.status === 200 && delBody.ok === true, delBody);
     r = await get('/api/ebay-watch?session=test-session-a');
     check('ebay-watch list empty after delete', r.status === 200 && Array.isArray(r.data.watches) && !r.data.watches.some((w) => w.id === watchId), r.data);
@@ -445,8 +445,8 @@ async function get(path) {
   check('wishlist list session A has it', r.status === 200 && Array.isArray(r.data.items) && r.data.items.some((w) => w.id === wishId), r.data);
   r = await get('/api/wishlist?session=test-session-b');
   check('wishlist session B does not see it', r.status === 200 && Array.isArray(r.data.items) && !r.data.items.some((w) => w.id === wishId), r.data);
-  r = await fetch(BASE + '/api/wishlist/' + wishId + '?session=test-session-a', { method: 'DELETE' });
-  const wdel = await r.json().catch(() => ({}));
+  r = await post('/api/wishlist/delete?session=test-session-a', { id: wishId });
+  const wdel = r.data;
   check('wishlist delete 200', r.status === 200 && wdel.ok === true, wdel);
 
   console.log(`\n${pass} passed, ${fail} failed`);
