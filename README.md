@@ -35,7 +35,8 @@ PayPal's own data shows the top complaint is holds and disputes with no evidence
 1. **AI Seller Risk Score (0–100)**, before you pay, every seller is scored with auditable, rule-based weights and explained in plain language. Safe 80–100 · Caution 50–79 · Risky 0–49.
 2. **AI Total Cost**, before checkout starts, you see the full estimated cost: item price, PayPal Checkout fee, international fee, and currency conversion spread. No surprise total after checkout starts.
 3. **Pay Agent** - a server-driven agent loop (`POST /api/agent`, max 5 steps) that searches, scores, checks guardrails and prepares the order. Vyce (DeepSeek v4.1) decides the next action as strict JSON; a rule-based fallback does the same when AI is absent. **Vyce does not support native function calling** (tested twice), so the loop is server-driven, not tool-calling.
-4. **Price Watch (sniper)** - set a target price; the agent watches the (labelled, simulated) price feed and buys the moment it drops to the target.
+4. **Price Watch (sniper)** - set a target price; the agent watches the (labelled, simulated) price feed and buys the moment it drops to the target. For real eBay listings there is a separate **Real eBay Price Watch** that re-checks the live listing price through the eBay Browse API.
+4b. **Best Deal + Compare Sources + Wishlist** - ask "best deal headphones under $60" and ShopPal picks the single best offer across its catalog and real eBay listings (cheapest Safe seller by all-in total, with two runners-up); ask "compare headphones" for the best offer per source side by side with a Best overall marker; save any product or listing to a **Wishlist** that flags a DEAL when its live price drops below the saved price.
 5. **Split Payment Link** - split a purchase with friends; each friend gets their own PayPal Sandbox order + payment link for their share.
 6. **AI Proof Vault** - after a successful PayPal capture, a snapshot of the product, seller score, cost breakdown, and PayPal order / capture IDs is saved automatically.
 7. **Hold Predictor + Hold Release Checklist** - hold risk (Low/Moderate/High) and the exact steps that release a hold early.
@@ -177,7 +178,7 @@ Tools - `paypal-sandbox-mcp`: `get_access_token` (status only, never the token v
 
 ## Real marketplace search (eBay + Etsy)
 
-The demo catalog is 11 fake products, good for the judged demo, but a shopping agent should search real marketplaces. ShopPal does that through one adapter file per marketplace (`marketplace/<name>.js`), all returning the same normalized listing shape. eBay is first because its Browse API is open to any free developer account:
+The demo catalog is 20 demo products, good for the judged demo, but a shopping agent should search real marketplaces. ShopPal does that through one adapter file per marketplace (`marketplace/<name>.js`), all returning the same normalized listing shape. eBay is first because its Browse API is open to any free developer account:
 
 1. Create a free account at [developer.ebay.com](https://developer.ebay.com/) and make an app (Sandbox or Production, Sandbox is enough to test).
 2. Copy the app's **App ID** and **Cert ID** into your local `.env` as `EBAY_APP_ID` and `EBAY_CERT_ID`.
@@ -272,8 +273,12 @@ Every line in the UI is labelled "estimated". These are public fee figures used 
 | `POST /api/phishing-check` | PayPal Phishing Check: paste a message claiming to be from PayPal, get a verdict (0–100) from rule-based signals (lookalike-domain detection with character-swap normalisation, urgency language, requests for passwords/OTP/card numbers, generic greetings, link/text mismatch) + an AI review from Vyce (45s timeout, Vyce is slow, ~30s per call). |
 | `POST /api/fx-compare` | FX Optimizer: live mid-market rate + PayPal 3.5% markup, per currency. |
 | `POST /api/price-watch` / `GET /api/price-watches` / `POST /api/price-watch/check` | Price Watch (sniper): simulated price feed, clearly labelled. |
+| `GET /api/best-deal` | Best Deal: the single best offer across the catalog + every configured marketplace (cheapest Safe by all-in total, else highest safety score), with two runners-up and the reason. |
+| `GET /api/compare` | Compare Sources: the best offer per source (catalog, eBay, Etsy when configured) + the overall pick. |
+| `POST /api/wishlist` / `GET /api/wishlist` / `POST /api/wishlist/delete` | Wishlist (per-session): save a product or marketplace listing, with the price it was saved at. |
+| `POST /api/ebay-watch` / `GET /api/ebay-watch` / `POST /api/ebay-watch/check` / `POST /api/ebay-watch/delete` | Real eBay Price Watch (per-session): watch a live eBay listing at a target price; check re-reads the live price and reports a drop or a gone listing. |
 | `POST /api/split-bill` | Split Bill (message-only version): share per person, collection via the PayPal app. |
-| `POST /api/guardrails` / `GET /api/guardrails` / `POST /api/guardrails/check` | Smart Guardrails settings + check (auto-approve limit $20, category caps). |
+| `POST /api/guardrails` / `GET /api/guardrails` / `POST /api/guardrails/check` | Smart Guardrails settings + check (auto-approve limit $20; per-category caps were removed, only the limit and the monthly budget remain). |
 | `GET /api/expenses` | Expense Dashboard: Proof Vault totals by category (the PayPal Transaction Search API is 403 for this app, so the vault is the source). |
 | `GET /api/vault` | List saved Proof Vault entries. |
 | `POST /api/dispute/draft` | Simulated dispute draft from a Proof Vault entry (labelled as a simulation). |
