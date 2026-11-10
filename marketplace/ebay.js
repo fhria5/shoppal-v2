@@ -115,4 +115,35 @@ async function searchEbay(query, { limit = 8 } = {}) {
   }
 }
 
-module.exports = { isConfigured, searchEbay, normalize };
+// Fetch one listing by its Browse API item id (e.g. "v1|110591504555|0").
+// Used by Price Watch to refresh the live price of a watched listing.
+// Returns the normalized listing, or null when eBay is not configured.
+async function getEbayItem(itemId) {
+  if (!isConfigured()) return null;
+  if (!itemId) throw new Error('itemId is required.');
+  const token = await getAccessToken();
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(EBAY_API_BASE + '/buy/browse/v1/item/' + encodeURIComponent(itemId), {
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'X-EBAY-C-MARKETPLACE': MARKETPLACE,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (res.status === 404) return null;
+    if (!res.ok) {
+      throw new Error('eBay item lookup failed (HTTP ' + res.status + ').');
+    }
+    const data = await res.json();
+    const listing = normalize(data);
+    return listing.priceUSD !== null && Number.isFinite(listing.priceUSD) ? listing : null;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
+module.exports = { isConfigured, searchEbay, getEbayItem, normalize };
