@@ -49,13 +49,8 @@
   try {
     var savedLang = localStorage.getItem(LANG_KEY);
     if (savedLang === 'auto') { langManual = null; }
-    else if (savedLang === 'id' || savedLang === 'en') { lang = savedLang; langManual = savedLang; }
+    else if (savedLang === 'en') { lang = savedLang; langManual = savedLang; }
   } catch (e) { /* storage unavailable - English */ }
-  function detectLang(text) {
-    return /\b(di|yang|mau|aku|saya|murah|termurah|terbaik|paling|bawah|dari|ada|garansi|pertama|berapa|cari|beli|baru|dan|untuk|dengan|ini|itu|aja|saja|tolong|dong)\b/i.test(String(text || ''))
-      ? 'id'
-      : 'en';
-  }
   function fmt(template, vars) {
     return String(template).replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : '{' + k + '}'));
   }
@@ -232,172 +227,6 @@
       successTitle: 'Success, payment captured.',
       successProof: 'Proof was saved to the Proof Vault automatically.'
     },
-    id: {
-      understood: 'Mengerti:', noCategory: 'tidak ada kategori atau budget yang dikenali',
-      under: 'di bawah $', fromSeller: 'dari {seller} saja', withReturns: 'ada garansi/retur', withTracking: 'ada tracking',
-      cheapestFirst: 'termurah dulu', bestFirst: 'terbaik dulu', parsedByAI: '(dipahami AI)',
-      riskScore: 'Skor Risiko', labelSafe: 'Aman', labelCaution: 'Hati-hati', labelRisky: 'Berisiko',
-      recommendation: 'Rekomendasi:', watchOut: 'Perhatian:', beforeYouPay: 'Sebelum bayar:',
-      holdTitle: 'Prediktor Hold', holdLow: 'Rendah', holdModerate: 'Sedang', holdHigh: 'Tinggi',
-      holdHint: 'Perkiraan dari pola hold publik, bukan keputusan PayPal.',
-      holdFailed: 'Tidak bisa memuat perkiraan hold: {msg}',
-      honestTotal: 'Total jujur (perkiraan)', itemPrice: 'Harga barang',
-      paypalFee: 'Biaya PayPal Checkout (3.49% + $0.49)', intlFee: 'Biaya internasional (1.5%)',
-      convSpread: 'Selisih kurs (~3.5%, perkiraan)', totalEst: 'Total (perkiraan)',
-      troubleTitle: 'Kalau ada masalah',
-      chargeback: 'Chargeback: ${n} per kasus, di luar penjualan yang hilang.',
-      disputeFee: 'Sengketa lewat PayPal: ${a} (${b} untuk seller volume tinggi).',
-      refundLine: 'Refund: biaya awal tidak dikembalikan, jadi order yang di-refund tetap dikenakan biaya.',
-      instantLine: 'Transfer instan ke bank: {pct}% (min ${min}); transfer standar gratis tapi butuh 1–3 hari.',
-      microCheap: 'Tarif Micropayments (4.99% + $0.09) lebih murah untuk barang ini daripada tarif Checkout standar.',
-      microInfo: 'Untuk barang di bawah $12, tarif Micropayments (4.99% + $0.09) lebih murah daripada tarif Checkout standar.',
-      protectionLabel: 'Perlindungan Pembeli:',
-      readyToPay: 'Siap bayar?', neverPay: 'Saya tidak pernah bayar tanpa persetujuanmu.',
-      approveLabel: 'Saya sudah memeriksa skor risiko dan total biaya, dan saya menyetujui pembayaran ini.',
-      payButton: 'Bayar dengan PayPal Sandbox', checkoutHint: 'Pakai akun buyer PayPal Sandbox untuk menyetujui. Tidak ada uang asli yang terlibat.',
-      simNote: 'Simulasi sandbox: ini membuat order PayPal Sandbox sebesar total listing. Ini <strong>tidak</strong> membeli barang {mp}, hanya membuktikan total dan menyimpan bukti.',
-      creatingOrder: 'Membuat order PayPal…',
-      orderFailed: 'Tidak bisa membuat order PayPal: {msg}',
-      orderCreated: 'Order dibuat: <strong>{id}</strong>, total {total}. Setujui di PayPal Sandbox, lalu kamu akan dikembalikan ke sini untuk capture.',
-      approveLink: 'Setujui order ini di PayPal Sandbox (terbuka di tab baru)',
-      approveHint: 'Pakai akun buyer sandbox PayPal untuk menyetujui. Tidak ada uang asli yang terlibat.',
-      agentSteps: 'Yang agen lakukan',
-      agentApprove: 'Setujui dan bayar dengan PayPal', agentPendingApproval: 'Pending Human Approval (Guardrail Triggered)', agentReject: 'Tolak',
-      calloutWhy: 'Pesanan ini di atas batas setujui otomatis $20.00, jadi agen berhenti di sini menunggu persetujuanmu.',
-      toastCopyLink: 'Link pembayaran {name} berhasil disalin', toastCopyJson: 'JSON sengketa disalin', toastApproved: 'Order disetujui', toastRejected: 'Order ditolak - dibiarkan belum dibayar',
-      openPayPal: 'Buka PayPal Sandbox', copyLink: 'Salin link', copied: '✓ Tersalin!', copyJson: 'Salin JSON',
-      loadingAgent: 'Agen sedang bekerja…', trackingAdded: 'Resi ditambahkan',
-      agentFailed: 'Agen tidak bisa menyelesaikan itu. Coba lagi.',
-      vaultEmpty: 'Belum ada entri Proof Vault. Selesaikan checkout yang berhasil untuk menyimpan bukti otomatis.',
-      vaultIntro: 'Setiap checkout yang berhasil menyimpan struk, bukti pembayaran, dan skor risikonya di sini, jadi sengketa tinggal satu ketukan.', sampleTitle: 'Contoh Bukti', sampleHint: 'Tangkapan Sandbox asli dari pengujian kami sendiri. Lihat persis apa yang disimpan vault, sebelum kamu membeli.', sampleView: 'Lihat Contoh Bukti', vaultLimitsTitle: 'Batas kamu',
-      subsTitle: 'Pemantau Langganan',
-      subsEmpty: 'Belum ada pembelian berulang. Beli produk yang sama dua kali dan akan muncul di sini beserta total yang sudah kamu belanjakan.',
-      subsFound: 'pembelian berulang ditemukan',
-      subsLine: '{name}, dibeli {n}×, total belanja {total}, pembelian terakhir {date}',
-      subsUnavailable: 'Pemantau Langganan tidak tersedia.',
-      refreshVault: 'Muat Ulang Vault', disputeBtn: 'Buat draf sengketa',
-      vaultShow: 'Tampilkan alat vault ▾', vaultHide: 'Sembunyikan alat vault ▴',
-      disputeTitle: 'Draf sengketa simulasi', disputeReadiness: 'kesiapan {n}/100',
-      disputeMissing: 'Masih kurang: {list}', disputeNone: 'Tidak ada bukti yang kurang.',
-      disputeFailed: 'Tidak bisa membuat draf sengketa.',
-      refundBtn: 'Refund (Sandbox)', refundConfirm: 'Konfirmasi refund?', refundTitle: 'Refund',
-      refundSuccess: 'Refund {id}, {status}, {amount}.', refundFailed: 'Refund gagal: {msg}',
-      refundAlready: 'Sudah di-refund.', orderStatusBtn: 'Cek status live',
-      orderStatusTitle: 'Status order live (PayPal)',
-      orderStatusFailed: 'Tidak bisa cek status order: {msg}',
-      alreadyCapturedNote: 'Order ini sudah di-capture sebelumnya, menampilkan bukti yang tersimpan.',
-      simBtn: 'Peluang menang sengketa', simTitle: 'Simulasi sengketa', simPayloadTitle: 'Payload sengketa (format PayPal Disputes API, simulasi)',
-      simWinChance: 'Peluang menang: {n}%', simMissing: 'Bukti yang kurang: {list}',
-      simFailed: 'Tidak bisa mensimulasikan sengketa: {msg}',
-      simPreNote: 'Simulasi sebelum beli, gambaran kasusmu kalau beli sekarang.',
-      evBtn: 'Unduh Paket Bukti',
-      evFailed: 'Tidak bisa membuat paket bukti: {msg}',
-      dlBtn: 'Tenggat', dlTitle: 'Tenggat',
-      dlFailed: 'Tidak bisa memuat tenggat: {msg}',
-      dlLeft: 'sisa {days} hari', dlOverdue: 'terlambat {days} hari',
-      dlToday: 'Jatuh tempo hari ini', dlExpired: 'Kedaluwarsa',
-      dlNoReturn: 'Tidak ada kebijakan retur', dlNoDispute: 'Belum ada sengketa',
-      clTitle: 'Cek link', clFailed: 'Tidak bisa mengecek link itu: {msg}',
-      clKnown: 'Marketplace dikenal', clUnknown: 'Domain tidak dikenal',
-      clNoPrice: 'Tidak ada harga di halaman itu',
-      linkHint: 'Atau tempel link produk apa pun, saya akan cek seller dan harganya dari halaman itu.',
-      impTitle: 'Biaya impor (perkiraan)', impDuty: 'Bea masuk ({rate}%)',
-      impVat: 'PPN / GST ({rate}%)',
-      impFree: 'Di bawah batas bebas bea {country} ({min}), tidak ada bea masuk.',
-      impNote: 'Perkiraan saja. Bea pastinya tergantung kode HS barang.',
-      impNoCountry: 'Tidak ada impor (domestik)',
-      phChip: 'Cek pesan mencurigakan', phTitle: 'Cek phishing',
-      phLegit: 'Terlihat asli', phSuspicious: 'Mencurigakan', phLikely: 'Kemungkinan phishing',
-      phEmpty: 'Tempel pesan yang mau dicek.',
-      phDomainOk: 'Link mengarah ke domain PayPal asli.',
-      phDomainBad: 'Link mengarah ke domain yang bukan PayPal: {domain}.',
-      phNoLink: 'Tidak ada link di pesan itu.',
-      phNoPaypalLink: 'Tidak ada link di pesan itu yang mengarah ke PayPal.',
-      phUrgency: 'Memakai bahasa mendesak untuk menekanmu (“{word}”).',
-      phAsksSecret: 'Meminta password, kode OTP, atau nomor kartu lengkap, PayPal tidak pernah meminta itu lewat pesan.',
-      phGeneric: 'Sapaan generik (“{word}”) bukan namamu, PayPal memakai namamu.',
-      phMismatch: 'Teksnya bilang PayPal tapi link-nya ke tempat lain.',
-      phNote: 'Pemeriksaan berbasis aturan + tinjauan AI. Kalau ragu, jangan klik, buka paypal.com sendiri.',
-      phPlaceholder: 'Tempel pesan yang mencurigakan…',
-      cmpToggle: 'Bandingkan produk', cmpTitle: 'Bandingkan produk',
-      browseCatalog: 'Lihat katalog', hideCatalog: 'Sembunyikan katalog',
-      cmpSafer: 'Paling aman', cmpCheaper: 'Termurah',
-      cmpVerdictBoth: 'Paling aman dan termurah: {safer} ({score}/100).',
-      cmpVerdictSplit: 'Paling aman: {safer} ({score}/100). Termurah: {cheaper} ({price}, hemat {saves}).',
-      cmpPick: 'Pilih dua produk untuk dibandingkan.',
-      cmpSelected: '{n}/2 dipilih', cmpCompareBtn: 'Bandingkan', cmpClear: 'Bersihkan',
-      budTitle: 'Budget bulanan', budSet: 'Atur budget bulanan (USD)', budHint: 'ShopPal mengingatkanmu saat belanja bulan ini melewati jumlah ini.',
-      budSave: 'Simpan', budSpent: 'Belanja bulan ini: {spent} dari {budget} ({pct}%)',
-      budLeft: 'Sisa {left} bulan ini.', budOver: 'Melebihi budget {over} bulan ini.',
-      budWarn: 'Pembelian ini akan melampaui budget bulananmu ({spent} dari {budget} sudah terpakai).',
-      budNoBudget: 'Belum ada budget bulanan.',
-      grTitle: 'Smart Guardrails', grIntro: 'Agen hanya bayar otomatis di bawah batasmu. Di atas itu, ia bertanya dulu, jadi halusinasi tidak bisa membeli barang mahal.',
-      grLimit: 'Setujui otomatis sampai (USD)', grSave: 'Simpan guardrails', grSaved: 'Guardrails tersimpan.', grHint: 'Pesanan di atas batas menunggu persetujuanmu dulu. Ubah kapan saja di Pengaturan.',
-      grNeedApproval: 'Butuh persetujuanmu', grAboveLimit: 'Pembelian ini ({total}) di atas batas setujui otomatis ({limit}).',
-      grApprove: 'Setujui dan bayar', grReject: 'Tolak pembelian ini',
-      grApproved: 'Disetujui, meng-capture pembayaran...', grRejected: 'Pembelian ditolak. Order PayPal tidak di-capture dan akan kedaluwarsa.',
-      grAutoOk: 'Di bawah batas setujui otomatis, meng-capture...',
-      setTitle: 'Pengaturan', setClose: 'Tutup pengaturan', setOpen: 'Buka pengaturan',
-      setLang: 'Bahasa', setLangAuto: 'Otomatis', setLangHint: 'Agen menjawab dalam bahasa ini. Tombol dan label ikut berganti.',
-      setData: 'Data chat', setClearChat: 'Hapus riwayat chat', setClearHint: 'Menghapus percakapan dari browser ini. Proof Vault tetap tersimpan.',
-      setCleared: 'Riwayat chat dihapus.', setGrSummary: 'Guardrail: setujui otomatis sampai {limit}.', budSaved: 'Budget tersimpan.',
-      askPh: 'Tanya ShopPal…', quickDemo: 'Demo:',
-      dwTitle: 'Delivery Watch', dwIntro: 'Agen memantau tiap pengiriman. Kalau paket macet 7 hari atau melewati estimasi, ia menyiapkan draf sengketa sebelum jendela pengajuan 180 harimu menyusut.',
-      dwAddTracking: 'Tambah resi', dwCheck: 'Cek pengiriman', dwNoTracker: 'Belum ada resi untuk order ini.',
-      dwStatus: 'Pengiriman: {status}', dwOverdue: 'Terlambat {n} hari: tidak ada update pengiriman. Draf sengketa sudah siap di bawah.',
-      dwOnTime: 'Tepat waktu, {n} hari sejak pembelian.', dwDraftReady: 'Draf sengketa disiapkan otomatis.',
-      dwNoOrders: 'Belum ada order untuk dipantau.',
-      fxTitle: 'Bayar pakai mata uang lokal atau USD?', fxNote: 'PayPal menambah sekitar 3-4% untuk konversi mata uang. Kurs mid-market live di bawah, total PayPal sudah termasuk markup.',
-      fxPaypalTotal: 'Total PayPal', fxMidRate: 'Kurs mid-market', fxCheaper: 'Paling hemat: bayar pakai {cur}.',
-      fxUnavailable: 'Kurs live tidak tersedia, memakai kurs tersimpan.',
-      exTitle: 'Dashboard pengeluaran', exTotal: 'Total belanja', exThisMonth: 'bulan ini', exEmpty: 'Belum ada pengeluaran tercatat.',
-      pwTitle: 'Price Watch', pwIntro: 'Beri tahu agen harga targetmu. Ia memantau harga dan membeli begitu harga turun ke targetmu. Feed demo: harga katalog disimulasikan, diberi label.',
-      pwTarget: 'Beli kalau harga turun ke (USD)', pwWatch: 'Pantau harga ini', pwWatching: 'Memantau',
-      pwCurrent: 'Harga saat ini', pwTargetPrice: 'Target', pwCheck: 'Cek harga sekarang',
-      pwTriggered: 'Harga kena! Beli sekarang di {price}.', pwBuyNow: 'Beli sekarang', pwNoWatches: 'Belum ada price watch.',
-      pwSimNote: 'Feed harga simulasi untuk katalog demo, bukan harga pasar live.',
-      sbTitle: 'Patungan', sbIntro: 'Beli kado bareng dan patungan. Agen menghitung bagian tiap orang dan menulis pesannya. Penagihan uangnya lewat aplikasi PayPal (request money); API Invoicing dan Payouts tidak diaktifkan untuk app sandbox ini.',
-      sbFriends: 'Teman (nama, satu per baris)', sbSplit: 'Bagi rata', sbShare: 'Bagian tiap orang', sbMessage: 'Pesan untuk dikirim', sbNoFriends: 'Tambahkan minimal satu teman untuk patungan.',
-      splNote: 'Tiap teman dapat link bayar PayPal Sandbox sendiri untuk bagiannya. Bagianmu sendiri dibayar lewat checkout biasa.', splLinks: 'Link bayar', splMakeLinks: 'Buat link bayar', splPayLink: 'Link bayar', splTotal: 'Total', splInitiator: 'Bagianmu',
-      hrcTitle: 'Checklist cairkan hold', hrcBtn: 'Cara cairkan hold ini lebih cepat',
-      hrcIntro: 'PayPal menahan uang seller baru atau berisiko sampai 21 hari. Tiap langkah di bawah bisa mencairkannya lebih cepat, centang yang sudah dilakukan dan lihat perkiraan cairnya.',
-      hrcEstimated: 'Perkiraan cair: {n} hari', hrcCurrent: 'Hold saat ini: {n} hari',
-      hrcDone: 'Selesai', hrcTodo: 'Belum', hrcSaves: 'hemat sampai {n} hari',
-      hrcPrevents: 'mencegah hold berikutnya',
-      hrcNote: 'Aturan hold resmi PayPal (hold seller baru dan berisiko, sampai 21 hari). Perkiraan, bukan jaminan, PayPal yang memutuskan tiap kasus.',
-      hrcNotFound: 'Pilih produk dulu untuk melihat checklist hold-nya.',
-      mpHeader: 'Listing asli', mpNone: 'Tidak ada listing {mp} untuk pencarian itu.', mpSearching: 'Mencari listing asli di eBay…', mpFailed: 'Tidak dapat menjangkau eBay saat ini, hasil katalog di atas tidak terpengaruh.',
-      bestDealTitle: 'Penawaran terbaik',
-      bestDealVerdict: 'Penawaran terbaik',
-      bestDealRunner: 'Juga layak dilihat',
-      bestDealNone: 'Tidak ada penawaran untuk pencarian itu.',
-      bestDealBuy: 'Beli penawaran ini',
-      compareTitle: 'Bandingkan sumber',
-      compareOverall: 'Terbaik keseluruhan',
-      watchBtn: 'Pantau harga ini',
-      saveBtn: 'Simpan ke wishlist',
-      watchPrompt: 'Pantau "{title}" - beri tahu saya saat harganya turun di bawah $',
-      watchAdded: 'Dipantau. Saya akan tandai saat harganya turun di bawah {target}.',
-      watchTarget: 'Target $',
-      savedMsg: 'Disimpan ke wishlist.',
-      watchesTitle: 'Pantauan harga (eBay, live)',
-      wishlistTitle: 'Wishlist kamu',
-      checkPricesBtn: 'Cek harga sekarang',
-      noWatches: 'Belum ada pantauan harga. Buka listing eBay lalu ketuk "Pantau harga ini".',
-      noWishlist: 'Wishlist masih kosong. Buka produk atau listing lalu ketuk "Simpan ke wishlist".',
-      dropBadge: 'HARGA TURUN',
-      dealBadge: 'DEAL',
-      goneBadge: 'HILANG',
-      removeBtn: 'Hapus',
-      checkedMsg: 'Harga diperbarui dari eBay.',
-      savedPrice: 'Disimpan di',
-      currentPrice: 'Kini',
-      checkoutCancelled: 'Checkout dibatalkan di PayPal. Tidak ada pembayaran.',
-      approvedCapturing: 'PayPal menyetujui order {id}, meng-capture…',
-      captureFailed: 'Capture gagal: {msg}',
-      successTitle: 'Berhasil, pembayaran di-capture.',
-      successProof: 'Bukti tersimpan otomatis ke Proof Vault.'
-    }
   };
 
   var $ = function (id) { return document.getElementById(id); };
@@ -1413,7 +1242,6 @@
 
   async function sendAskInner(q) {
     $('ask').value = '';
-    if (!langManual) lang = detectLang(q);
     userBubble(q);
     clearSteps();
     var typing = showTyping();
@@ -1935,8 +1763,7 @@
       '<div class="seg" role="group" aria-label="' + t('setLang') + '">' +
       '<button type="button" class="seg-btn" data-lang-choice="auto">' + t('setLangAuto') + '</button>' +
       '<button type="button" class="seg-btn" data-lang-choice="en">English</button>' +
-      '<button type="button" class="seg-btn" data-lang-choice="id">Bahasa Indonesia</button>' +
-      '</div><p class="hint">' + t('setLangHint') + '</p></section>' +
+            '</div><p class="hint">' + t('setLangHint') + '</p></section>' +
       '<section class="set-section"><h3>' + t('budTitle') + '</h3>' +
       '<p class="hint">' + t('budHint') + '</p>' +
       '<p class="set-row"><input id="set-budget-input" type="number" min="1" step="1" placeholder="' + t('budSet') + '" value="' + (budget || '') + '"> ' +
