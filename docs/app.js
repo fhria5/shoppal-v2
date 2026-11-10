@@ -2136,7 +2136,7 @@
       ' · Price ' + r.components.price + ' · Tracking ' + r.components.tracking + ' · ' + r.aiNote + '</p>' +
       '<p><button id="pre-sim-btn" type="button">' + t('simBtn') + '</button></p>' +
       '<div id="pre-sim" class="card hidden"></div>' +
-      '<p><input id="pw-target" type="number" min="1" step="0.01" placeholder="' + t('pwTarget') + '" style="width:130px"> ' +
+      '<p class="set-row"><input id="pw-target" type="number" min="1" step="0.01" placeholder="' + t('pwTarget') + '"> ' +
       '<button id="pw-watch-btn" type="button" class="btn-secondary">' + t('pwWatch') + '</button> <span id="pw-status"></span></p>' +
       '<p class="hint">' + t('pwSimNote') + '</p>',
       'risk');
