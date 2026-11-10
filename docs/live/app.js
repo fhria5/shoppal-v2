@@ -43,14 +43,10 @@
   // materials). The greeting stays English (it renders before any input).
   // Risk/hold/cost reasons come from the server already translated; this
   // dictionary covers the UI chrome around them.
+  // The demo is English-only: there is no language choice, so lang
+  // never changes. (The server still answers in Indonesian when asked
+  // through the API; the client simply always asks in English.)
   var lang = 'en';
-  var LANG_KEY = 'shoppal-lang';
-  var langManual = 'en';
-  try {
-    var savedLang = localStorage.getItem(LANG_KEY);
-    if (savedLang === 'auto') { langManual = null; }
-    else if (savedLang === 'en') { lang = savedLang; langManual = savedLang; }
-  } catch (e) { /* storage unavailable - English */ }
   function fmt(template, vars) {
     return String(template).replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : '{' + k + '}'));
   }
@@ -167,7 +163,6 @@
       grApproved: 'Approved, capturing payment...', grRejected: 'Purchase rejected. The PayPal order was not captured and will expire.',
       grAutoOk: 'Under your auto-approve limit, capturing...',
       setTitle: 'Settings', setClose: 'Close settings', setOpen: 'Open settings',
-      setLang: 'Language', setLangAuto: 'Auto', setLangHint: 'The agent answers in this language. Buttons and labels switch too.',
       setData: 'Chat data', setClearChat: 'Clear chat history', setClearHint: 'Removes the conversation from this browser. Your Proof Vault stays saved.',
       setCleared: 'Chat history cleared.', setGrSummary: 'Guardrail: auto-approve up to {limit}.', budSaved: 'Budget saved.',
       askPh: 'Ask ShopPal…', quickDemo: 'Demo:',
@@ -1759,11 +1754,6 @@
     $('settings-close').setAttribute('aria-label', t('setClose'));
     $('settings-btn').setAttribute('aria-label', t('setTitle'));
     body.innerHTML =
-      '<section class="set-section"><h3>' + t('setLang') + '</h3>' +
-      '<div class="seg" role="group" aria-label="' + t('setLang') + '">' +
-      '<button type="button" class="seg-btn" data-lang-choice="auto">' + t('setLangAuto') + '</button>' +
-      '<button type="button" class="seg-btn" data-lang-choice="en">English</button>' +
-            '</div><p class="hint">' + t('setLangHint') + '</p></section>' +
       '<section class="set-section"><h3>' + t('budTitle') + '</h3>' +
       '<p class="hint">' + t('budHint') + '</p>' +
       '<p class="set-row"><input id="set-budget-input" type="number" min="1" step="1" placeholder="' + t('budSet') + '" value="' + (budget || '') + '"> ' +
@@ -1776,13 +1766,6 @@
       '<section class="set-section"><h3>' + t('setData') + '</h3>' +
       '<p><button id="set-clear-chat" type="button" class="btn-secondary">' + t('setClearChat') + '</button> <span id="set-clear-status"></span></p>' +
       '<p class="hint">' + t('setClearHint') + '</p></section>';
-    body.querySelectorAll('.seg-btn').forEach(function (b) {
-      var choice = b.getAttribute('data-lang-choice');
-      var active = (choice === 'auto' && !langManual) || langManual === choice;
-      b.setAttribute('aria-pressed', active ? 'true' : 'false');
-      b.classList.toggle('seg-active', active);
-      b.addEventListener('click', function () { applyLangChoice(choice); });
-    });
     body.querySelector('#set-budget-save').addEventListener('click', function () {
       var v = Number(body.querySelector('#set-budget-input').value);
       if (v > 0) setBudget(v);
@@ -1810,31 +1793,6 @@
       var st = $('set-clear-status');
       if (st) st.textContent = t('setCleared');
     });
-  }
-  function applyLangChoice(choice) {
-    var keep = null;
-    var body = $('settings-body');
-    if (body) {
-      var bi = body.querySelector('#set-budget-input');
-      var gl = body.querySelector('#set-gr-limit');
-      if (bi || gl) {
-        keep = { budget: bi ? bi.value : null, limit: gl ? gl.value : null };
-      }
-    }
-    try {
-      localStorage.setItem(LANG_KEY, choice);
-      langManual = choice === 'auto' ? null : choice;
-      lang = langManual || 'en';
-    } catch (e) { langManual = choice === 'auto' ? null : choice; lang = langManual || 'en'; }
-    applyStaticLang();
-    renderSettings();
-    if (keep) {
-      var bi2 = $('set-budget-input');
-      if (bi2 && keep.budget !== null) bi2.value = keep.budget;
-      var gl2 = $('set-gr-limit');
-      if (gl2 && keep.limit !== null) gl2.value = keep.limit;
-    }
-    refreshVaultSummary();
   }
   function applyStaticLang() {
     var ask = $('ask');
