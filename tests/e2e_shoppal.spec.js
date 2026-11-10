@@ -239,26 +239,22 @@ test.describe('ShopPal v2 — core user flows', () => {
     expect(await page.locator('.quick-chip svg').count()).toBe(8);
 
     // Open the modal: four sections, English active by default (the demo
-    // is English-first; Auto/Indonesian stay available in Settings).
+    // is English-only; only Auto and English are offered, no Indonesian).
     await gear.click();
     await expect(page.locator('#settings-overlay')).not.toHaveClass(/hidden/);
     const sections = await page.locator('#settings-body h3').allInnerTexts();
     expect(sections).toEqual(['Language', 'Monthly budget', 'Smart Guardrails', 'Chat data']);
     await expect(page.locator('.seg-btn[data-lang-choice="en"]')).toHaveAttribute('aria-pressed', 'true');
-
-    // Switch to Bahasa Indonesia: modal + composer follow, choice persists.
-    await page.locator('.seg-btn[data-lang-choice="id"]').click();
-    await expect(page.locator('#settings-title')).toHaveText('Pengaturan');
-    await expect(page.locator('#ask')).toHaveAttribute('placeholder', 'Tanya ShopPal…');
-    expect(await page.evaluate(() => localStorage.getItem('shoppal-lang'))).toBe('id');
+    await expect(page.locator('.seg-btn')).toHaveCount(2);
+    await expect(page.locator('.seg-btn[data-lang-choice="id"]')).toHaveCount(0);
 
     // Budget + guardrails save to localStorage; vault summary follows.
     await page.fill('#set-budget-input', '60');
     await page.locator('#set-budget-save').click();
     await page.fill('#set-gr-limit', '25');
     await page.locator('#set-gr-save').click();
-    await expect(page.locator('#set-budget-status')).toHaveText('Budget tersimpan.');
-    await expect(page.locator('#set-gr-status')).toHaveText('Guardrails tersimpan.');
+    await expect(page.locator('#set-budget-status')).toHaveText('Budget saved.');
+    await expect(page.locator('#set-gr-status')).toHaveText('Guardrails saved.');
     expect(await page.evaluate(() => localStorage.getItem('shoppal-budget-usd'))).toBe('60');
     expect(await page.evaluate(() => JSON.parse(localStorage.getItem('shoppal-guardrails')).autoApproveLimit)).toBe(25);
     // The vault lives in its own modal now, not in the chat: close
@@ -281,7 +277,7 @@ test.describe('ShopPal v2 — core user flows', () => {
 
     // Clear chat history: fresh greeting, no saved user history.
     await page.locator('#set-clear-chat').click();
-    await expect(page.locator('#set-clear-status')).toHaveText('Riwayat chat dihapus.');
+    await expect(page.locator('#set-clear-status')).toHaveText('Chat history cleared.');
     await expect(page.locator('#chat .msg.agent[data-step="greeting"]')).toHaveCount(1);
     const saved = await page.evaluate(() => localStorage.getItem('shoppal-chat-v1') || '');
     expect(saved).toBe('');
