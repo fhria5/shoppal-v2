@@ -200,6 +200,31 @@
       hrcNote: 'PayPal’s published hold rules (new-seller and risk holds, up to 21 days). Estimates, not a guarantee, PayPal decides each case.',
       hrcNotFound: 'Pick a product first to see its hold checklist.',
       mpHeader: 'Real listings', mpNone: 'No {mp} listings found for that search.',
+      bestDealTitle: 'Best deal',
+      bestDealVerdict: 'Best deal',
+      bestDealRunner: 'Also worth a look',
+      bestDealNone: 'No deal found for that search.',
+      bestDealBuy: 'Buy this deal',
+      compareTitle: 'Compare sources',
+      compareOverall: 'Best overall',
+      watchBtn: 'Watch this price',
+      saveBtn: 'Save to wishlist',
+      watchPrompt: 'Watch "{title}" - alert me when the price drops below $',
+      watchAdded: 'Watching it. I will flag it when the price drops below {target}.',
+      watchTarget: 'Target $',
+      savedMsg: 'Saved to your wishlist.',
+      watchesTitle: 'Price watches (eBay, live)',
+      wishlistTitle: 'Your wishlist',
+      checkPricesBtn: 'Check prices now',
+      noWatches: 'No price watches yet. Open an eBay listing and tap "Watch this price".',
+      noWishlist: 'Your wishlist is empty. Open any product or listing and tap "Save to wishlist".',
+      dropBadge: 'PRICE DROP',
+      dealBadge: 'DEAL',
+      goneBadge: 'GONE',
+      removeBtn: 'Remove',
+      checkedMsg: 'Prices refreshed from eBay.',
+      savedPrice: 'Saved at',
+      currentPrice: 'Now',
       checkoutCancelled: 'Checkout was cancelled in PayPal. No payment was made.',
       approvedCapturing: 'PayPal approved order {id}, capturing…',
       captureFailed: 'Capture failed: {msg}',
@@ -340,6 +365,31 @@
       hrcNote: 'Aturan hold resmi PayPal (hold seller baru dan berisiko, sampai 21 hari). Perkiraan, bukan jaminan, PayPal yang memutuskan tiap kasus.',
       hrcNotFound: 'Pilih produk dulu untuk melihat checklist hold-nya.',
       mpHeader: 'Listing asli', mpNone: 'Tidak ada listing {mp} untuk pencarian itu.',
+      bestDealTitle: 'Penawaran terbaik',
+      bestDealVerdict: 'Penawaran terbaik',
+      bestDealRunner: 'Juga layak dilihat',
+      bestDealNone: 'Tidak ada penawaran untuk pencarian itu.',
+      bestDealBuy: 'Beli penawaran ini',
+      compareTitle: 'Bandingkan sumber',
+      compareOverall: 'Terbaik keseluruhan',
+      watchBtn: 'Pantau harga ini',
+      saveBtn: 'Simpan ke wishlist',
+      watchPrompt: 'Pantau "{title}" - beri tahu saya saat harganya turun di bawah $',
+      watchAdded: 'Dipantau. Saya akan tandai saat harganya turun di bawah {target}.',
+      watchTarget: 'Target $',
+      savedMsg: 'Disimpan ke wishlist.',
+      watchesTitle: 'Pantauan harga (eBay, live)',
+      wishlistTitle: 'Wishlist kamu',
+      checkPricesBtn: 'Cek harga sekarang',
+      noWatches: 'Belum ada pantauan harga. Buka listing eBay lalu ketuk "Pantau harga ini".',
+      noWishlist: 'Wishlist masih kosong. Buka produk atau listing lalu ketuk "Simpan ke wishlist".',
+      dropBadge: 'HARGA TURUN',
+      dealBadge: 'DEAL',
+      goneBadge: 'HILANG',
+      removeBtn: 'Hapus',
+      checkedMsg: 'Harga diperbarui dari eBay.',
+      savedPrice: 'Disimpan di',
+      currentPrice: 'Kini',
       checkoutCancelled: 'Checkout dibatalkan di PayPal. Tidak ada pembayaran.',
       approvedCapturing: 'PayPal menyetujui order {id}, meng-capture…',
       captureFailed: 'Capture gagal: {msg}',
@@ -1170,6 +1220,190 @@
     scrollChat();
   }
 
+
+  // ---------- Best Deal / Compare / Price Watch / Wishlist ----------
+  // Best Deal: one verdict bubble. The pick gets a Buy button that flows
+  // through the same 7-step detail as any product or listing.
+  function renderBestDeal(d) {
+    if (!d.pick) {
+      addBubble('agent', '<p><strong>' + t('bestDealTitle') + '</strong></p><p>' + t('bestDealNone') + '</p>');
+      return;
+    }
+    var p = d.pick;
+    var zone = (p.riskLabel || 'Caution').toLowerCase();
+    var html = '<p><strong>' + t('bestDealVerdict') + '</strong> · ' + escapeHtml(p.title) + '</p>' +
+      '<p>' + escapeHtml(d.verdict || '') + '</p>' +
+      '<p><span class="score score-' + zone + '">' + p.riskScore + '/100 · ' + p.riskLabel + '</span> · ' + p.source + ' · ' + escapeHtml(p.sellerName) + '</p>' +
+      '<p><strong>' + t('honestTotal') + '</strong>, ' + money(p.totalUSD) + ' (' + t('itemPrice') + ' ' + money(p.priceUSD) + ')</p>' +
+      '<p class="hint">' + escapeHtml(d.reason || '') + '</p>' +
+      '<p><button type="button" class="btn-primary" id="bestdeal-buy">' + t('bestDealBuy') + '</button></p>';
+    if (d.runnersUp && d.runnersUp.length) {
+      html += '<p><strong>' + t('bestDealRunner') + '</strong></p><ul>' +
+        d.runnersUp.map(function (r) {
+          var rz = (r.riskLabel || 'Caution').toLowerCase();
+          return '<li>' + escapeHtml(r.title) + ' · ' + money(r.totalUSD) + ' all-in · ' + r.source +
+            ' · <span class="score score-' + rz + '">' + r.riskScore + '/100</span></li>';
+        }).join('') + '</ul>';
+    }
+    var bubble = addBubble('agent', html);
+    var buyBtn = bubble.querySelector('#bestdeal-buy');
+    if (buyBtn) buyBtn.addEventListener('click', function () { openDealCandidate(p); });
+  }
+  function renderCompare(d) {
+    var entries = Object.keys(d.perSource || {}).map(function (src) { return d.perSource[src]; });
+    if (!entries.length) {
+      addBubble('agent', '<p><strong>' + t('compareTitle') + '</strong></p><p>' + t('bestDealNone') + '</p>');
+      return;
+    }
+    var overallId = d.overallPick ? (d.overallPick.kind + ':' + d.overallPick.id) : null;
+    var html = '<p><strong>' + t('compareTitle') + '</strong></p>' +
+      entries.map(function (c) {
+        var zone = (c.riskLabel || 'Caution').toLowerCase();
+        var isOverall = overallId && (c.kind + ':' + c.id) === overallId;
+        return '<p>' + (isOverall ? '<strong>' + t('compareOverall') + ' · </strong>' : '') +
+          '<strong>' + escapeHtml(c.source) + '</strong> · ' + escapeHtml(c.title) + '<br>' +
+          money(c.priceUSD) + ' · ' + money(c.totalUSD) + ' all-in · ' + escapeHtml(c.sellerName) + '<br>' +
+          '<span class="score score-' + zone + '">' + c.riskScore + '/100 · ' + c.riskLabel + '</span></p>';
+      }).join('') +
+      '<p><button type="button" class="btn-primary" id="compare-buy">' + t('bestDealBuy') + '</button></p>';
+    var bubble = addBubble('agent', html);
+    var buyBtn = bubble.querySelector('#compare-buy');
+    if (buyBtn && d.overallPick) buyBtn.addEventListener('click', function () { openDealCandidate(d.overallPick); });
+    else if (buyBtn) buyBtn.remove();
+  }
+  // Open a deal candidate (catalog product or marketplace listing) in the
+  // same 7-step detail flow as a normal card click.
+  function openDealCandidate(c) {
+    if (!c) return;
+    if (c.kind === 'catalog') {
+      var p = catalog.products.find(function (x) { return x.id === c.id; });
+      if (p) selectProduct(p);
+      return;
+    }
+    selectMarketplaceItem({
+      marketplace: c.source, itemId: c.id, title: c.title, priceUSD: c.priceUSD,
+      sellerName: c.sellerName, image: c.image, itemUrl: null,
+      risk: { score: c.riskScore, label: c.riskLabel }, holdRisk: null,
+      returnsAccepted: false, hasShipping: false,
+    });
+  }
+  // Price Watch (real eBay): prompt for a target, then create the watch.
+  async function watchEbayPrice(l) {
+    if (!l || !l.itemId) return;
+    var def = Math.max(1, Math.floor(l.priceUSD * 0.9 * 100) / 100);
+    var raw = window.prompt(fmt(t('watchPrompt'), { title: l.title }), String(def));
+    if (raw === null) return;
+    var target = Number(raw);
+    if (!Number.isFinite(target) || target <= 0) return;
+    try {
+      var res = await fetch(API_BASE + '/api/ebay-watch', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemId: l.itemId, title: l.title, priceUSD: l.priceUSD, targetUSD: target, session: getSessionId() }),
+      });
+      var data = await res.json();
+      addBubble('agent', '<p>' + escapeHtml(data.note || fmt(t('watchAdded'), { target: money(target) })) + '</p>');
+    } catch (e) { addBubble('agent', '<p>' + t('agentFailed') + '</p>'); }
+  }
+  // Save the currently selected product/listing to the wishlist.
+  async function saveSelectedToWishlist() {
+    if (!selected) return;
+    var p = selected.product;
+    var body = {
+      title: p.name, priceUSD: p.priceUSD, session: getSessionId(),
+      source: selected.marketplace ? (selected.marketplace.marketplace || 'eBay') : 'Catalog',
+    };
+    if (selected.marketplace) body.itemId = selected.marketplace.itemId;
+    else body.productId = p.id;
+    if (selected.marketplace && selected.marketplace.image) body.image = selected.marketplace.image;
+    try {
+      var res = await fetch(API_BASE + '/api/wishlist', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+      });
+      var data = await res.json();
+      addBubble('agent', '<p>' + escapeHtml(data.note || t('savedMsg')) + '</p>');
+    } catch (e) { addBubble('agent', '<p>' + t('agentFailed') + '</p>'); }
+  }
+  // List the user's eBay price watches, with a live refresh button.
+  async function listWatches() {
+    try {
+      var res = await fetch(API_BASE + '/api/ebay-watch?session=' + encodeURIComponent(getSessionId()));
+      var data = await res.json();
+      var watches = data.watches || [];
+      if (!watches.length) {
+        addBubble('agent', '<p><strong>' + t('watchesTitle') + '</strong></p><p>' + t('noWatches') + '</p>');
+        return;
+      }
+      var html = '<p><strong>' + t('watchesTitle') + '</strong></p>' +
+        watches.map(function (w) {
+          var badge = w.status === 'drop' ? ' <span class="score score-safe">' + t('dropBadge') + '</span>'
+            : w.status === 'gone' ? ' <span class="score score-risky">' + t('goneBadge') + '</span>' : '';
+          return '<p>' + escapeHtml(w.title) + badge + '<br>' +
+            t('currentPrice') + ' ' + money(w.lastPriceUSD) + ' · ' + t('watchTarget') + money(w.targetUSD) + '<br>' +
+            '<button type="button" class="btn-secondary" data-unwatch="' + w.id + '">' + t('removeBtn') + '</button></p>';
+        }).join('') +
+        '<p><button type="button" class="btn-primary" id="check-watches-btn">' + t('checkPricesBtn') + '</button></p>';
+      var bubble = addBubble('agent', html);
+      bubble.querySelectorAll('[data-unwatch]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          await fetch(API_BASE + '/api/ebay-watch/' + btn.getAttribute('data-unwatch') + '?session=' + encodeURIComponent(getSessionId()), { method: 'DELETE' });
+          bubble.remove();
+          listWatches();
+        });
+      });
+      var checkBtn = bubble.querySelector('#check-watches-btn');
+      if (checkBtn) checkBtn.addEventListener('click', async function () {
+        checkBtn.disabled = true;
+        var r = await fetch(API_BASE + '/api/ebay-watch/check?session=' + encodeURIComponent(getSessionId()), { method: 'POST' });
+        var d2 = await r.json();
+        bubble.remove();
+        var drops = (d2.watches || []).filter(function (w) { return w.status === 'drop'; });
+        var msg = drops.length
+          ? drops.map(function (w) { return escapeHtml(w.note || ''); }).join('<br>')
+          : t('checkedMsg');
+        addBubble('agent', '<p>' + msg + '</p>');
+        listWatches();
+      });
+    } catch (e) { addBubble('agent', '<p>' + t('agentFailed') + '</p>'); }
+  }
+  // List the wishlist, flagging items whose live price dropped below the
+  // price they were saved at (a deal). eBay items are refreshed live.
+  async function listWishlist() {
+    try {
+      var res = await fetch(API_BASE + '/api/wishlist?session=' + encodeURIComponent(getSessionId()));
+      var data = await res.json();
+      var items = data.items || [];
+      if (!items.length) {
+        addBubble('agent', '<p><strong>' + t('wishlistTitle') + '</strong></p><p>' + t('noWishlist') + '</p>');
+        return;
+      }
+      // Refresh live eBay prices for marketplace items so the deal badge
+      // reflects the real current price, not the saved one.
+      var live = {};
+      try {
+        var wr = await fetch(API_BASE + '/api/ebay-watch?session=' + encodeURIComponent(getSessionId()));
+        var wd = await wr.json();
+        (wd.watches || []).forEach(function (w) { live[w.itemId] = w.lastPriceUSD; });
+      } catch (e) { /* live refresh is a bonus */ }
+      var html = '<p><strong>' + t('wishlistTitle') + '</strong></p>' +
+        items.map(function (it) {
+          var current = (it.itemId && live[it.itemId] !== undefined) ? live[it.itemId] : it.priceUSD;
+          var isDeal = current < it.savedPriceUSD;
+          var badge = isDeal ? ' <span class="score score-safe">' + t('dealBadge') + '</span>' : '';
+          return '<p>' + escapeHtml(it.title) + badge + '<br>' +
+            t('savedPrice') + ' ' + money(it.savedPriceUSD) + ' · ' + t('currentPrice') + ' ' + money(current) + ' · ' + escapeHtml(it.source) + '<br>' +
+            '<button type="button" class="btn-secondary" data-unwish="' + it.id + '">' + t('removeBtn') + '</button></p>';
+        }).join('');
+      var bubble = addBubble('agent', html);
+      bubble.querySelectorAll('[data-unwish]').forEach(function (btn) {
+        btn.addEventListener('click', async function () {
+          await fetch(API_BASE + '/api/wishlist/' + btn.getAttribute('data-unwish') + '?session=' + encodeURIComponent(getSessionId()), { method: 'DELETE' });
+          bubble.remove();
+          listWishlist();
+        });
+      });
+    } catch (e) { addBubble('agent', '<p>' + t('agentFailed') + '</p>'); }
+  }
+
   async function sendAsk() {
     var q = $('ask').value.trim();
     if (!q || !catalog || sending) return;
@@ -1294,6 +1528,33 @@
       } catch (e) {
         hideTyping(typing);
         addBubble('agent', '<p>' + t('agentFailed') + '</p>');
+      }
+      return;
+    }
+    // Best Deal / Compare: the agent picks or compares across the
+    // catalog + marketplaces instead of a plain catalog search.
+    var lowerQ = q.toLowerCase();
+    var isBestDeal = /\bbest deal\b|\bdeal terbaik\b|\bpenawaran terbaik\b|\bcheapest safe\b|\bpaling worth\b/.test(lowerQ);
+    var isCompare = /\bcompare\b|\bbandingkan\b|\bbanding\b/.test(lowerQ);
+    var isWatches = /\bmy watches\b|\bpantauan\b|\bprice watch\b/.test(lowerQ);
+    var isWishlist = /\bwishlist\b|\bmy wishlist\b/.test(lowerQ);
+    if (isBestDeal || isCompare || isWatches || isWishlist) {
+      hideTyping(typing);
+      var dealQ = q.replace(/\b(best deal|deal terbaik|penawaran terbaik|cheapest safe|paling worth it|compare|bandingkan|banding)\b/gi, '').trim();
+      if (isBestDeal) {
+        try {
+          var bdRes = await fetch(API_BASE + '/api/best-deal?' + new URLSearchParams({ q: dealQ || q, lang }).toString());
+          renderBestDeal(await bdRes.json());
+        } catch (e) { addBubble('agent', '<p>' + t('agentFailed') + '</p>'); }
+      } else if (isCompare) {
+        try {
+          var cpRes = await fetch(API_BASE + '/api/compare?' + new URLSearchParams({ q: dealQ || q, lang }).toString());
+          renderCompare(await cpRes.json());
+        } catch (e) { addBubble('agent', '<p>' + t('agentFailed') + '</p>'); }
+      } else if (isWatches) {
+        listWatches();
+      } else {
+        listWishlist();
       }
       return;
     }
@@ -1841,6 +2102,8 @@
       '<div id="budget-warn"></div>' +
       '<p><label><input id="approve" type="checkbox"> ' + t('approveLabel') + '</label></p>' +
       '<button id="checkout-btn" type="button" disabled>' + t('payButton') + '</button>' +
+      '<p><button id="save-wishlist-btn" type="button" class="btn-secondary">' + t('saveBtn') + '</button>' +
+      (selected.marketplace ? ' <button id="watch-price-btn" type="button" class="btn-secondary">' + t('watchBtn') + '</button>' : '') + '</p>' +
       '<p id="checkout-status"></p>' +
       '<p class="hint">' + t('checkoutHint') + '</p>',
       'checkout');
@@ -1861,6 +2124,10 @@
       $('checkout-btn').disabled = !(e.target.checked && selected);
     });
     $('checkout-btn').addEventListener('click', startCheckout);
+    var saveBtn = $('save-wishlist-btn');
+    if (saveBtn) saveBtn.addEventListener('click', saveSelectedToWishlist);
+    var watchBtn = $('watch-price-btn');
+    if (watchBtn) watchBtn.addEventListener('click', function () { if (selected && selected.marketplace) watchEbayPrice(selected.marketplace); });
   }
 
   async function startCheckout() {
